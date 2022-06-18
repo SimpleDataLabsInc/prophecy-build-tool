@@ -10,6 +10,7 @@ from typing import Dict, Optional, Any
 
 import click
 import yaml
+from rich import print
 from databricks_cli.configure.config import _get_api_client
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.sdk import DbfsService, JobsService
@@ -22,6 +23,8 @@ def get_or_none(obj: Dict, key: str) -> Optional[Any]:
 class ProphecyBuildTool:
 
     def __init__(self, path_root: str):
+        print('[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.0[/bold black]\n')
+
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, 'pbt_project.yml')
 
@@ -39,19 +42,20 @@ class ProphecyBuildTool:
         self.pipelines_build_path = {}
 
     def build(self):
-        print('Building pipelines')
-        for path_pipeline, pipeline in self.pipelines.items():
-            print('Building pipeline %s' % path_pipeline)
+        print('\n[bold blue]Building %s pipelines[/bold blue]' % self.pipelines_count)
+        for pipeline_i, (path_pipeline, pipeline) in enumerate(self.pipelines.items()):
+            print('\n  Building pipeline %s [%s/%s]' % (path_pipeline, pipeline_i + 1, self.pipelines_count))
 
             path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), 'code')
             process = subprocess.Popen(['python3', 'setup.py', 'build'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                        cwd=path_pipeline_absolute)
             stdout, stderr = process.communicate()
             if len(stderr) > 0:
-                print(stdout)
-                print(stderr)
+                print('   ', '\n    '.join([line.decode('utf-8') for line in stdout.splitlines()]))
+                print('   ', '\n    '.join([line.decode('utf-8') for line in stdout.splitlines()]))
+                print('   ', '\n    '.join([line.decode('utf-8') for line in stderr.splitlines()]))
             else:
-                print(stdout)
+                print('   ', '\n    '.join([line.decode('utf-8') for line in stdout.splitlines()]))
 
             self.pipelines_build_path[path_pipeline] = None
             path_pipeline_dist = path_pipeline_absolute + '/dist'
@@ -64,8 +68,15 @@ class ProphecyBuildTool:
                         'uploaded': False
                     }
 
+        print("\n[bold blue]Build complete![/bold blue] 🚀")
+
     def deploy(self):
-        for path_job, job in self.jobs.items():
+        self.build()
+
+        print('\n[bold blue]Deploying %s jobs[/bold blue]' % self.jobs_count)
+        for job_idx, (path_job, job) in enumerate(self.jobs.items()):
+            print('\n  Deploying job %s [%s/%s]' % (path_job, job_idx + 1, self.jobs_count))
+
             path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), 'code')
             path_job_definition = os.path.join(path_job_absolute, 'databricks-job.json')
 
@@ -84,8 +95,8 @@ class ProphecyBuildTool:
                     source_path = self.pipelines_build_path[pipeline_id]['source_absolute']
                     target_path = component['PipelineComponent']['path']
 
-                    print('Uploading %s to %s' % (self.pipelines_build_path[pipeline_id]['source'], target_path))
-                    print(self.dbfs_service.put(target_path, overwrite=True, src_path=source_path))
+                    print('    Uploading %s to %s' % (self.pipelines_build_path[pipeline_id]['source'], target_path))
+                    self.dbfs_service.put(target_path, overwrite=True, src_path=source_path)
 
                     self.pipelines_build_path[pipeline_id]['uploaded'] = True
 
@@ -110,11 +121,13 @@ class ProphecyBuildTool:
 
             job_request = job_definition['request']['CreateNewJobRequest']
             if found_job is None:
-                print('Creating a new job: %s' % (job_request['name']))
+                print('    Creating a new job: %s' % (job_request['name']))
                 self.jobs_service.create_job(**job_request)
             else:
-                print('Updating an existing job: %s' % (job_request['name']))
+                print('    Updating an existing job: %s' % (job_request['name']))
                 self.jobs_service.reset_job(found_job['job_id'], new_settings=job_request, version='2.1')
+
+        print("\n[bold blue]Deployment complete![/bold blue] 🚀")
 
     def _parse_project(self):
         self.pipelines: Dict = {}
@@ -124,24 +137,33 @@ class ProphecyBuildTool:
             self.jobs = self.project['jobs']
             self.pipelines = self.project['pipelines']
 
-        print('Found jobs: %s' % ', '.join(map(lambda job: job['name'], self.jobs.values())))
-        print('Found pipelines: %s' % ', '.join(
-            map(lambda pipeline: '%s (%s)' % (pipeline['name'], pipeline['language']), self.pipelines.values())))
+        self.pipelines_count = len(self.pipelines)
+        self.jobs_count = len(self.jobs)
 
-    @staticmethod
-    def _verify_databricks_configs():
+        jobs_str = ', '.join(map(lambda job: job['name'], self.jobs.values()))
+        print('Found %s jobs: %s' % (self.jobs_count, jobs_str))
+
+        pipelines_str = ', '.join(
+            map(lambda pipeline: '%s (%s)' % (pipeline['name'], pipeline['language']), self.pipelines.values()))
+        print('Found %s pipelines: %s' % (self.pipelines_count, pipelines_str))
+
+    @classmethod
+    def _verify_databricks_configs(cls):
         host = os.environ.get('DATABRICKS_HOST')
         token = os.environ.get('DATABRICKS_TOKEN')
 
         if host is None or token is None:
-            print('DATABRICKS_HOST & DATABRICKS_TOKEN environment variables  are required to deploy your '
-                  'Databricks Workflows')
-            exit()
+            cls._error('[i]DATABRICKS_HOST[/i] & [i]DATABRICKS_TOKEN[/i] environment variables are required to '
+                       'deploy your Databricks Workflows')
 
     def _verify_project(self):
         if not os.path.isfile(self.path_project):
-            print('Missing pbt_project.yml file. Are you sure you pointed pbt into a Prophecy project? '
-                  'Current path %s' % self.path_root)
+            self._error('Missing [i]pbt_project.yml[/i] file. Are you sure you pointed pbt into a Prophecy project? '
+                        'Current path [u]%s[/u]' % self.path_root)
+
+    @classmethod
+    def _error(cls, message: str):
+        print('[bold red]ERROR[/bold red]:', message)
         exit()
 
 
