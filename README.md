@@ -22,8 +22,12 @@ To build and deploy your Prophecy project containing Python projects and Databri
 
 ```shell
 pbt deploy --path /path/to/your/prophecy_project/
+```
 
->>> Sample output:
+
+Sample output:
+
+```shell
 Prophecy-build-tool v1.0.0
 
 Found 1 pipelines: customers_orders (python)
