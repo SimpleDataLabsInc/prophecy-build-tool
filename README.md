@@ -21,6 +21,28 @@ pip3 install prophecy-build-tool
 To build and deploy your Prophecy project containing Python projects and Databricks Jobs run
 
 ```shell
-pbt deploy 
+pbt deploy --path /path/to/your/prophecy_project/
+
+>>> Sample output:
+Prophecy-build-tool v1.0.0
+
+Found 1 pipelines: customers_orders (python)
+Found 1 jobs: daily_report
+
+Building 1 pipeline 🚰
+
+  Building pipeline pipelines/customers_orders [1/1]
+    running build
+    running build_py
+
+✅ Build complete!
+
+Deploying 1 job ⏱
+
+  Deploying job jobs/daily_report [1/1]
+    Uploading cs-1.0-py3-none-any.whl to dbfs:/FileStore/prophecy/artifacts/...
+    Updating an existing job: daily_report
+
+✅ Deployment complete!
 ```
 

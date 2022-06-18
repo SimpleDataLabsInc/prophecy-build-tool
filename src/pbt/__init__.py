@@ -42,7 +42,7 @@ class ProphecyBuildTool:
         self.pipelines_build_path = {}
 
     def build(self):
-        print('\n[bold blue]Building %s pipelines[/bold blue]' % self.pipelines_count)
+        print('\n[bold blue]Building %s pipelines 🚰[/bold blue]' % self.pipelines_count)
         for pipeline_i, (path_pipeline, pipeline) in enumerate(self.pipelines.items()):
             print('\n  Building pipeline %s [%s/%s]' % (path_pipeline, pipeline_i + 1, self.pipelines_count))
 
@@ -68,12 +68,12 @@ class ProphecyBuildTool:
                         'uploaded': False
                     }
 
-        print("\n[bold blue]Build complete![/bold blue] 🚀")
+        print("\n[bold blue]✅ Build complete![/bold blue]")
 
     def deploy(self):
         self.build()
 
-        print('\n[bold blue]Deploying %s jobs[/bold blue]' % self.jobs_count)
+        print('\n[bold blue]Deploying %s jobs ⏱[/bold blue]' % self.jobs_count)
         for job_idx, (path_job, job) in enumerate(self.jobs.items()):
             print('\n  Deploying job %s [%s/%s]' % (path_job, job_idx + 1, self.jobs_count))
 
@@ -127,7 +127,7 @@ class ProphecyBuildTool:
                 print('    Updating an existing job: %s' % (job_request['name']))
                 self.jobs_service.reset_job(found_job['job_id'], new_settings=job_request, version='2.1')
 
-        print("\n[bold blue]Deployment complete![/bold blue] 🚀")
+        print("\n[bold blue]✅ Deployment complete![/bold blue]")
 
     def _parse_project(self):
         self.pipelines: Dict = {}
