@@ -7,7 +7,7 @@ setuptools.setup(
     name='prophecy-build-tool',
     version='1.0.1',
     author='Prophecy',
-    author_email='kiran@prophecy.io',
+    author_email='maciej@prophecy.io',
     description='Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the '
                 'Prophecy IDE.',
     long_description=long_description,
