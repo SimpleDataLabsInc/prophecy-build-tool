@@ -5,9 +5,9 @@ with open('README.md', 'r', encoding='utf-8') as _in:
 
 setuptools.setup(
     name='prophecy-build-tool',
-    version='1.0.0',
+    version='1.0.1',
     author='Prophecy',
-    author_email='maciej@prophecy.io',
+    author_email='kiran@prophecy.io',
     description='Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the '
                 'Prophecy IDE.',
     long_description=long_description,
@@ -26,7 +26,8 @@ setuptools.setup(
     install_requires=[
         'requests~=2.28.0',
         'PyYAML~=6.0',
-        'databricks_cli==0.17.0'
+        'databricks_cli==0.17.1',
+        'rich==12.5.1'
     ],
     python_requires='>=3.6',
     entry_points = '''
