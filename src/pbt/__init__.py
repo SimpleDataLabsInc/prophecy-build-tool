@@ -74,7 +74,8 @@ class ProphecyBuildTool:
                 build_file_paths = glob(f"{path_pipeline_dist}/*.whl")
             elif self.project_language == 'scala':
                 path_pipeline_dist = path_pipeline_absolute + '/target'
-                build_file_paths = list(filter(lambda x: ("jar-with-dependencies" not in x), glob(f"{path_pipeline_dist}/*.jar")))
+                build_file_paths = list(
+                    filter(lambda x: ("jar-with-dependencies" not in x), glob(f"{path_pipeline_dist}/*.jar")))
 
             if len(build_file_paths) > 0:
                 build_file_found = True
@@ -306,7 +307,6 @@ class ProphecyBuildTool:
             if not os.path.isfile(path_job_definition):
                 print(f"\n[bold red]❌ Job {path_job} does not exist or is corrupted. [/bold red]")
                 sys.exit(1)
-
 
     def _process_sequential(self, processes, time_between_each_cmd=1):
         return_code = 0
