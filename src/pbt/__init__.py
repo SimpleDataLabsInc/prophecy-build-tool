@@ -85,7 +85,6 @@ class ProphecyBuildTool:
                     'uploaded': False
                 }
 
-            print(self.pipelines_build_path)
             if rc == 0:
                 if build_file_found:
                     print("\n[bold blue]✅ Build complete![/bold blue]")
