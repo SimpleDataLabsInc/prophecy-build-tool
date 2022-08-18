@@ -2,6 +2,7 @@
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
 import collections
+from glob import glob
 import json
 import os
 import re
@@ -66,30 +67,24 @@ class ProphecyBuildTool:
 
             self.pipelines_build_path[path_pipeline] = None
             build_file_found = False
+            build_file_paths = []
 
             if self.project_language == 'python':
                 path_pipeline_dist = path_pipeline_absolute + '/dist'
-                for path_pipeline_build in os.listdir(path_pipeline_dist):
-                    path_pipeline_build_absolute = path_pipeline_dist + '/' + path_pipeline_build
-                    if os.path.isfile(path_pipeline_build_absolute) and path_pipeline_build.endswith('.whl'):
-                        build_file_found = True
-                        self.pipelines_build_path[path_pipeline] = {
-                            'source_absolute': path_pipeline_build_absolute,
-                            'source': path_pipeline_build,
-                            'uploaded': False
-                        }
+                build_file_paths = glob(f"{path_pipeline_dist}/*.whl")
             elif self.project_language == 'scala':
                 path_pipeline_dist = path_pipeline_absolute + '/target'
-                for path_pipeline_build in os.listdir(path_pipeline_dist):
-                    path_pipeline_build_absolute = path_pipeline_dist + '/' + path_pipeline_build
-                    if os.path.isfile(path_pipeline_build_absolute) and path_pipeline_build.endswith('.jar'):
-                        build_file_found = True
-                        self.pipelines_build_path[path_pipeline] = {
-                            'source_absolute': path_pipeline_build_absolute,
-                            'source': path_pipeline_build,
-                            'uploaded': False
-                        }
+                build_file_paths = list(filter(lambda x: ("jar-with-dependencies" not in x), glob(f"{path_pipeline_dist}/*.jar")))
 
+            if len(build_file_paths) > 0:
+                build_file_found = True
+                self.pipelines_build_path[path_pipeline] = {
+                    'source_absolute': build_file_paths[0],
+                    'source': os.path.basename(build_file_paths[0]),
+                    'uploaded': False
+                }
+
+            print(self.pipelines_build_path)
             if rc == 0:
                 if build_file_found:
                     print("\n[bold blue]✅ Build complete![/bold blue]")
@@ -127,7 +122,7 @@ class ProphecyBuildTool:
                 if 'PipelineComponent' in component:
                     pipeline_uri = component['PipelineComponent']['id']
 
-                    # Matches project_id/pipelines/pipeline_name or pipelines/pipeline_name or /pipelines/pipeline_name
+                    # Matches project_id/pipelines/pipeline_name or pipelines/pipeline_name
                     # group(2) should return pipelines/pipeline_name
                     uri_pattern = '([0-9]*)(pipelines/[-_.A-Za-z0-9 /]+)'
                     pipeline_id = re.search(uri_pattern, pipeline_uri).group(2)
@@ -227,14 +222,14 @@ class ProphecyBuildTool:
             [
                 # Install dependencies of particular pipeline
                 # 1. Export dependencies to egg_info/requires.txt
-                Process(['python', 'setup.py', '-q', 'egg_info'], path_pipeline_absolute),
+                Process(['python3', 'setup.py', '-q', 'egg_info'], path_pipeline_absolute),
                 # 2. Extract the install_requires, tests_requires and extra_requires and install them
-                Process([f"pip install -q `grep -v '^\[' *.egg-info/requires.txt`"],
+                Process([f"pip3 install -q `grep -v '^\[' *.egg-info/requires.txt`"],
                         path_pipeline_absolute, is_shell=True),
                 # Check for compilation errors
-                Process(['python', '-m', 'compileall', '.', '-q'], path_pipeline_absolute),
+                Process(['python3', '-m', 'compileall', '.', '-q'], path_pipeline_absolute),
                 # Generate wheel
-                Process(['python', 'setup.py', 'bdist_wheel'], path_pipeline_absolute)
+                Process(['python3', 'setup.py', 'bdist_wheel'], path_pipeline_absolute)
             ]
         )
 
@@ -245,7 +240,7 @@ class ProphecyBuildTool:
     def test_scala(self, path_pipeline_absolute):
         return self._process_sequential(
             [
-                Process(['mvn', 'test', '-q', '-Dfabric=' + self.fabric],
+                Process(['mvn', 'test', '-q', '-Dfabric=' + self.fabric.strip()],
                         path_pipeline_absolute)
             ]
         )
@@ -255,12 +250,12 @@ class ProphecyBuildTool:
             [
                 # Install dependencies of particular pipeline
                 # 1. Export dependencies to egg_info/requires.txt
-                Process(['python', 'setup.py', '-q', 'egg_info'], path_pipeline_absolute),
+                Process(['python3', 'setup.py', '-q', 'egg_info'], path_pipeline_absolute),
                 # 2. Extract the install_requires, tests_requires and extra_requires and install them
-                Process([f"pip install -q `grep -v '^\[' *.egg-info/requires.txt`"],
+                Process([f"pip3 install -q `grep -v '^\[' *.egg-info/requires.txt`"],
                         path_pipeline_absolute, is_shell=True),
                 # Run the unit test
-                Process(['python', '-m', 'pytest', '-v', 'test/TestSuite.py', '--html=report.html',
+                Process(['python3', '-m', 'pytest', '-v', 'test/TestSuite.py', '--html=report.html',
                          '--self-contained-html', '--junitxml=report.xml'],
                         path_pipeline_absolute)
             ]
@@ -294,6 +289,24 @@ class ProphecyBuildTool:
         pipelines_str = ', '.join(
             map(lambda pipeline: '%s (%s)' % (pipeline['name'], pipeline['language']), self.pipelines.values()))
         print('Found %s pipelines: %s' % (self.pipelines_count, pipelines_str))
+        self._verify_project_structure()
+
+    def _verify_project_structure(self):
+        for path_pipeline, pipeline in self.pipelines.items():
+            path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), 'code')
+            pipeline_dependencies_file = "setup.py" if self.project_language == "python" else "pom.xml"
+
+            if not os.path.isfile(os.path.join(path_pipeline_absolute, pipeline_dependencies_file)):
+                print(f"\n[bold red]❌ Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]")
+                sys.exit(1)
+
+        for path_job, job in self.jobs.items():
+            path_job_definition = os.path.join(os.path.join(self.path_root, path_job), 'code/databricks-job.json')
+
+            if not os.path.isfile(path_job_definition):
+                print(f"\n[bold red]❌ Job {path_job} does not exist or is corrupted. [/bold red]")
+                sys.exit(1)
+
 
     def _process_sequential(self, processes, time_between_each_cmd=1):
         return_code = 0

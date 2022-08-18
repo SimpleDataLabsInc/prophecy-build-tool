@@ -13,7 +13,7 @@ orchestration (e.g. Databricks Workflows).
 To install PBT, simply run:
 
 ```shell
-pip install prophecy-build-tool
+pip3 install prophecy-build-tool
 ```
 
 ## Running
@@ -120,8 +120,8 @@ jobs:
       # takes care of it by reading each pipeline's setup.py
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install build pytest wheel pytest-html pyspark  prophecy-build-tool
+          python3 -m pip install --upgrade pip
+          pip3 install build pytest wheel pytest-html pyspark prophecy-build-tool
       - name: Run PBT build
         run: pbt build --path .
       - name: Run PBT test
