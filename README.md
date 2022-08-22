@@ -79,9 +79,7 @@ Found 1 pipelines: customers_orders (python)
     collecting ... collected 1 item
 
     test/TestSuite.py::CleanupTest::test_unit_test_0 PASSED                  [100%]
-
-    - generated xml file: /Users/kiran/proj2/pipelines/customers_orders/code/report.xml -
-    - generated html file: file:///Users/kiran/proj2/pipelines/customers_orders/code/report.html -
+    
     ============================== 1 passed in 17.42s ==============================
 
 ✅ Unit test for pipeline: pipelines/customers_orders succeeded.
