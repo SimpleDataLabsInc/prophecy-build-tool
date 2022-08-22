@@ -62,7 +62,12 @@ class ProphecyBuildTool:
 
             if self.project_language == "python":
                 path_pipeline_dist = path_pipeline_absolute + "/dist"
-                build_file_paths = glob(f"{path_pipeline_dist}/*.whl")
+                build_file_paths = list(
+                    filter(
+                        lambda x: (x.endswith("py3-none-any.whl")),
+                        glob(f"{path_pipeline_dist}/*.whl"),
+                    )
+                )
             elif self.project_language == "scala":
                 path_pipeline_dist = path_pipeline_absolute + "/target"
                 build_file_paths = list(
