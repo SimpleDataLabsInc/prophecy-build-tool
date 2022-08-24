@@ -24,10 +24,10 @@ setuptools.setup(
     package_dir={"": "src"},
     packages=setuptools.find_packages(where="src"),
     install_requires=[
-        "requests~=2.28.0",
-        "PyYAML~=6.0",
-        "databricks_cli~=0.17.1",
-        "rich~=12.5.1",
+        "requests>=2.28.0",
+        "PyYAML>=6.0",
+        "databricks_cli>=0.17.1",
+        "rich>=12.5.1",
     ],
     python_requires=">=3.6",
     entry_points="""
