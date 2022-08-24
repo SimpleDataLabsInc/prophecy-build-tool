@@ -19,7 +19,7 @@ from databricks_cli.sdk import DbfsService, JobsService
 class ProphecyBuildTool:
     def __init__(self, path_root: str):
         print(
-            "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.0[/bold black]\n"
+            "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.1[/bold black]\n"
         )
 
         self.path_root = path_root
@@ -357,6 +357,11 @@ class ProphecyBuildTool:
             self.jobs = self.project["jobs"]
             self.pipelines = self.project["pipelines"]
             self.project_language = self.project["language"]
+
+        if self.project_language not in ("python", "scala"):
+            self._error(
+                f"Language: [i]{self.project_language}[/i] not supported by Prophecy-Build-Tool right now."
+            )
 
         self.pipelines_count = len(self.pipelines)
         self.jobs_count = len(self.jobs)
