@@ -3,9 +3,7 @@ from glob import glob
 import json
 import os
 import re
-import subprocess
 import sys
-import time
 from typing import Dict
 
 import yaml
@@ -273,7 +271,7 @@ class ProphecyBuildTool:
             sys.exit(1)
 
     def build_python(self, path_pipeline_absolute):
-        return self._process_sequential(
+        return Process.process_sequential(
             [
                 # Install dependencies of particular pipeline
                 # 1. Export dependencies to egg_info/requires.txt
@@ -296,7 +294,7 @@ class ProphecyBuildTool:
         )
 
     def build_scala(self, path_pipeline_absolute):
-        return self._process_sequential(
+        return Process.process_sequential(
             [
                 Process(
                     ["mvn", "clean", "package", "-q", "-DskipTests"],
@@ -306,7 +304,7 @@ class ProphecyBuildTool:
         )
 
     def test_scala(self, path_pipeline_absolute):
-        return self._process_sequential(
+        return Process.process_sequential(
             [
                 Process(
                     ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()],
@@ -316,7 +314,7 @@ class ProphecyBuildTool:
         )
 
     def test_python(self, path_pipeline_absolute):
-        return self._process_sequential(
+        return Process.process_sequential(
             [
                 # Install dependencies of particular pipeline
                 # 1. Export dependencies to egg_info/requires.txt
@@ -405,48 +403,6 @@ class ProphecyBuildTool:
                     f"\n[bold red]❌ Job {path_job} does not exist or is corrupted. [/bold red]"
                 )
                 sys.exit(1)
-
-    def _process_sequential(self, processes, time_between_each_cmd=1):
-        return_code = 0
-        for process in processes:
-            result = subprocess.run(
-                process.process_args,
-                stdout=process.std_output,
-                stderr=process.std_err,
-                shell=process.is_shell,
-                cwd=process.current_working_directory,
-            )
-            return_code, stdout, stderr = (
-                result.returncode,
-                result.stdout,
-                result.stderr,
-            )
-
-            if len(stderr) > 0:
-                print(
-                    "   ",
-                    "\n    ".join(
-                        [line.decode("utf-8") for line in stdout.splitlines()]
-                    ),
-                )
-                print(
-                    "   ",
-                    "\n    ".join(
-                        [line.decode("utf-8") for line in stderr.splitlines()]
-                    ),
-                )
-            else:
-                print(
-                    "   ",
-                    "\n    ".join(
-                        [line.decode("utf-8") for line in stdout.splitlines()]
-                    ),
-                )
-
-            if return_code != 0:
-                break
-            time.sleep(time_between_each_cmd)
-        return return_code
 
     @classmethod
     def _verify_databricks_configs(cls):
