@@ -48,7 +48,7 @@ class ProphecyBuildTool:
             path_pipeline_absolute = os.path.join(
                 os.path.join(self.path_root, path_pipeline), "code"
             )
-            rc = (
+            return_code = (
                 self.build_python(path_pipeline_absolute)
                 if self.project_language == "python"
                 else self.build_scala(path_pipeline_absolute)
@@ -83,7 +83,7 @@ class ProphecyBuildTool:
                     "uploaded": False,
                 }
 
-            if rc == 0:
+            if return_code == 0:
                 if build_file_found:
                     print("\n[bold blue]✅ Build complete![/bold blue]")
                 else:
@@ -425,4 +425,4 @@ class ProphecyBuildTool:
     @classmethod
     def _error(cls, message: str):
         print("[bold red]ERROR[/bold red]:", message)
-        exit()
+        sys.exit(1)
