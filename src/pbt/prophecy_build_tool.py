@@ -41,27 +41,35 @@ class ProphecyBuildTool:
         self.pipelines_build_path = {}
 
     def get_python_commands(self, cwd):
-        if Process.process_sequential(
+        if (
+            Process.process_sequential(
                 [
                     Process(
                         ["python3", "--version"],
                         cwd,
                         subprocess.DEVNULL,
                         subprocess.DEVNULL,
-                        (self.operating_system == "win32")
+                        (self.operating_system == "win32"),
                     )
-                ]) == 0:
+                ]
+            )
+            == 0
+        ):
             return "python3", "pip3"
-        elif Process.process_sequential(
+        elif (
+            Process.process_sequential(
                 [
                     Process(
                         ["python", "--version"],
                         cwd,
                         subprocess.DEVNULL,
                         subprocess.DEVNULL,
-                        (self.operating_system == "win32")
+                        (self.operating_system == "win32"),
                     )
-                ]) == 0:
+                ]
+            )
+            == 0
+        ):
             return "python", "pip"
         else:
             print("ERROR: python not found")
@@ -218,8 +226,8 @@ class ProphecyBuildTool:
                     found_jobs = response["jobs"] if "jobs" in response else []
                     for potential_found_job in found_jobs:
                         if (
-                                potential_found_job["settings"]["name"]
-                                == job_request["name"]
+                            potential_found_job["settings"]["name"]
+                            == job_request["name"]
                         ):
                             found_job = potential_found_job
                             break
@@ -263,7 +271,7 @@ class ProphecyBuildTool:
             unit_test_results = {}
 
             for pipeline_i, (path_pipeline, pipeline) in enumerate(
-                    self.pipelines.items()
+                self.pipelines.items()
             ):
                 print(
                     "\n  Unit Testing pipeline %s [%s/%s]"
@@ -275,11 +283,10 @@ class ProphecyBuildTool:
                 )
                 if self.project_language == "python":
                     if os.path.isfile(
-                            os.path.join(path_pipeline_absolute, "test/TestSuite.py")
+                        os.path.join(path_pipeline_absolute, "test/TestSuite.py")
                     ):
                         unit_test_results[path_pipeline] = self.test_python(
-                            path_pipeline_absolute,
-                            path_pipeline
+                            path_pipeline_absolute, path_pipeline
                         )
                 elif self.project_language == "scala":
                     unit_test_results[path_pipeline] = self.test_scala(
@@ -303,19 +310,25 @@ class ProphecyBuildTool:
             sys.exit(1)
 
     def get_python_dependencies(self, path_pipeline_absolute, path_pipeline):
-        if Process.process_sequential(
+        if (
+            Process.process_sequential(
                 [
                     # Export dependencies to egg_info/requires.txt
                     Process(
                         [self.python_cmd, "setup.py", "-q", "egg_info"],
                         path_pipeline_absolute,
                         is_shell=(self.operating_system == "win32"),
-                        running_message="    Getting Python dependencies..."
+                        running_message="    Getting Python dependencies...",
                     )
-                ]) == 0:
+                ]
+            )
+            == 0
+        ):
             python_dependencies = []
             egg_info_dir = f"{basename(normpath(path_pipeline))}.egg-info"
-            egg_info_requires = os.path.join(*[path_pipeline_absolute, egg_info_dir, "requires.txt"])
+            egg_info_requires = os.path.join(
+                *[path_pipeline_absolute, egg_info_dir, "requires.txt"]
+            )
             for line in open(egg_info_requires, "r"):
                 if not line.lstrip().startswith("[") and line.strip():
                     python_dependencies.append(line.strip())
@@ -325,10 +338,11 @@ class ProphecyBuildTool:
             sys.exit(1)
 
     def build_python(self, path_pipeline_absolute, path_pipeline):
-        python_dependencies = self.get_python_dependencies(path_pipeline_absolute, path_pipeline)
+        python_dependencies = self.get_python_dependencies(
+            path_pipeline_absolute, path_pipeline
+        )
         return Process.process_sequential(
             [
-
                 # Extract the install_requires and extra_requires and install them
                 Process(
                     [self.pip_cmd, "install", "-q"] + python_dependencies,
@@ -337,13 +351,16 @@ class ProphecyBuildTool:
                 ),
                 # Check for compilation errors
                 Process(
-                    [self.python_cmd, "-m", "compileall", ".", "-q"], path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32")
+                    [self.python_cmd, "-m", "compileall", ".", "-q"],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 ),
                 # Generate wheel
                 Process(
-                    [self.python_cmd, "setup.py", "bdist_wheel"], path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32"))
+                    [self.python_cmd, "setup.py", "bdist_wheel"],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
+                ),
             ]
         )
 
@@ -353,7 +370,7 @@ class ProphecyBuildTool:
                 Process(
                     ["mvn", "clean", "package", "-q", "-DskipTests"],
                     path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32")
+                    is_shell=(self.operating_system == "win32"),
                 )
             ]
         )
@@ -364,7 +381,7 @@ class ProphecyBuildTool:
                 Process(
                     ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()],
                     path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32")
+                    is_shell=(self.operating_system == "win32"),
                 )
             ]
         )
@@ -375,12 +392,16 @@ class ProphecyBuildTool:
                 # Install dependencies of particular pipeline
                 # 1. Export dependencies to egg_info/requires.txt
                 Process(
-                    [self.python_cmd, "setup.py", "-q", "egg_info"], path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32")
+                    [self.python_cmd, "setup.py", "-q", "egg_info"],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 ),
                 # 2. Extract the install_requires and extra_requires and install them
                 Process(
-                    [self.pip_cmd, "install", "-q"] + self.get_python_dependencies(path_pipeline_absolute, path_pipeline),
+                    [self.pip_cmd, "install", "-q"]
+                    + self.get_python_dependencies(
+                        path_pipeline_absolute, path_pipeline
+                    ),
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 ),
@@ -388,7 +409,7 @@ class ProphecyBuildTool:
                 Process(
                     [self.python_cmd, "-m", "pytest", "-v", "test/TestSuite.py"],
                     path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32")
+                    is_shell=(self.operating_system == "win32"),
                 ),
             ]
         )
@@ -444,7 +465,7 @@ class ProphecyBuildTool:
             )
 
             if not os.path.isfile(
-                    os.path.join(path_pipeline_absolute, pipeline_dependencies_file)
+                os.path.join(path_pipeline_absolute, pipeline_dependencies_file)
             ):
                 print(
                     f"\n[bold red]Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]"
