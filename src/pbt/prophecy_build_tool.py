@@ -1,4 +1,6 @@
 import collections
+import subprocess
+from os.path import normpath, basename
 from glob import glob
 import json
 import os
@@ -20,6 +22,8 @@ class ProphecyBuildTool:
             "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.1[/bold black]\n"
         )
 
+        self.operating_system = sys.platform
+
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
@@ -33,11 +37,46 @@ class ProphecyBuildTool:
 
         self.dbfs_service = DbfsService(self.api_client)
         self.jobs_service = JobsService(self.api_client)
-
+        self.python_cmd, self.pip_cmd = self.get_python_commands(path_root)
         self.pipelines_build_path = {}
 
+    def get_python_commands(self, cwd):
+        if (
+            Process.process_sequential(
+                [
+                    Process(
+                        ["python3", "--version"],
+                        cwd,
+                        subprocess.DEVNULL,
+                        subprocess.DEVNULL,
+                        (self.operating_system == "win32"),
+                    )
+                ]
+            )
+            == 0
+        ):
+            return "python3", "pip3"
+        elif (
+            Process.process_sequential(
+                [
+                    Process(
+                        ["python", "--version"],
+                        cwd,
+                        subprocess.DEVNULL,
+                        subprocess.DEVNULL,
+                        (self.operating_system == "win32"),
+                    )
+                ]
+            )
+            == 0
+        ):
+            return "python", "pip"
+        else:
+            print("ERROR: python not found")
+            sys.exit(1)
+
     def build(self):
-        print("\n[bold blue]Building %s pipelines 🚰[/bold blue]" % self.pipelines_count)
+        print("\n[bold blue]Building %s pipelines [/bold blue]" % self.pipelines_count)
         overall_build_status = True
         for pipeline_i, (path_pipeline, pipeline) in enumerate(self.pipelines.items()):
             print(
@@ -49,7 +88,7 @@ class ProphecyBuildTool:
                 os.path.join(self.path_root, path_pipeline), "code"
             )
             return_code = (
-                self.build_python(path_pipeline_absolute)
+                self.build_python(path_pipeline_absolute, path_pipeline)
                 if self.project_language == "python"
                 else self.build_scala(path_pipeline_absolute)
             )
@@ -85,15 +124,15 @@ class ProphecyBuildTool:
 
             if return_code == 0:
                 if build_file_found:
-                    print("\n[bold blue]✅ Build complete![/bold blue]")
+                    print("\n[bold blue] Build complete![/bold blue]")
                 else:
                     print(
-                        f"\n[bold red]❌ Build completed but built target not found for pipeline: {pipeline['name']}![/bold red]"
+                        f"\n[bold red] Build completed but built target not found for pipeline: {pipeline['name']}![/bold red]"
                     )
                     overall_build_status = False
             else:
                 print(
-                    f"\n[bold red]❌ Build failed for pipeline: {pipeline['name']}![/bold red]"
+                    f"\n[bold red] Build failed for pipeline: {pipeline['name']}![/bold red]"
                 )
                 overall_build_status = False
 
@@ -103,7 +142,7 @@ class ProphecyBuildTool:
     def deploy(self):
         self.build()
 
-        print("\n[bold blue]Deploying %s jobs ⏱[/bold blue]" % self.jobs_count)
+        print("\n[bold blue] Deploying %s jobs [/bold blue]" % self.jobs_count)
 
         pipelines_upload_failures = collections.defaultdict(list)
         job_update_failures = dict()
@@ -157,11 +196,11 @@ class ProphecyBuildTool:
 
             if len(pipelines_upload_failures) > 0:
                 print(
-                    "\n[bold red]❌ Upload failed for one or more pipelines [/bold red]"
+                    "\n[bold red] Upload failed for one or more pipelines [/bold red]"
                 )
                 for pipeline_id, errors in pipelines_upload_failures.items():
                     print(
-                        "\n[bold red]❌ %s: Exceptions: %s [/bold red]"
+                        "\n[bold red] %s: Exceptions: %s [/bold red]"
                         % (pipeline_id, "\n".join(errors))
                     )
 
@@ -177,7 +216,7 @@ class ProphecyBuildTool:
             try:
                 while found_job is None:
                     print(
-                        f"Querying existing jobs to find current job: Offset: {current_offset}, Pagesize: {limit}"
+                        f"    Querying existing jobs to find current job: Offset: {current_offset}, Pagesize: {limit}"
                     )
                     response = self.jobs_service.list_jobs(
                         limit=limit, offset=current_offset, version="2.1"
@@ -207,14 +246,14 @@ class ProphecyBuildTool:
                     )
             except Exception as e:
                 print(
-                    f"\n[bold red]❌ Create/Update for job: {job_request['name']} failed with exception: {e} [/bold red]"
+                    f"\n[bold red] Create/Update for job: {job_request['name']} failed with exception: {e} [/bold red]"
                 )
                 job_update_failures[job_request["name"]] = str(e)
 
         if len(pipelines_upload_failures) == 0 and len(job_update_failures) == 0:
-            print("\n[bold blue]✅ Deployment completed successfully![/bold blue]")
+            print("\n[bold blue] Deployment completed successfully![/bold blue]")
         else:
-            print("\n[bold red]❌ Deployment failed![/bold red]")
+            print("\n[bold red] Deployment failed![/bold red]")
             if len(pipelines_upload_failures) > 0:
                 print(
                     "   Upload failed for pipelines: %s"
@@ -247,7 +286,7 @@ class ProphecyBuildTool:
                         os.path.join(path_pipeline_absolute, "test/TestSuite.py")
                     ):
                         unit_test_results[path_pipeline] = self.test_python(
-                            path_pipeline_absolute
+                            path_pipeline_absolute, path_pipeline
                         )
                 elif self.project_language == "scala":
                     unit_test_results[path_pipeline] = self.test_scala(
@@ -258,11 +297,11 @@ class ProphecyBuildTool:
                 if return_code not in (0, 5):
                     is_any_ut_failed = True
                     print(
-                        f"\n[bold red]❌ Unit test for pipeline: {path_pipeline} failed with return code {return_code}![/bold red]"
+                        f"\n[bold red] Unit test for pipeline: {path_pipeline} failed with return code {return_code}![/bold red]"
                     )
                 else:
                     print(
-                        f"\n[bold blue]✅ Unit test for pipeline: {path_pipeline} succeeded.[/bold blue]"
+                        f"\n[bold blue] Unit test for pipeline: {path_pipeline} succeeded.[/bold blue]"
                     )
 
             if is_any_ut_failed:
@@ -270,26 +309,58 @@ class ProphecyBuildTool:
         else:
             sys.exit(1)
 
-    def build_python(self, path_pipeline_absolute):
+    def get_python_dependencies(self, path_pipeline_absolute, path_pipeline):
+        if (
+            Process.process_sequential(
+                [
+                    # Export dependencies to egg_info/requires.txt
+                    Process(
+                        [self.python_cmd, "setup.py", "-q", "egg_info"],
+                        path_pipeline_absolute,
+                        is_shell=(self.operating_system == "win32"),
+                        running_message="    Getting Python dependencies...",
+                    )
+                ]
+            )
+            == 0
+        ):
+            python_dependencies = []
+            egg_info_dir = f"{basename(normpath(path_pipeline))}.egg-info"
+            egg_info_requires = os.path.join(
+                *[path_pipeline_absolute, egg_info_dir, "requires.txt"]
+            )
+            for line in open(egg_info_requires, "r"):
+                if not line.lstrip().startswith("[") and line.strip():
+                    python_dependencies.append(line.strip())
+            return python_dependencies
+        else:
+            print("Failed to get python dependencies")
+            sys.exit(1)
+
+    def build_python(self, path_pipeline_absolute, path_pipeline):
+        python_dependencies = self.get_python_dependencies(
+            path_pipeline_absolute, path_pipeline
+        )
         return Process.process_sequential(
             [
-                # Install dependencies of particular pipeline
-                # 1. Export dependencies to egg_info/requires.txt
+                # Extract the install_requires and extra_requires and install them
                 Process(
-                    ["python3", "setup.py", "-q", "egg_info"], path_pipeline_absolute
-                ),
-                # 2. Extract the install_requires, tests_requires and extra_requires and install them
-                Process(
-                    [f"pip3 install -q `grep -v '^\[' *.egg-info/requires.txt`"],
+                    [self.pip_cmd, "install", "-q"] + python_dependencies,
                     path_pipeline_absolute,
-                    is_shell=True,
+                    is_shell=(self.operating_system == "win32"),
                 ),
                 # Check for compilation errors
                 Process(
-                    ["python3", "-m", "compileall", ".", "-q"], path_pipeline_absolute
+                    [self.python_cmd, "-m", "compileall", ".", "-q"],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 ),
                 # Generate wheel
-                Process(["python3", "setup.py", "bdist_wheel"], path_pipeline_absolute),
+                Process(
+                    [self.python_cmd, "setup.py", "bdist_wheel"],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
+                ),
             ]
         )
 
@@ -299,6 +370,7 @@ class ProphecyBuildTool:
                 Process(
                     ["mvn", "clean", "package", "-q", "-DskipTests"],
                     path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 )
             ]
         )
@@ -309,28 +381,35 @@ class ProphecyBuildTool:
                 Process(
                     ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()],
                     path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 )
             ]
         )
 
-    def test_python(self, path_pipeline_absolute):
+    def test_python(self, path_pipeline_absolute, path_pipeline):
         return Process.process_sequential(
             [
                 # Install dependencies of particular pipeline
                 # 1. Export dependencies to egg_info/requires.txt
                 Process(
-                    ["python3", "setup.py", "-q", "egg_info"], path_pipeline_absolute
-                ),
-                # 2. Extract the install_requires, tests_requires and extra_requires and install them
-                Process(
-                    [f"pip3 install -q `grep -v '^\[' *.egg-info/requires.txt`"],
+                    [self.python_cmd, "setup.py", "-q", "egg_info"],
                     path_pipeline_absolute,
-                    is_shell=True,
+                    is_shell=(self.operating_system == "win32"),
+                ),
+                # 2. Extract the install_requires and extra_requires and install them
+                Process(
+                    [self.pip_cmd, "install", "-q"]
+                    + self.get_python_dependencies(
+                        path_pipeline_absolute, path_pipeline
+                    ),
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 ),
                 # Run the unit test
                 Process(
-                    ["python3", "-m", "pytest", "-v", "test/TestSuite.py"],
+                    [self.python_cmd, "-m", "pytest", "-v", "test/TestSuite.py"],
                     path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
                 ),
             ]
         )
@@ -389,7 +468,7 @@ class ProphecyBuildTool:
                 os.path.join(path_pipeline_absolute, pipeline_dependencies_file)
             ):
                 print(
-                    f"\n[bold red]❌ Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]"
+                    f"\n[bold red]Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]"
                 )
                 sys.exit(1)
 
@@ -400,7 +479,7 @@ class ProphecyBuildTool:
 
             if not os.path.isfile(path_job_definition):
                 print(
-                    f"\n[bold red]❌ Job {path_job} does not exist or is corrupted. [/bold red]"
+                    f"\n[bold red]Job {path_job} does not exist or is corrupted. [/bold red]"
                 )
                 sys.exit(1)
 
