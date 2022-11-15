@@ -17,13 +17,15 @@ from databricks_cli.sdk import DbfsService, JobsService
 
 
 class ProphecyBuildTool:
-    def __init__(self, path_root: str):
+    def __init__(self, path_root: str, mvn_params: str):
         print(
-            "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.1[/bold black]\n"
+            "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.3[/bold black]\n"
         )
+        if not path_root:
+            self._error("Path of project not passed as argument using --path.")
 
         self.operating_system = sys.platform
-
+        self.mvn_params = mvn_params
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
@@ -368,7 +370,8 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "clean", "package", "-q", "-DskipTests"],
+                    ["mvn", "clean", "package", "-q", "-DskipTests"]
+                    + self.mvn_params.split(),
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -379,7 +382,8 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()],
+                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()]
+                    + self.mvn_params.split(),
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )

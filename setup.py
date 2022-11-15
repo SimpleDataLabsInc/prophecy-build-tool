@@ -4,8 +4,8 @@ with open("README.md", "r", encoding="utf-8") as _in:
     long_description = _in.read()
 
 setuptools.setup(
-    name="prophecy-build-tool",
-    version="1.0.2",
+    name="prophecy-build-tool-test",
+    version="1.0.3",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "

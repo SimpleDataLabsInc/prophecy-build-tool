@@ -14,28 +14,43 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--path", help="Path to the directory containing the pbt_project.yml file"
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
 )
-def build(path):
-    pbt = ProphecyBuildTool(path)
+@click.option(
+    "--mvn-params", help="Additional params to be passed to mvn commands", default=""
+)
+def build(path, mvn_params):
+    pbt = ProphecyBuildTool(path, mvn_params)
     pbt.build()
 
 
 @cli.command()
 @click.option(
-    "--path", help="Path to the directory containing the pbt_project.yml file"
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
 )
-def deploy(path):
-    pbt = ProphecyBuildTool(path)
+@click.option(
+    "--mvn-params", help="Additional params to be passed to mvn commands", default=""
+)
+def deploy(path, mvn_params):
+    pbt = ProphecyBuildTool(path, mvn_params)
     pbt.deploy()
 
 
 @cli.command()
 @click.option(
-    "--path", help="Path to the directory containing the pbt_project.yml file"
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
 )
-def test(path):
-    pbt = ProphecyBuildTool(path)
+@click.option(
+    "--mvn-params", help="Additional params to be passed to mvn commands", default=""
+)
+def test(path, mvn_params):
+    pbt = ProphecyBuildTool(path, mvn_params)
     pbt.test()
 
 
