@@ -214,6 +214,7 @@ class ProphecyBuildTool:
                 job_definition = json.load(_in)
 
             components = job_definition["components"]
+            generate_pipeline_config_from_pipeline_component = False
 
             for component in components:
                 if "PipelineComponent" in component:
@@ -229,6 +230,35 @@ class ProphecyBuildTool:
                         or "path=" in pipeline_id
                         or pipeline_id not in self.pipelines_build_path
                     ):
+                        # Check if this shared pipelineComponent has configs
+                        dependent_pipeline_regex_pattern = (
+                            "(^[0-9]+?\/pipelines\/[-_.A-Za-z0-9 \/]+)$"
+                            "|^.*projectSubscriptionProjectId=([0-9]+).*path=([-_.A-Za-z0-9 \/]+).*$"
+                            "|^.*path=([-_.A-Za-z0-9 \/]+).*projectSubscriptionProjectId=([0-9]+).*$"
+                        )
+
+                        search_regex_id = re.search(
+                            dependent_pipeline_regex_pattern, pipeline_uri
+                        )
+                        if (
+                            bool(search_regex_id)
+                            and "configPath" in component["PipelineComponent"]
+                        ):
+                            generate_pipeline_config_from_pipeline_component = True
+                            shared_pipeline_id = ""
+                            if search_regex_id.group(0):
+                                shared_pipeline_id = search_regex_id.group(0)
+                            elif search_regex_id.group(1) and search_regex_id.group(2):
+                                shared_pipeline_id = f"{search_regex_id.group(1)}/{search_regex_id.group(2)}"
+                            elif search_regex_id.group(3) and search_regex_id.group(4):
+                                shared_pipeline_id = f"{search_regex_id.group(4)}/{search_regex_id.group(3)}"
+                            else:
+                                generate_pipeline_config_from_pipeline_component = False
+                            self.pipeline_to_dbfs_config_path[
+                                shared_pipeline_id
+                            ] = component["PipelineComponent"]["configPath"]
+                            print(f"shared_pipeline_id: {shared_pipeline_id}")
+
                         print(
                             f"    Pipeline {pipeline_id} might be shared, checking if it exists in DBFS"
                         )
@@ -329,13 +359,29 @@ class ProphecyBuildTool:
 
             job_request["version"] = "2.1"
             # Upload configuration json files to dbfs
-            json_configs = self._get_spark_parameter_files(
-                job_request["tasks"], ".json"
-            )
 
-            local_path_dbfs_map = self._construct_local_config_to_dbfs_config_path(
-                json_configs
+            local_path_dbfs_map = dict()
+            print(
+                f"generate_pipeline_config_from_pipeline_component: {generate_pipeline_config_from_pipeline_component}"
             )
+            if generate_pipeline_config_from_pipeline_component:
+                for (
+                    base_pipeline_id,
+                    local_config_path,
+                ) in self.pipeline_to_local_config_path.items():
+                    local_path_dbfs_map[
+                        local_config_path
+                    ] = self.pipeline_to_dbfs_config_path[base_pipeline_id]
+            else:
+                json_configs = self._get_spark_parameter_files(
+                    job_request["tasks"], ".json"
+                )
+
+                local_path_dbfs_map = self._construct_local_config_to_dbfs_config_path(
+                    json_configs
+                )
+
+            print(f"local_path_dbfs_map: {local_path_dbfs_map}")
 
             for local_json_directory, dbfs_directory in local_path_dbfs_map.items():
                 files = [
@@ -598,12 +644,13 @@ class ProphecyBuildTool:
             self.pipeline_configurations = dict(
                 self.project.get("pipelineConfigurations", [])
             )
-            self.pipeline_to_config_path = {}
+            self.pipeline_to_local_config_path = {}
+            self.pipeline_to_dbfs_config_path = {}
             for (
                 pipeline_config_path,
                 pipeline_config_object,
             ) in self.pipeline_configurations.items():
-                self.pipeline_to_config_path[
+                self.pipeline_to_local_config_path[
                     pipeline_config_object["basePipeline"]
                 ] = os.path.join(self.path_root, pipeline_config_path)
         if self.project_language not in ("python", "scala"):
@@ -671,7 +718,7 @@ class ProphecyBuildTool:
             for (
                 pipeline_id,
                 pipeline_config_path,
-            ) in self.pipeline_to_config_path.items():
+            ) in self.pipeline_to_local_config_path.items():
                 if pipeline_id in json_config:
                     local_config_to_dbfs_config_path_map[
                         pipeline_config_path
