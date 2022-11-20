@@ -1,38 +1,52 @@
 import collections
-import subprocess
-from os.path import normpath, basename
-from glob import glob
 import json
 import os
 import re
+import subprocess
 import sys
+from glob import glob
+from os import listdir
+from os.path import normpath, basename, isfile, join, dirname
 from typing import Dict
 
 import yaml
-from .process import Process
-from rich import print
 from databricks_cli.configure.config import _get_api_client
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.sdk import DbfsService, JobsService
+from requests import HTTPError
+from rich import print
+
+from .process import Process
 
 
 class ProphecyBuildTool:
-    def __init__(self, path_root: str, mvn_params: str):
-        print(
-            "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.3[/bold black]\n"
-        )
+    def __init__(
+        self,
+        path_root: str,
+        dependent_projects_path: str = "",
+        release_version: str = "",
+        project_id: str = "",
+        prophecy_url: str = "",
+    ):
         if not path_root:
             self._error("Path of project not passed as argument using --path.")
-
         self.operating_system = sys.platform
-        self.mvn_params = mvn_params
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
         self._verify_project()
         self._verify_databricks_configs()
         self._parse_project()
-
+        self.dependent_projects = {}
+        if dependent_projects_path:
+            print("\nParsing dependent projects")
+            other_pbt_projects = glob(
+                f"{dependent_projects_path}**/pbt_project.yml", recursive=True
+            )
+            for dependent_project in other_pbt_projects:
+                self.dependent_projects[dirname(dependent_project)] = ProphecyBuildTool(
+                    dirname(dependent_project)
+                )
         config = EnvironmentVariableConfigProvider().get_config()
 
         self.api_client = _get_api_client(config)
@@ -41,6 +55,25 @@ class ProphecyBuildTool:
         self.jobs_service = JobsService(self.api_client)
         self.python_cmd, self.pip_cmd = self.get_python_commands(path_root)
         self.pipelines_build_path = {}
+        self.dependent_pipelines_build_path = {}
+        self.project_release = (
+            release_version
+            if release_version
+            else os.getenv(
+                "PROJECT_RELEASE_VERSION_PLACEHOLDER",
+                "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
+            )
+        )
+        self.project_id = (
+            project_id
+            if project_id
+            else os.getenv("PROJECT_ID_PLACEHOLDER", "__PROJECT_ID_PLACEHOLDER__")
+        )
+        self.prophecy_url = (
+            prophecy_url
+            if prophecy_url
+            else os.getenv("PROPHECY_URL_PLACEHOLDER", "__PROPHECY_URL_PLACEHOLDER__")
+        )
 
     def get_python_commands(self, cwd):
         if (
@@ -77,13 +110,15 @@ class ProphecyBuildTool:
             print("ERROR: python not found")
             sys.exit(1)
 
-    def build(self):
-        print("\n[bold blue]Building %s pipelines [/bold blue]" % self.pipelines_count)
+    def build(self, pipelines, exit_on_build_failure=True):
+        if not pipelines:
+            pipelines = self.pipelines
+        print("\n[bold blue]Building %s pipelines [/bold blue]" % len(pipelines))
         overall_build_status = True
-        for pipeline_i, (path_pipeline, pipeline) in enumerate(self.pipelines.items()):
+        for pipeline_i, (path_pipeline, pipeline) in enumerate(pipelines.items()):
             print(
                 "\n  Building pipeline %s [%s/%s]"
-                % (path_pipeline, pipeline_i + 1, self.pipelines_count)
+                % (path_pipeline, pipeline_i + 1, len(pipelines))
             )
 
             path_pipeline_absolute = os.path.join(
@@ -138,11 +173,13 @@ class ProphecyBuildTool:
                 )
                 overall_build_status = False
 
-        if not overall_build_status:
+        if not overall_build_status and exit_on_build_failure:
             sys.exit(1)
+        else:
+            return overall_build_status, self.pipelines_build_path
 
     def deploy(self):
-        self.build()
+        self.build(dict())
 
         print("\n[bold blue] Deploying %s jobs [/bold blue]" % self.jobs_count)
 
@@ -150,6 +187,7 @@ class ProphecyBuildTool:
         job_update_failures = dict()
 
         for job_idx, (path_job, job) in enumerate(self.jobs.items()):
+            pipelines_upload_failures_job = collections.defaultdict(list)
             print(
                 "\n  Deploying job %s [%s/%s]"
                 % (path_job, job_idx + 1, self.jobs_count)
@@ -159,6 +197,18 @@ class ProphecyBuildTool:
                 os.path.join(self.path_root, path_job), "code"
             )
             path_job_definition = os.path.join(path_job_absolute, "databricks-job.json")
+
+            with open(path_job_definition, "r") as _in:
+                data = _in.read()
+                data = (
+                    data.replace(
+                        "__PROJECT_RELEASE_VERSION_PLACEHOLDER__", self.project_release
+                    )
+                    .replace("__PROJECT_ID_PLACEHOLDER__", self.project_id)
+                    .replace("__PROPHECY_URL_PLACEHOLDER__", self.prophecy_url)
+                )
+            with open(path_job_definition, "w") as _out:
+                _out.write(data)
 
             with open(path_job_definition, "r") as _in:
                 job_definition = json.load(_in)
@@ -174,33 +224,142 @@ class ProphecyBuildTool:
                     uri_pattern = "([0-9]*)(pipelines/[-_.A-Za-z0-9 /]+)"
                     pipeline_id = re.search(uri_pattern, pipeline_uri).group(2)
 
-                    source_path = self.pipelines_build_path[pipeline_id][
-                        "source_absolute"
-                    ]
-                    target_path = component["PipelineComponent"]["path"]
-
-                    print(
-                        "    Uploading %s to %s"
-                        % (
-                            self.pipelines_build_path[pipeline_id]["source"],
-                            target_path,
+                    if (
+                        "releaseVersion" in component["PipelineComponent"]
+                        or "path=" in pipeline_id
+                        or pipeline_id not in self.pipelines_build_path
+                    ):
+                        print(
+                            f"    Pipeline {pipeline_id} might be shared, checking if it exists in DBFS"
                         )
-                    )
 
+                        # This jar is from a shared pipeline, check if jar exists in DBFS
+                        try:
+                            if self.dbfs_service.get_status(
+                                component["PipelineComponent"]["path"]
+                            ):
+                                print(
+                                    "    Dependent package exists on DBFS already, continuing with next pipeline"
+                                )
+                                continue
+                        except HTTPError as e:
+                            dependent_build_jar_found = False
+                            if e.response.status_code == 404:
+                                # Pipeline not found on DBFS. Check if it is present in dependency folder
+                                # and try to build it ourselves
+                                print(
+                                    f"    Pipeline {pipeline_id} not found in DFBS, searching in dependent project directory"
+                                )
+                                for project in self.dependent_projects.values():
+                                    if pipeline_id in project.pipelines:
+                                        print(
+                                            "    Building dependent project's pipeline:"
+                                        )
+                                        (
+                                            dependent_build_status,
+                                            dependent_build_paths,
+                                        ) = project.build(
+                                            {
+                                                k: v
+                                                for (k, v) in project.pipelines.items()
+                                                if pipeline_id in project.pipelines
+                                            },
+                                            False,
+                                        )
+                                        if dependent_build_status:
+                                            dependent_build_jar_found = True
+                                            self.dependent_pipelines_build_path[
+                                                pipeline_id
+                                            ] = dependent_build_paths[pipeline_id]
+                            if not dependent_build_jar_found:
+                                pipelines_upload_failures_job[pipeline_id].append(
+                                    e.response.text
+                                )
+                                pipelines_upload_failures[pipeline_id].append(
+                                    e.response.text
+                                )
+                        except Exception as ex:
+                            self.pipelines_build_path[pipeline_id]["uploaded"] = False
+                            pipelines_upload_failures_job[pipeline_id].append(str(ex))
+                            pipelines_upload_failures[pipeline_id].append(str(ex))
+                    if (
+                        pipeline_id in self.pipelines_build_path
+                        or pipeline_id in self.dependent_pipelines_build_path
+                    ):
+                        pipelines_build_path = (
+                            self.pipelines_build_path
+                            if pipeline_id in self.pipelines_build_path
+                            else self.dependent_pipelines_build_path
+                        )
+                        source_path = pipelines_build_path[pipeline_id][
+                            "source_absolute"
+                        ]
+                        target_path = component["PipelineComponent"]["path"]
+                        if not pipelines_build_path[pipeline_id]["uploaded"]:
+                            print(
+                                "    Uploading %s to %s"
+                                % (
+                                    pipelines_build_path[pipeline_id]["source"],
+                                    target_path,
+                                )
+                            )
+
+                            try:
+                                self.dbfs_service.put(
+                                    target_path, overwrite=True, src_path=source_path
+                                )
+                                pipelines_build_path[pipeline_id]["uploaded"] = True
+                            except HTTPError as e:
+                                pipelines_upload_failures_job[pipeline_id].append(
+                                    e.response.text
+                                )
+                                pipelines_upload_failures[pipeline_id].append(
+                                    e.response.text
+                                )
+                            except Exception as ex:
+                                pipelines_build_path[pipeline_id]["uploaded"] = False
+                                pipelines_upload_failures_job[pipeline_id].append(
+                                    str(ex)
+                                )
+                                pipelines_upload_failures[pipeline_id].append(str(ex))
+
+            job_request = job_definition["request"]
+            if "CreateNewJobRequest" in job_request.keys():
+                job_request = job_definition["request"]["CreateNewJobRequest"]
+
+            job_request["version"] = "2.1"
+            # Upload configuration json files to dbfs
+            json_configs = self._get_spark_parameter_files(
+                job_request["tasks"], ".json"
+            )
+
+            local_path_dbfs_map = self._construct_local_config_to_dbfs_config_path(
+                json_configs
+            )
+
+            for local_json_directory, dbfs_directory in local_path_dbfs_map.items():
+                files = [
+                    join(local_json_directory, f)
+                    for f in listdir(local_json_directory)
+                    if isfile(join(local_json_directory, f))
+                ]
+                for file_path in files:
+                    dbfs_file_path = join(dbfs_directory, basename(file_path))
                     try:
+                        print(f"    Uploading {file_path} to {dbfs_file_path}")
                         self.dbfs_service.put(
-                            target_path, overwrite=True, src_path=source_path
+                            dbfs_file_path, overwrite=True, src_path=file_path
                         )
-                        self.pipelines_build_path[pipeline_id]["uploaded"] = True
                     except Exception as e:
-                        self.pipelines_build_path[pipeline_id]["uploaded"] = False
-                        pipelines_upload_failures[pipeline_id].append(str(e))
+                        print(
+                            f"    Failed to upload {file_path} to {dbfs_file_path}. Exception: {e}"
+                        )
 
-            if len(pipelines_upload_failures) > 0:
+            if len(pipelines_upload_failures_job) > 0:
                 print(
-                    "\n[bold red] Upload failed for one or more pipelines [/bold red]"
+                    "\n[bold red] Package upload failed or doesn't exist for one or more pipelines [/bold red]"
                 )
-                for pipeline_id, errors in pipelines_upload_failures.items():
+                for pipeline_id, errors in pipelines_upload_failures_job.items():
                     print(
                         "\n[bold red] %s: Exceptions: %s [/bold red]"
                         % (pipeline_id, "\n".join(errors))
@@ -208,9 +367,6 @@ class ProphecyBuildTool:
 
                 # Process next job
                 continue
-
-            job_request = job_definition["request"]["CreateNewJobRequest"]
-            job_request["version"] = "2.1"
 
             limit = 25
             current_offset = 0
@@ -237,7 +393,10 @@ class ProphecyBuildTool:
                     if len(found_jobs) <= 0:
                         break
 
-                job_request = job_definition["request"]["CreateNewJobRequest"]
+                job_request = job_definition["request"]
+                if "CreateNewJobRequest" in job_request.keys():
+                    job_request = job_definition["request"]["CreateNewJobRequest"]
+
                 if found_job is None:
                     print("    Creating a new job: %s" % (job_request["name"]))
                     self.jobs_service.create_job(**job_request)
@@ -258,7 +417,7 @@ class ProphecyBuildTool:
             print("\n[bold red] Deployment failed![/bold red]")
             if len(pipelines_upload_failures) > 0:
                 print(
-                    "   Upload failed for pipelines: %s"
+                    "   Pipeline failures: %s"
                     % (" ,".join(pipelines_upload_failures.keys()))
                 )
             if len(job_update_failures) > 0:
@@ -370,8 +529,7 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "clean", "package", "-q", "-DskipTests"]
-                    + self.mvn_params.split(),
+                    ["mvn", "clean", "package", "-q", "-DskipTests"],
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -382,8 +540,7 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()]
-                    + self.mvn_params.split(),
+                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()],
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -438,7 +595,17 @@ class ProphecyBuildTool:
             self.jobs = self.project["jobs"]
             self.pipelines = self.project["pipelines"]
             self.project_language = self.project["language"]
-
+            self.pipeline_configurations = dict(
+                self.project.get("pipelineConfigurations", [])
+            )
+            self.pipeline_to_config_path = {}
+            for (
+                pipeline_config_path,
+                pipeline_config_object,
+            ) in self.pipeline_configurations.items():
+                self.pipeline_to_config_path[
+                    pipeline_config_object["basePipeline"]
+                ] = os.path.join(self.path_root, pipeline_config_path)
         if self.project_language not in ("python", "scala"):
             self._error(
                 f"Language: [i]{self.project_language}[/i] not supported by Prophecy-Build-Tool right now."
@@ -486,6 +653,31 @@ class ProphecyBuildTool:
                     f"\n[bold red]Job {path_job} does not exist or is corrupted. [/bold red]"
                 )
                 sys.exit(1)
+
+    def _get_spark_parameter_files(self, tasks_list, file_extension):
+        result = []
+        for task in tasks_list:
+            params = [
+                file.replace("/dbfs/", "dbfs:/")
+                for file in list(task["spark_jar_task"]["parameters"])
+                if file.endswith(file_extension)
+            ]
+            result += params
+        return result
+
+    def _construct_local_config_to_dbfs_config_path(self, json_configs):
+        local_config_to_dbfs_config_path_map = {}
+        for json_config in json_configs:
+            for (
+                pipeline_id,
+                pipeline_config_path,
+            ) in self.pipeline_to_config_path.items():
+                if pipeline_id in json_config:
+                    local_config_to_dbfs_config_path_map[
+                        pipeline_config_path
+                    ] = os.path.dirname(json_config)
+
+        return local_config_to_dbfs_config_path_map
 
     @classmethod
     def _verify_databricks_configs(cls):
