@@ -246,18 +246,21 @@ class ProphecyBuildTool:
                         ):
                             generate_pipeline_config_from_pipeline_component = True
                             shared_pipeline_id = ""
-                            if search_regex_id.group(0):
-                                shared_pipeline_id = search_regex_id.group(0)
-                            elif search_regex_id.group(1) and search_regex_id.group(2):
-                                shared_pipeline_id = f"{search_regex_id.group(1)}/{search_regex_id.group(2)}"
-                            elif search_regex_id.group(3) and search_regex_id.group(4):
-                                shared_pipeline_id = f"{search_regex_id.group(4)}/{search_regex_id.group(3)}"
+                            if bool(search_regex_id.group(1)):
+                                shared_pipeline_id = search_regex_id.group(1)
+                            elif bool(search_regex_id.group(2)) and bool(
+                                search_regex_id.group(3)
+                            ):
+                                shared_pipeline_id = f"{search_regex_id.group(2)}/{search_regex_id.group(3)}"
+                            elif bool(search_regex_id.group(4)) and bool(
+                                search_regex_id.group(5)
+                            ):
+                                shared_pipeline_id = f"{search_regex_id.group(5)}/{search_regex_id.group(4)}"
                             else:
                                 generate_pipeline_config_from_pipeline_component = False
                             self.pipeline_to_dbfs_config_path[
                                 shared_pipeline_id
                             ] = component["PipelineComponent"]["configPath"]
-                            print(f"shared_pipeline_id: {shared_pipeline_id}")
 
                         print(
                             f"    Pipeline {pipeline_id} might be shared, checking if it exists in DBFS"
@@ -361,9 +364,6 @@ class ProphecyBuildTool:
             # Upload configuration json files to dbfs
 
             local_path_dbfs_map = dict()
-            print(
-                f"generate_pipeline_config_from_pipeline_component: {generate_pipeline_config_from_pipeline_component}"
-            )
             if generate_pipeline_config_from_pipeline_component:
                 for (
                     base_pipeline_id,
@@ -380,8 +380,6 @@ class ProphecyBuildTool:
                 local_path_dbfs_map = self._construct_local_config_to_dbfs_config_path(
                     json_configs
                 )
-
-            print(f"local_path_dbfs_map: {local_path_dbfs_map}")
 
             for local_json_directory, dbfs_directory in local_path_dbfs_map.items():
                 files = [
