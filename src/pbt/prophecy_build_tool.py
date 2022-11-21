@@ -41,7 +41,8 @@ class ProphecyBuildTool:
         if dependent_projects_path:
             print("\nParsing dependent projects")
             other_pbt_projects = glob(
-                f"{dependent_projects_path}**/pbt_project.yml", recursive=True
+                f"{dependent_projects_path}{os.sep}**{os.sep}pbt_project.yml",
+                recursive=True,
             )
             for dependent_project in other_pbt_projects:
                 self.dependent_projects[dirname(dependent_project)] = ProphecyBuildTool(
@@ -135,19 +136,19 @@ class ProphecyBuildTool:
             build_file_paths = []
 
             if self.project_language == "python":
-                path_pipeline_dist = path_pipeline_absolute + "/dist"
+                path_pipeline_dist = join(path_pipeline_absolute, "dist")
                 build_file_paths = list(
                     filter(
                         lambda x: (x.endswith("py3-none-any.whl")),
-                        glob(f"{path_pipeline_dist}/*.whl"),
+                        glob(f"{path_pipeline_dist}{os.sep}*.whl"),
                     )
                 )
             elif self.project_language == "scala":
-                path_pipeline_dist = path_pipeline_absolute + "/target"
+                path_pipeline_dist = join(path_pipeline_absolute, "target")
                 build_file_paths = list(
                     filter(
                         lambda x: ("jar-with-dependencies" not in x),
-                        glob(f"{path_pipeline_dist}/*.jar"),
+                        glob(f"{path_pipeline_dist}{os.sep}*.jar"),
                     )
                 )
 
@@ -164,7 +165,8 @@ class ProphecyBuildTool:
                     print("\n[bold blue] Build complete![/bold blue]")
                 else:
                     print(
-                        f"\n[bold red] Build completed but built target not found for pipeline: {pipeline['name']}![/bold red]"
+                        f"\n[bold red] Build completed but built target "
+                        f"not found for pipeline: {pipeline['name']}![/bold red]"
                     )
                     overall_build_status = False
             else:
@@ -281,10 +283,15 @@ class ProphecyBuildTool:
                                 # Pipeline not found on DBFS. Check if it is present in dependency folder
                                 # and try to build it ourselves
                                 print(
-                                    f"    Pipeline {pipeline_id} not found in DFBS, searching in dependent project directory"
+                                    f"    Pipeline {pipeline_id} not found in DFBS, "
+                                    f"searching in dependent project directory"
                                 )
                                 for project in self.dependent_projects.values():
-                                    if pipeline_id in project.pipelines:
+                                    if (
+                                        pipeline_id in project.pipelines
+                                        and self.project_language
+                                        == project.project_language
+                                    ):
                                         print(
                                             "    Building dependent project's pipeline:"
                                         )
@@ -488,7 +495,9 @@ class ProphecyBuildTool:
                 )
                 if self.project_language == "python":
                     if os.path.isfile(
-                        os.path.join(path_pipeline_absolute, "test/TestSuite.py")
+                        os.path.join(
+                            path_pipeline_absolute, f"test{os.sep}TestSuite.py"
+                        )
                     ):
                         unit_test_results[path_pipeline] = self.test_python(
                             path_pipeline_absolute, path_pipeline
@@ -502,7 +511,8 @@ class ProphecyBuildTool:
                 if return_code not in (0, 5):
                     is_any_ut_failed = True
                     print(
-                        f"\n[bold red] Unit test for pipeline: {path_pipeline} failed with return code {return_code}![/bold red]"
+                        f"\n[bold red] Unit test for pipeline: {path_pipeline} failed "
+                        f"with return code {return_code}![/bold red]"
                     )
                 else:
                     print(
@@ -612,7 +622,13 @@ class ProphecyBuildTool:
                 ),
                 # Run the unit test
                 Process(
-                    [self.python_cmd, "-m", "pytest", "-v", "test/TestSuite.py"],
+                    [
+                        self.python_cmd,
+                        "-m",
+                        "pytest",
+                        "-v",
+                        f"test{os.sep}TestSuite.py",
+                    ],
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 ),
@@ -660,6 +676,7 @@ class ProphecyBuildTool:
         self.jobs_count = len(self.jobs)
 
         jobs_str = ", ".join(map(lambda job: job["name"], self.jobs.values()))
+        print(f"Project name: {self.project['name']}")
         print("Found %s jobs: %s" % (self.jobs_count, jobs_str))
 
         pipelines_str = ", ".join(
@@ -690,7 +707,8 @@ class ProphecyBuildTool:
 
         for path_job, job in self.jobs.items():
             path_job_definition = os.path.join(
-                os.path.join(self.path_root, path_job), "code/databricks-job.json"
+                os.path.join(self.path_root, path_job),
+                f"code{os.sep}databricks-job.json",
             )
 
             if not os.path.isfile(path_job_definition):
@@ -702,12 +720,13 @@ class ProphecyBuildTool:
     def _get_spark_parameter_files(self, tasks_list, file_extension):
         result = []
         for task in tasks_list:
-            params = [
-                file.replace("/dbfs/", "dbfs:/")
-                for file in list(task["spark_jar_task"]["parameters"])
-                if file.endswith(file_extension)
-            ]
-            result += params
+            if "spark_jar_task" in task and "parameters" in task["spark_jar_task"]:
+                params = [
+                    file.replace("/dbfs/", "dbfs:/")
+                    for file in list(task["spark_jar_task"]["parameters"])
+                    if file.endswith(file_extension)
+                ]
+                result += params
         return result
 
     def _construct_local_config_to_dbfs_config_path(self, json_configs):
