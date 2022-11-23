@@ -719,8 +719,13 @@ class ProphecyBuildTool:
 
     def _get_spark_parameter_files(self, tasks_list, file_extension):
         result = []
+        package_field = (
+            "spark_jar_task"
+            if self.project_language == "scala"
+            else "python_wheel_task"
+        )
         for task in tasks_list:
-            if "spark_jar_task" in task and "parameters" in task["spark_jar_task"]:
+            if package_field in task and "parameters" in task[package_field]:
                 params = [
                     file.replace("/dbfs/", "dbfs:/")
                     for file in list(task["spark_jar_task"]["parameters"])
