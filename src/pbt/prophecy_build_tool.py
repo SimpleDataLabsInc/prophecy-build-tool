@@ -728,7 +728,7 @@ class ProphecyBuildTool:
             if package_field in task and "parameters" in task[package_field]:
                 params = [
                     file.replace("/dbfs/", "dbfs:/")
-                    for file in list(task["spark_jar_task"]["parameters"])
+                    for file in list(task[package_field]["parameters"])
                     if file.endswith(file_extension)
                 ]
                 result += params
