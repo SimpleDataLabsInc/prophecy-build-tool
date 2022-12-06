@@ -2,6 +2,7 @@
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
 import click
+import pkg_resources
 from rich import print
 
 from .prophecy_build_tool import ProphecyBuildTool
@@ -65,6 +66,7 @@ def test(path):
 
 if __name__ == "pbt":
     print(
-        "[bold purple]Prophecy-build-tool[/bold purple] [bold black]v1.0.3[/bold black]\n"
+        f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"
+        f"v{pkg_resources.require('prophecy-build-tool')[0].version}[/bold black]\n"
     )
     cli()
