@@ -6,7 +6,7 @@ import subprocess
 import sys
 from glob import glob
 from os import listdir
-from os.path import normpath, basename, isfile, join, dirname
+from os.path import basename, isfile, join, dirname
 from typing import Dict
 
 import yaml
@@ -525,6 +525,7 @@ class ProphecyBuildTool:
             sys.exit(1)
 
     def get_python_dependencies(self, path_pipeline_absolute, path_pipeline):
+        python_dependencies = []
         if (
             Process.process_sequential(
                 [
@@ -539,23 +540,26 @@ class ProphecyBuildTool:
             )
             == 0
         ):
-            python_dependencies = []
-            egg_info_dir = f"{basename(normpath(path_pipeline))}.egg-info"
-            egg_info_requires = os.path.join(
-                *[path_pipeline_absolute, egg_info_dir, "requires.txt"]
+            egg_info_requires_glob = glob(
+                f"{path_pipeline_absolute}/**/*.egg-info/requires.txt", recursive=True
             )
-            for line in open(egg_info_requires, "r"):
-                if not line.lstrip().startswith("[") and line.strip():
-                    python_dependencies.append(line.strip())
-            return python_dependencies
+            if not egg_info_requires_glob:
+                print("Failed to get python dependencies")
+            else:
+                egg_info_requires = egg_info_requires_glob[0]
+                for line in open(egg_info_requires, "r"):
+                    if not line.lstrip().startswith("[") and line.strip():
+                        python_dependencies.append(line.strip())
         else:
             print("Failed to get python dependencies")
-            sys.exit(1)
+
+        return python_dependencies
 
     def build_python(self, path_pipeline_absolute, path_pipeline):
         python_dependencies = self.get_python_dependencies(
             path_pipeline_absolute, path_pipeline
         )
+
         return Process.process_sequential(
             [
                 # Extract the install_requires and extra_requires and install them
