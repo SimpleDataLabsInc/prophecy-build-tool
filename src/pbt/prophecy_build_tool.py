@@ -544,15 +544,16 @@ class ProphecyBuildTool:
                 f"{path_pipeline_absolute}/**/*.egg-info/requires.txt", recursive=True
             )
             if not egg_info_requires_glob:
-                print("Failed to get python dependencies")
+                print(f"Failed to get python dependencies for {path_pipeline}")
             else:
                 egg_info_requires = egg_info_requires_glob[0]
                 for line in open(egg_info_requires, "r"):
                     if not line.lstrip().startswith("[") and line.strip():
                         python_dependencies.append(line.strip())
         else:
-            print("Failed to get python dependencies")
+            print(f"Failed to get python dependencies for {path_pipeline}")
 
+        print(f"    Dependencies found for {path_pipeline}: {python_dependencies}")
         return python_dependencies
 
     def build_python(self, path_pipeline_absolute, path_pipeline):
@@ -560,11 +561,26 @@ class ProphecyBuildTool:
             path_pipeline_absolute, path_pipeline
         )
 
+        install_python_dependencies_cmd = (
+            [self.pip_cmd, "install", "-q"] + python_dependencies
+            if python_dependencies
+            else [
+                # this is just a fallback in case reading dependencies from setup.py fails
+                self.pip_cmd,
+                "install",
+                "-q",
+                "pyhocon",
+                "prophecy-libs",
+                "pytest",
+                "pytest-html",
+            ]
+        )
+
         return Process.process_sequential(
             [
                 # Extract the install_requires and extra_requires and install them
                 Process(
-                    [self.pip_cmd, "install", "-q"] + python_dependencies,
+                    install_python_dependencies_cmd,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 ),
