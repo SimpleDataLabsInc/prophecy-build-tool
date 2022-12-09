@@ -659,13 +659,9 @@ class ProphecyBuildTool:
         self.fabric = os.environ.get("FABRIC_NAME")
 
         if self.fabric is None:
-            self._error(
-                "[i]FABRIC_NAME[/i] environment variable is required to "
-                "run your Unit tests"
-            )
-            return False
-        else:
-            return True
+            self.fabric = "default"
+            os.environ["FABRIC_NAME"] = self.fabric
+        return True
 
     def _parse_project(self):
         self.pipelines: Dict = {}
