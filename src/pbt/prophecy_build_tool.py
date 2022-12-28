@@ -35,7 +35,6 @@ class ProphecyBuildTool:
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
         self._verify_project()
-        self._verify_databricks_configs()
         self._parse_project()
         self.dependent_projects = {}
         if dependent_projects_path:
@@ -181,6 +180,7 @@ class ProphecyBuildTool:
             return overall_build_status, self.pipelines_build_path
 
     def deploy(self):
+        self._verify_databricks_configs()
         self.build(dict())
 
         print("\n[bold blue] Deploying %s jobs [/bold blue]" % self.jobs_count)
