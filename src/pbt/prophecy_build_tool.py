@@ -28,6 +28,7 @@ class ProphecyBuildTool:
         project_id: str = "",
         prophecy_url: str = "",
     ):
+
         if not path_root:
             self._error("Path of project not passed as argument using --path.")
         self.operating_system = sys.platform
@@ -35,7 +36,6 @@ class ProphecyBuildTool:
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
         self._verify_project()
-        self._verify_databricks_configs()
         self._parse_project()
         self.dependent_projects = {}
         if dependent_projects_path:
@@ -48,12 +48,9 @@ class ProphecyBuildTool:
                 self.dependent_projects[dirname(dependent_project)] = ProphecyBuildTool(
                     dirname(dependent_project)
                 )
-        config = EnvironmentVariableConfigProvider().get_config()
-
-        self.api_client = _get_api_client(config)
-
-        self.dbfs_service = DbfsService(self.api_client)
-        self.jobs_service = JobsService(self.api_client)
+        self.dbfs_service = None
+        self.jobs_service = None
+        self.api_client = None
         self.python_cmd, self.pip_cmd = self.get_python_commands(path_root)
         self.pipelines_build_path = {}
         self.dependent_pipelines_build_path = {}
@@ -181,6 +178,14 @@ class ProphecyBuildTool:
             return overall_build_status, self.pipelines_build_path
 
     def deploy(self):
+        self._verify_databricks_configs()
+        config = EnvironmentVariableConfigProvider().get_config()
+
+        self.api_client = _get_api_client(config)
+
+        self.dbfs_service = DbfsService(self.api_client)
+        self.jobs_service = JobsService(self.api_client)
+
         self.build(dict())
 
         print("\n[bold blue] Deploying %s jobs [/bold blue]" % self.jobs_count)
@@ -765,15 +770,19 @@ class ProphecyBuildTool:
         return local_config_to_dbfs_config_path_map
 
     @classmethod
-    def _verify_databricks_configs(cls):
+    def _verify_databricks_configs(cls, exit_on_failure=True):
         host = os.environ.get("DATABRICKS_HOST")
         token = os.environ.get("DATABRICKS_TOKEN")
 
         if host is None or token is None:
-            cls._error(
-                "[i]DATABRICKS_HOST[/i] & [i]DATABRICKS_TOKEN[/i] environment variables are required to "
-                "deploy your Databricks Workflows"
-            )
+            if exit_on_failure:
+                cls._error(
+                    "[i]DATABRICKS_HOST[/i] & [i]DATABRICKS_TOKEN[/i] environment variables are required to "
+                    "deploy your Databricks Workflows"
+                )
+            else:
+                return False
+        return True
 
     def _verify_project(self):
         if not os.path.isfile(self.path_project):
