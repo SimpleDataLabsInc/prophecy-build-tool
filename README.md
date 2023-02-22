@@ -51,17 +51,35 @@ Deploying 1 job ⏱
 ✅ Deployment complete!
 ```
 
+### Build
 To just build your Prophecy project containing Python/Scala projects and Databricks Jobs run
 
 ```shell
 pbt build --path /path/to/your/prophecy_project/
 ```
 
+
+### Deploy
+To build and Deploy all jobs in your project, run deploy command
+```shell
+pbt deploy --path /path/to/your/prophecy_project/
+```
+
+It's also possible to only deploy jobs associated with given **fabrics**, you can provide fabrics names ( comma separted )
+to just deploy only those jobs.
+
+```shell
+pbt deploy --fabric-names dev1,dev3 --path /path/to/your/prophecy_project/
+```
+
+
+### Test
 To run all unit tests in your Prophecy project containing Python/Scala projects and Databricks Jobs run
 
 ```shell
 pbt test --path /path/to/your/prophecy_project/
 ```
+
 
 Sample output:
 ```shell
