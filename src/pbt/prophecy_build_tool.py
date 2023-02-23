@@ -27,7 +27,7 @@ class ProphecyBuildTool:
             release_version: str = "",
             project_id: str = "",
             prophecy_url: str = "",
-            fabric_names: str = ""
+            fabric_ids: str = ""
     ):
 
         if not path_root:
@@ -74,9 +74,9 @@ class ProphecyBuildTool:
             else os.getenv("PROPHECY_URL_PLACEHOLDER", "__PROPHECY_URL_PLACEHOLDER__")
         )
 
-        self.fabric_names = (
-            list(i.strip() for i in fabric_names.split(r","))
-            if fabric_names
+        self.fabric_ids = (
+            list(i.strip() for i in fabric_ids.split(r","))
+            if fabric_ids
             else list()
         )
 
@@ -184,15 +184,6 @@ class ProphecyBuildTool:
         else:
             return overall_build_status, self.pipelines_build_path
 
-    def _get_fabric_name_by_id(self, fabric_id, prophecy_job_definition):
-        with open(prophecy_job_definition, "r") as _in:
-            job_definition = json.load(_in)
-            available_fabrics = job_definition["metainfo"]["availableFabrics"]
-            for available_fabric in available_fabrics:
-                if fabric_id.strip() == available_fabric["id"].strip():
-                    return available_fabric["name"].strip()
-            return None
-
     def deploy(self):
         self._verify_databricks_configs()
         config = EnvironmentVariableConfigProvider().get_config()
@@ -209,17 +200,15 @@ class ProphecyBuildTool:
         pipelines_upload_failures = collections.defaultdict(list)
         job_update_failures = dict()
 
-
-        if not self.fabric_names:
+        if not self.fabric_ids:
             print("Deploying jobs for all Fabrics")
         else:
-            print("Deploying jobs only for given Fabrics: %s" % (str(self.fabric_names)))
-
+            print("Deploying jobs only for given Fabric IDs: %s" % (str(self.fabric_ids)))
 
         for job_idx, (path_job, job) in enumerate(self.jobs.items()):
             pipelines_upload_failures_job = collections.defaultdict(list)
             print(
-                "\n  Deploying job %s [%s/%s]"
+                "\n[START]:  Deploying job %s [%s/%s]"
                 % (path_job, job_idx + 1, self.jobs_count)
             )
 
@@ -227,7 +216,6 @@ class ProphecyBuildTool:
                 os.path.join(self.path_root, path_job), "code"
             )
             path_job_definition = os.path.join(path_job_absolute, "databricks-job.json")
-            prophecy_job_definition = os.path.join(path_job_absolute, "prophecy-job.json")
 
             with open(path_job_definition, "r") as _in:
                 data = _in.read()
@@ -247,21 +235,13 @@ class ProphecyBuildTool:
             components = job_definition["components"]
             fabric_id = job_definition["fabric_id"]
 
-            # if --fabric_names is provided, then fetch the name from id and filter jobs to deploy
-            if self.fabric_names:
-                job_fabric_name = self._get_fabric_name_by_id(fabric_id, prophecy_job_definition)
-
-                if not job_fabric_name:
-                    print("[ERROR]: Fabric name not found for the fabric_id in prophecy-job.json")
-                    pipelines_upload_failures_job[job_idx].append(
-                        "fabric_id: %s in databricks-job.json doesn't have a corresponding available fabric in "
-                        "prophecy-job.json" % fabric_id
-                    )
-                elif job_fabric_name not in self.fabric_names:  # Jobs for the fabric should be skipped
-                    print("[SKIP]: job as it belongs to fabric (not passed): %s" % job_fabric_name)
+            # if --fabric is passed, then only deploy jobs
+            if self.fabric_ids:
+                if fabric_id not in self.fabric_ids:  # Jobs for this fabric id should be skipped
+                    print("[SKIP]: Job skipped as it belongs to fabric id (not passed): %s" % fabric_id)
                     continue
                 else:
-                    print("[DEPLOY]: job for fabric {id:%s, name:%s}" %(fabric_id, job_fabric_name))
+                    print("[DEPLOY]: Job being deployed for fabric id: %s" % fabric_id)
 
             generate_pipeline_config_from_pipeline_component = False
 
@@ -510,7 +490,7 @@ class ProphecyBuildTool:
                 job_update_failures[job_request["name"]] = str(e)
 
         if len(pipelines_upload_failures) == 0 and len(job_update_failures) == 0:
-            print("\n[bold blue] Deployment completed successfully![/bold blue]")
+            print("\n[bold blue][DONE]: Deployment completed successfully![/bold blue]")
         else:
             print("\n[bold red] Deployment failed![/bold red]")
             if len(pipelines_upload_failures) > 0:

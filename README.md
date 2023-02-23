@@ -65,11 +65,11 @@ To build and Deploy all jobs in your project, run deploy command
 pbt deploy --path /path/to/your/prophecy_project/
 ```
 
-It's also possible to only deploy jobs associated with given **fabrics**, you can provide fabrics names ( comma separted )
+It's also possible to only deploy jobs associated with given **fabrics**, you can provide fabrics id's (comma separated)
 to just deploy only those jobs.
 
 ```shell
-pbt deploy --fabric-names dev1,dev3 --path /path/to/your/prophecy_project/
+pbt deploy --fabric-ids dev1,dev3 --path /path/to/your/prophecy_project/
 ```
 
 

@@ -46,16 +46,18 @@ def build(path):
     help="Prophecy URL placeholder to be used during deployments",
     default="",
 )
+
 @click.option(
-    "--fabric-names",
-    help="Fabric Names(comma separated) which will be used to filter jobs for deployments",
+    "--fabric-ids",
+    help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
     default="",
 )
-def deploy(path, dependent_projects_path, release_version, project_id, prophecy_url, fabric_names):
+def deploy(path, dependent_projects_path, release_version, project_id, prophecy_url, fabric_ids):
     pbt = ProphecyBuildTool(
-        path, dependent_projects_path, release_version, project_id, prophecy_url, fabric_names
+        path, dependent_projects_path, release_version, project_id, prophecy_url, fabric_ids
     )
     pbt.deploy()
+
 
 @cli.command()
 @click.option(
