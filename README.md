@@ -63,12 +63,6 @@ To run all unit tests in your Prophecy project containing Python/Scala projects 
 pbt test --path /path/to/your/prophecy_project/
 ```
 
-To quickly validate if all your pipelines are not broken 
-
-```shell
-pbt validate --path /path/to/your/prophecy_project/
-```
-
 Sample output:
 ```shell
 Prophecy-build-tool v1.0.1
@@ -92,6 +86,49 @@ Found 1 pipelines: customers_orders (python)
 
 ✅ Unit test for pipeline: pipelines/customers_orders succeeded.
 ```
+To quickly validate if all your pipelines are not broken 
+
+```shell
+pbt validate --path /path/to/your/prophecy_project/
+```
+
+Sample output:
+```shell
+Prophecy-build-tool v1.0.3.4
+
+Project name: HelloWorld
+Found 1 jobs: default_schedule
+Found 5 pipelines: customers_orders (python), report_top_customers (python), join_agg_sort (python), tempwf (python), farmers-markets-irs (python)
+
+Validating 5 pipelines 
+
+  Validating pipeline pipelines/customers_orders [1/5]
+bl1laosp_project_4548/pipelines/customers_orders/code/.prophecy/workflow.latest.json
+
+ Pipeline is validated: customers_orders
+
+  Validating pipeline pipelines/report_top_customers [2/5]
+bl1laosp_project_4548/pipelines/report_top_customers/code/.prophecy/workflow.latest.json
+
+ Pipeline is validated: report_top_customers
+
+  Validating pipeline pipelines/join_agg_sort [3/5]
+bl1laosp_project_4548/pipelines/join_agg_sort/code/.prophecy/workflow.latest.json
+
+ Pipeline is validated: join_agg_sort
+
+  Validating pipeline pipelines/tempwf [4/5]
+bl1laosp_project_4548/pipelines/tempwf/code/.prophecy/workflow.latest.json
+
+ Pipeline is validated: tempwf
+
+  Validating pipeline pipelines/farmers-markets-irs [5/5]
+bl1laosp_project_4548/pipelines/farmers-markets-irs/code/.prophecy/workflow.latest.json
+
+ Pipeline is validated: farmers-markets-irs
+```
+
+
 
 ## Integrating with Github actions
 
