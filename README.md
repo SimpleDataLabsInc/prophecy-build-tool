@@ -63,6 +63,12 @@ To run all unit tests in your Prophecy project containing Python/Scala projects 
 pbt test --path /path/to/your/prophecy_project/
 ```
 
+To quickly validate if all your pipelines are not broken 
+
+```shell
+pbt validate --path /path/to/your/prophecy_project/
+```
+
 Sample output:
 ```shell
 Prophecy-build-tool v1.0.1
