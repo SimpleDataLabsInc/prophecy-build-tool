@@ -23,6 +23,16 @@ def build(path):
     pbt = ProphecyBuildTool(path)
     pbt.build(dict())
 
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+def validate(path):
+    pbt = ProphecyBuildTool(path)
+    pbt.validate()
+
 
 @cli.command()
 @click.option(

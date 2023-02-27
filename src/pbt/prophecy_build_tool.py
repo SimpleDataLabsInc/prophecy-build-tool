@@ -108,6 +108,40 @@ class ProphecyBuildTool:
             print("ERROR: python not found")
             sys.exit(1)
 
+    def validate(self):
+        pipelines = self.pipelines
+        print("\n[bold blue]Validating %s pipelines [/bold blue]" % len(pipelines))
+        overall_validate_status = True
+        for pipeline_i, (path_pipeline, pipeline) in enumerate(pipelines.items()):
+            print(
+                "\n  Validating pipeline %s [%s/%s]"
+                % (path_pipeline, pipeline_i + 1, len(pipelines))
+            )
+
+            workflow_json_path_pipeline_absolute = os.path.join(
+                os.path.join(self.path_root, path_pipeline), "code", ".prophecy", "workflow.latest.json"
+            )
+            if os.path.exists(workflow_json_path_pipeline_absolute):
+                workflow = json.load(open(workflow_json_path_pipeline_absolute, 'r'))
+                if ('diagnostics' in workflow):
+                    print(
+                        f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]"
+                    )
+                    overall_validate_status = False
+                else:
+                    print(f"\n[bold blue] Pipeline is validated: {pipeline['name']}[/bold blue]")
+            else:
+                print(
+                    f"\n[bold red] Empty Pipeline Found: {pipeline['name']}![/bold red]"
+                )
+                overall_validate_status = False
+
+        if not overall_validate_status:
+            sys.exit(1)
+        else:
+            sys.exit(0)
+
+
     def build(self, pipelines, exit_on_build_failure=True):
         if not pipelines:
             pipelines = self.pipelines
