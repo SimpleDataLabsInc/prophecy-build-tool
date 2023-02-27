@@ -121,8 +121,7 @@ class ProphecyBuildTool:
             workflow_json_path_pipeline_absolute = os.path.join(
                 os.path.join(self.path_root, path_pipeline), "code", ".prophecy", "workflow.latest.json"
             )
-
-            if os.path.exists(workflow_json_path_pipeline_absolute) == 0:
+            if os.path.exists(workflow_json_path_pipeline_absolute):
                 workflow = json.load(open(workflow_json_path_pipeline_absolute, 'r'))
                 if ('diagnostics' in workflow):
                     print(
