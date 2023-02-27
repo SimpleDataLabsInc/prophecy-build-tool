@@ -98,32 +98,23 @@ Prophecy-build-tool v1.0.3.4
 
 Project name: HelloWorld
 Found 1 jobs: default_schedule
-Found 5 pipelines: customers_orders (python), report_top_customers (python), join_agg_sort (python), tempwf (python), farmers-markets-irs (python)
+Found 4 pipelines: customers_orders (python), report_top_customers (python), join_agg_sort (python), farmers-markets-irs (python)
 
-Validating 5 pipelines 
+Validating 4 pipelines 
 
-  Validating pipeline pipelines/customers_orders [1/5]
-bl1laosp_project_4548/pipelines/customers_orders/code/.prophecy/workflow.latest.json
+  Validating pipeline pipelines/customers_orders [1/4]
 
  Pipeline is validated: customers_orders
 
-  Validating pipeline pipelines/report_top_customers [2/5]
-bl1laosp_project_4548/pipelines/report_top_customers/code/.prophecy/workflow.latest.json
+  Validating pipeline pipelines/report_top_customers [2/4]
 
  Pipeline is validated: report_top_customers
 
-  Validating pipeline pipelines/join_agg_sort [3/5]
-bl1laosp_project_4548/pipelines/join_agg_sort/code/.prophecy/workflow.latest.json
+  Validating pipeline pipelines/join_agg_sort [3/4]
 
  Pipeline is validated: join_agg_sort
 
-  Validating pipeline pipelines/tempwf [4/5]
-bl1laosp_project_4548/pipelines/tempwf/code/.prophecy/workflow.latest.json
-
- Pipeline is validated: tempwf
-
-  Validating pipeline pipelines/farmers-markets-irs [5/5]
-bl1laosp_project_4548/pipelines/farmers-markets-irs/code/.prophecy/workflow.latest.json
+  Validating pipeline pipelines/farmers-markets-irs [4/4]
 
  Pipeline is validated: farmers-markets-irs
 ```
