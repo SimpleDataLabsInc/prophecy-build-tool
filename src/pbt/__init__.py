@@ -46,7 +46,6 @@ def build(path):
     help="Prophecy URL placeholder to be used during deployments",
     default="",
 )
-
 @click.option(
     "--fabric-ids",
     help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
