@@ -27,7 +27,8 @@ class ProphecyBuildTool:
             release_version: str = "",
             project_id: str = "",
             prophecy_url: str = "",
-            fabric_ids: str = ""
+            fabric_ids: str = "",
+            skip_builds: bool = False
     ):
 
         if not path_root:
@@ -79,6 +80,8 @@ class ProphecyBuildTool:
             if fabric_ids
             else list()
         )
+        # TODO: move these to deploy method
+        self.skip_builds = skip_builds
 
     def get_python_commands(self, cwd):
         if (
@@ -193,7 +196,10 @@ class ProphecyBuildTool:
         self.dbfs_service = DbfsService(self.api_client)
         self.jobs_service = JobsService(self.api_client)
 
-        self.build(dict())
+        if not self.skip_builds:
+            self.build(dict())
+        else:
+            print("[SKIP]: Building Pipelines as '--skip-builds' flag is passed.")
 
         print("\n[bold blue] Deploying %s jobs [/bold blue]" % self.jobs_count)
 
