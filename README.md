@@ -69,7 +69,7 @@ It's also possible to only deploy jobs associated with given **fabrics**, you ca
 to just deploy only those jobs.
 
 ```shell
-pbt deploy --fabric-ids dev1,dev3 --path /path/to/your/prophecy_project/
+pbt deploy --fabric-ids 3,7 --path /path/to/your/prophecy_project/
 ```
 
 
