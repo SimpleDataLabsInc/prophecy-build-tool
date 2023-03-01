@@ -51,17 +51,43 @@ Deploying 1 job ⏱
 ✅ Deployment complete!
 ```
 
+### Build
 To just build your Prophecy project containing Python/Scala projects and Databricks Jobs run
 
 ```shell
 pbt build --path /path/to/your/prophecy_project/
 ```
 
+
+### Deploy
+To build and Deploy all jobs in your project, run deploy command
+```shell
+pbt deploy --path /path/to/your/prophecy_project/
+```
+
+It's also possible to only deploy jobs associated with given **fabrics**, you can provide fabrics id's (comma separated)
+to just deploy only those jobs.
+
+```shell
+pbt deploy --fabric-ids 3,7 --path /path/to/your/prophecy_project/
+```
+
+By default, `deploy` command builds all pipelines and then deploys them, if you want to skip building all pipelines 
+( this could be useful, if you are running a `deploy` command  after running `deploy` or `build` previously.)
+
+```shell
+pbt deploy --skip-builds --path /path/to/your/prophecy_project/
+```
+
+
+
+### Test
 To run all unit tests in your Prophecy project containing Python/Scala projects and Databricks Jobs run
 
 ```shell
 pbt test --path /path/to/your/prophecy_project/
 ```
+
 
 Sample output:
 ```shell
@@ -86,6 +112,9 @@ Found 1 pipelines: customers_orders (python)
 
 ✅ Unit test for pipeline: pipelines/customers_orders succeeded.
 ```
+
+
+### Validate
 To quickly validate if all your pipelines are not broken 
 
 ```shell
