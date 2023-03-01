@@ -72,6 +72,14 @@ to just deploy only those jobs.
 pbt deploy --fabric-ids 3,7 --path /path/to/your/prophecy_project/
 ```
 
+By default, `deploy` command builds all pipelines and then deploys them, if you want to skip building all pipelines 
+( this could be useful, if you are running a `deploy` command  after running `deploy` or `build` previously.)
+
+```shell
+pbt deploy --skip-builds --path /path/to/your/prophecy_project/
+```
+
+
 
 ### Test
 To run all unit tests in your Prophecy project containing Python/Scala projects and Databricks Jobs run
@@ -104,6 +112,9 @@ Found 1 pipelines: customers_orders (python)
 
 ✅ Unit test for pipeline: pipelines/customers_orders succeeded.
 ```
+
+
+### Validate
 To quickly validate if all your pipelines are not broken 
 
 ```shell
