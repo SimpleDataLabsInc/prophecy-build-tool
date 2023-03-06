@@ -23,6 +23,7 @@ def build(path):
     pbt = ProphecyBuildTool(path)
     pbt.build(dict())
 
+
 @cli.command()
 @click.option(
     "--path",
@@ -62,12 +63,17 @@ def validate(path):
     default="",
 )
 @click.option(
-    "--skip-builds",
-    is_flag=True,
-    default=False,
-    help="Flag to skip building Pipelines"
+    "--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines"
 )
-def deploy(path, dependent_projects_path, release_version, project_id, prophecy_url, fabric_ids, skip_builds):
+def deploy(
+    path,
+    dependent_projects_path,
+    release_version,
+    project_id,
+    prophecy_url,
+    fabric_ids,
+    skip_builds,
+):
     pbt = ProphecyBuildTool(
         path, dependent_projects_path, release_version, project_id, prophecy_url
     )
