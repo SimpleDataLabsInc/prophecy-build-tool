@@ -28,6 +28,7 @@ setuptools.setup(
         "PyYAML>=6.0",
         "databricks_cli>=0.17.1",
         "rich>=12.5.1",
+        "wheel",
     ],
     python_requires=">=3.6",
     entry_points="""
