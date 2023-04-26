@@ -1,0 +1,187 @@
+name: resources.HelloWorld
+description: ''
+version: 0.0.1-SNAPSHOT
+author: ''
+language: python
+buildSystem: ''
+buildSystemDetails:
+  artefactID: helloworld
+  parentArtefactID: ''
+  buildSystem: wheel
+  author: null
+  createdAt: '2023-03-27 11:49:11'
+  modifiedAt: '2023-03-27 11:49:11'
+pipelines:
+  pipelines/customers_orders:
+    name: customers_orders
+    description: Aggregates total spending's for each customer
+    author: ashish@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-03-27 11:49:13'
+    modifiedAt: '2023-03-27 11:49:13'
+    datasets:
+      inputs:
+      - datasets/orders
+      - datasets/customers
+      outputs:
+      - datasets/customers_orders
+    subgraphs: []
+    dependencies: {}
+  pipelines/report_top_customers:
+    name: report_top_customers
+    description: Prepare a report based on customers' spending
+    author: ashish@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-03-27 11:49:13'
+    modifiedAt: '2023-03-27 11:49:13'
+    datasets:
+      inputs:
+      - datasets/customers_orders
+      outputs:
+      - datasets/report
+    subgraphs: []
+    dependencies: {}
+  pipelines/join_agg_sort:
+    name: join_agg_sort
+    description: Show an example of joining two datasets (customers and orders), aggregating
+      (sales by customer), sorting (by totals)
+    author: ashish@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-03-27 11:49:13'
+    modifiedAt: '2023-03-27 11:49:13'
+    datasets:
+      inputs:
+      - datasets/orders
+      - datasets/customers
+      outputs:
+      - datasets/customer_totals
+    subgraphs: []
+    dependencies: {}
+datasets:
+  datasets/report:
+    name: report
+    description: Final report for the bank
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:11'
+    modifiedAt: '2023-03-27 11:49:11'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:11'
+        modifiedAt: '2023-03-27 11:49:11'
+  datasets/customer_totals:
+    name: customer_totals
+    description: Customers by total of their purchases
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:11'
+    modifiedAt: '2023-03-27 11:49:12'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:11'
+        modifiedAt: '2023-03-27 11:49:11'
+  datasets/orders:
+    name: orders
+    description: All the orders placed by the customers
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:12'
+    modifiedAt: '2023-03-27 11:49:12'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:12'
+        modifiedAt: '2023-03-27 11:49:12'
+  datasets/customers:
+    name: customers
+    description: All the customers
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:12'
+    modifiedAt: '2023-03-27 11:49:12'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:12'
+        modifiedAt: '2023-03-27 11:49:12'
+  datasets/customers_orders:
+    name: customers_orders
+    description: Customers by total of their purchases
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:12'
+    modifiedAt: '2023-03-27 11:49:12'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:12'
+        modifiedAt: '2023-03-27 11:49:12'
+  datasets/old_events:
+    name: old_events
+    description: Old events data
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:12'
+    modifiedAt: '2023-03-27 11:49:12'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:12'
+        modifiedAt: '2023-03-27 11:49:12'
+  datasets/historic_events_flat:
+    name: historic_events_flat
+    description: Historic events flat
+    author: ashish@prophecy.io
+    createdAt: '2023-03-27 11:49:12'
+    modifiedAt: '2023-03-27 11:49:12'
+    mode: batch
+    physicalDatasets:
+      ashish_databricks:
+        fabricId: 2
+        datasetType: File
+        description: ''
+        author: ashish@prophecy.io
+        createdAt: '2023-03-27 11:49:12'
+        modifiedAt: '2023-03-27 11:49:12'
+templates: {}
+jobs: {}
+functions:
+  author: null
+  createdAt: '2023-03-27 11:49:11'
+  modifiedAt: '2023-03-27 11:49:11'
+  gems: {}
+  udfs: {}
+  udafs: {}
+  expressions: {}
+subgraphs: {}
+sqlModels: {}
+sqlPipeline: null
+dependencies: '[]'
+projectDependencies: {}
+pipelineConfigurations: {}

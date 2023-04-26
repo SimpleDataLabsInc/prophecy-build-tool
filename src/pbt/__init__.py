@@ -19,9 +19,14 @@ def cli():
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
-def build(path):
+@click.option(
+    "--pipelines",
+    help="Pipeline names(comma separated) which can be used to filter pipelines to be build",
+    default="",
+)
+def build(path, pipelines):
     pbt = ProphecyBuildTool(path)
-    pbt.build(dict())
+    pbt.build(pipelines)
 
 
 @cli.command()
@@ -62,9 +67,7 @@ def validate(path):
     help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
     default="",
 )
-@click.option(
-    "--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines"
-)
+@click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
 def deploy(
     path,
     dependent_projects_path,
@@ -74,9 +77,7 @@ def deploy(
     fabric_ids,
     skip_builds,
 ):
-    pbt = ProphecyBuildTool(
-        path, dependent_projects_path, release_version, project_id, prophecy_url
-    )
+    pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids, skip_builds)
 
 

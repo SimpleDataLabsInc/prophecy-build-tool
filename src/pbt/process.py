@@ -10,7 +10,7 @@ class Process:
         std_output=subprocess.PIPE,
         std_err=subprocess.PIPE,
         is_shell=False,
-        running_message=""
+        running_message="",
     ):
         self.process_args = process_args
         self.current_working_directory = current_working_directory
@@ -42,22 +42,16 @@ class Process:
                 if stderr is not None and len(stderr) > 0:
                     print(
                         "   ",
-                        "\n    ".join(
-                            [line.decode("utf-8") for line in stdout.splitlines()]
-                        ),
+                        "\n    ".join([line.decode("utf-8") for line in stdout.splitlines()]),
                     )
                     print(
                         "   ",
-                        "\n    ".join(
-                            [line.decode("utf-8") for line in stderr.splitlines()]
-                        ),
+                        "\n    ".join([line.decode("utf-8") for line in stderr.splitlines()]),
                     )
                 else:
                     print(
                         "   ",
-                        "\n    ".join(
-                            [line.decode("utf-8") for line in stdout.splitlines()]
-                        ),
+                        "\n    ".join([line.decode("utf-8") for line in stdout.splitlines()]),
                     )
 
             if return_code != 0:

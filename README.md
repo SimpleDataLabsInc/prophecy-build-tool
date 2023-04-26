@@ -125,7 +125,7 @@ Sample output:
 ```shell
 Prophecy-build-tool v1.0.3.4
 
-Project name: HelloWorld
+Project name: resources.HelloWorld
 Found 1 jobs: default_schedule
 Found 4 pipelines: customers_orders (python), report_top_customers (python), join_agg_sort (python), farmers-markets-irs (python)
 
