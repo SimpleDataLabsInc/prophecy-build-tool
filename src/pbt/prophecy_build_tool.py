@@ -150,8 +150,12 @@ class ProphecyBuildTool:
         if not pipelines:  # if pipelines not provided run for all pipelines
             pipelines = self.pipelines
         else:  # else filter pipelines
-            print("\n[bold blue]Filtering pipelines: %s [/bold blue]" % str(pipelines))
-            pipelines = [p for p in self.pipelines.keys() if p.split("/")[1] in pipelines]
+            pipeline_filter = [x.strip() for x in pipelines.split(",")]
+            print("\n[bold blue]Filtering pipelines: %s [/bold blue]" % str(pipeline_filter))
+            pipelines = {k: v for k, v in self.pipelines.items() if k.split("/")[1] in pipeline_filter}
+            if not pipelines:  # empty no matching pipeline found
+                print("\n[bold yellow]No matching pipelines found for given pipelines names: %s" % (pipeline_filter))
+                raise Exception()
 
         print("\n[bold blue]Building %s pipelines [/bold blue]" % len(pipelines))
         overall_build_status = True
