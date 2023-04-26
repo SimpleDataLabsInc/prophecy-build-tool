@@ -31,7 +31,7 @@ setuptools.setup(
         "wheel",
         "build",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     entry_points="""
         [console_scripts]
         pbt=pbt:main
