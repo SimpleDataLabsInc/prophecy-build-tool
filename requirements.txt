@@ -10,3 +10,4 @@ pyspark==3.3.0
 pytest
 pytest-click
 flake8
+black

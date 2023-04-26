@@ -10,7 +10,7 @@ class Process:
         std_output=subprocess.PIPE,
         std_err=subprocess.PIPE,
         is_shell=False,
-        running_message=""
+        running_message="",
     ):
         self.process_args = process_args
         self.current_working_directory = current_working_directory
