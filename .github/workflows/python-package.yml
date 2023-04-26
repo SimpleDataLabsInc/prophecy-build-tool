@@ -36,4 +36,4 @@ jobs:
         flake8 . --count --exit-zero --statistics
     - name: Test with pytest
       run: |
-        pytest test/test_* -v 
+        python -m pytest test/test_* -v 

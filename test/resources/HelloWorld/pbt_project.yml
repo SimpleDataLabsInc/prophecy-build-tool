@@ -63,23 +63,6 @@ pipelines:
       - datasets/customer_totals
     subgraphs: []
     dependencies: {}
-  pipelines/farmers-markets-irs:
-    name: farmers-markets-irs
-    description: Exploration of Farmer's Market Locations By US Zip Code
-    author: ashish@prophecy.io
-    mode: batch
-    artefactID: ''
-    language: python
-    createdAt: '2023-03-27 11:49:13'
-    modifiedAt: '2023-03-27 11:49:13'
-    datasets:
-      inputs:
-      - datasets/irs-zipcode-data
-      - datasets/farmers-markets
-      outputs:
-      - datasets/farmers_market_tax_report
-    subgraphs: []
-    dependencies: {}
 datasets:
   datasets/report:
     name: report
@@ -177,51 +160,6 @@ datasets:
     author: ashish@prophecy.io
     createdAt: '2023-03-27 11:49:12'
     modifiedAt: '2023-03-27 11:49:12'
-    mode: batch
-    physicalDatasets:
-      ashish_databricks:
-        fabricId: 2
-        datasetType: File
-        description: ''
-        author: ashish@prophecy.io
-        createdAt: '2023-03-27 11:49:12'
-        modifiedAt: '2023-03-27 11:49:12'
-  datasets/farmers-markets:
-    name: farmers-markets
-    description: Farmer's Market data
-    author: ashish@prophecy.io
-    createdAt: '2023-03-27 11:49:12'
-    modifiedAt: '2023-03-27 11:49:12'
-    mode: batch
-    physicalDatasets:
-      ashish_databricks:
-        fabricId: 2
-        datasetType: File
-        description: ''
-        author: ashish@prophecy.io
-        createdAt: '2023-03-27 11:49:12'
-        modifiedAt: '2023-03-27 11:49:12'
-  datasets/irs-zipcode-data:
-    name: irs-zipcode-data
-    description: Irs zipcode data
-    author: ashish@prophecy.io
-    createdAt: '2023-03-27 11:49:12'
-    modifiedAt: '2023-03-27 11:49:12'
-    mode: batch
-    physicalDatasets:
-      ashish_databricks:
-        fabricId: 2
-        datasetType: File
-        description: ''
-        author: ashish@prophecy.io
-        createdAt: '2023-03-27 11:49:12'
-        modifiedAt: '2023-03-27 11:49:12'
-  datasets/farmers_market_tax_report:
-    name: farmers_market_tax_report
-    description: Farmer's market tax report
-    author: ashish@prophecy.io
-    createdAt: '2023-03-27 11:49:12'
-    modifiedAt: '2023-03-27 11:49:13'
     mode: batch
     physicalDatasets:
       ashish_databricks:
