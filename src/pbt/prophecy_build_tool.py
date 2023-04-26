@@ -21,12 +21,12 @@ from .process import Process
 
 class ProphecyBuildTool:
     def __init__(
-        self,
-        path_root: str,
-        dependent_projects_path: str = "",
-        release_version: str = "",
-        project_id: str = "",
-        prophecy_url: str = "",
+            self,
+            path_root: str,
+            dependent_projects_path: str = "",
+            release_version: str = "",
+            project_id: str = "",
+            prophecy_url: str = "",
     ):
 
         if not path_root:
@@ -75,33 +75,33 @@ class ProphecyBuildTool:
 
     def get_python_commands(self, cwd):
         if (
-            Process.process_sequential(
-                [
-                    Process(
-                        ["python3", "--version"],
-                        cwd,
-                        subprocess.DEVNULL,
-                        subprocess.DEVNULL,
-                        (self.operating_system == "win32"),
-                    )
-                ]
-            )
-            == 0
+                Process.process_sequential(
+                    [
+                        Process(
+                            ["python3", "--version"],
+                            cwd,
+                            subprocess.DEVNULL,
+                            subprocess.DEVNULL,
+                            (self.operating_system == "win32"),
+                        )
+                    ]
+                )
+                == 0
         ):
             return "python3", "pip3"
         elif (
-            Process.process_sequential(
-                [
-                    Process(
-                        ["python", "--version"],
-                        cwd,
-                        subprocess.DEVNULL,
-                        subprocess.DEVNULL,
-                        (self.operating_system == "win32"),
-                    )
-                ]
-            )
-            == 0
+                Process.process_sequential(
+                    [
+                        Process(
+                            ["python", "--version"],
+                            cwd,
+                            subprocess.DEVNULL,
+                            subprocess.DEVNULL,
+                            (self.operating_system == "win32"),
+                        )
+                    ]
+                )
+                == 0
         ):
             return "python", "pip"
         else:
@@ -147,8 +147,12 @@ class ProphecyBuildTool:
             sys.exit(0)
 
     def build(self, pipelines, exit_on_build_failure=True):
-        if not pipelines:
+        if not pipelines:  # if pipelines not provided run for all pipelines
             pipelines = self.pipelines
+        else:  # else filter pipelines
+            print("\n[bold blue]Filtering pipelines: %s [/bold blue]" % str(pipelines))
+            pipelines = [p for p in self.pipelines.keys() if p.split("/")[1] in pipelines]
+
         print("\n[bold blue]Building %s pipelines [/bold blue]" % len(pipelines))
         overall_build_status = True
         for pipeline_i, (path_pipeline, pipeline) in enumerate(pipelines.items()):
@@ -278,7 +282,7 @@ class ProphecyBuildTool:
             # if --fabric is passed, then only deploy jobs
             if fabric_ids:
                 if (
-                    fabric_id not in fabric_ids
+                        fabric_id not in fabric_ids
                 ):  # Jobs for this fabric id should be skipped
                     print(
                         "[SKIP]: Job skipped as it belongs to fabric id (not passed): %s"
@@ -300,9 +304,9 @@ class ProphecyBuildTool:
                     pipeline_id = re.search(uri_pattern, pipeline_uri).group(2)
 
                     if (
-                        "releaseVersion" in component["PipelineComponent"]
-                        or "path=" in pipeline_id
-                        or pipeline_id not in self.pipelines_build_path
+                            "releaseVersion" in component["PipelineComponent"]
+                            or "path=" in pipeline_id
+                            or pipeline_id not in self.pipelines_build_path
                     ):
                         # Check if this shared pipelineComponent has configs
                         dependent_pipeline_regex_pattern = (
@@ -315,19 +319,19 @@ class ProphecyBuildTool:
                             dependent_pipeline_regex_pattern, pipeline_uri
                         )
                         if (
-                            bool(search_regex_id)
-                            and "configPath" in component["PipelineComponent"]
+                                bool(search_regex_id)
+                                and "configPath" in component["PipelineComponent"]
                         ):
                             generate_pipeline_config_from_pipeline_component = True
                             shared_pipeline_id = ""
                             if bool(search_regex_id.group(1)):
                                 shared_pipeline_id = search_regex_id.group(1)
                             elif bool(search_regex_id.group(2)) and bool(
-                                search_regex_id.group(3)
+                                    search_regex_id.group(3)
                             ):
                                 shared_pipeline_id = f"{search_regex_id.group(2)}/{search_regex_id.group(3)}"
                             elif bool(search_regex_id.group(4)) and bool(
-                                search_regex_id.group(5)
+                                    search_regex_id.group(5)
                             ):
                                 shared_pipeline_id = f"{search_regex_id.group(5)}/{search_regex_id.group(4)}"
                             else:
@@ -347,7 +351,7 @@ class ProphecyBuildTool:
                         # This jar is from a shared pipeline, check if jar exists in DBFS
                         try:
                             if self.dbfs_service.get_status(
-                                component["PipelineComponent"]["path"]
+                                    component["PipelineComponent"]["path"]
                             ):
                                 print(
                                     "    Dependent package exists on DBFS already, continuing with next pipeline"
@@ -364,9 +368,9 @@ class ProphecyBuildTool:
                                 )
                                 for project in self.dependent_projects.values():
                                     if (
-                                        pipeline_id in project.pipelines
-                                        and self.project_language
-                                        == project.project_language
+                                            pipeline_id in project.pipelines
+                                            and self.project_language
+                                            == project.project_language
                                     ):
                                         print(
                                             "    Building dependent project's pipeline:"
@@ -399,8 +403,8 @@ class ProphecyBuildTool:
                             pipelines_upload_failures_job[pipeline_id].append(str(ex))
                             pipelines_upload_failures[pipeline_id].append(str(ex))
                     if (
-                        pipeline_id in self.pipelines_build_path
-                        or pipeline_id in self.dependent_pipelines_build_path
+                            pipeline_id in self.pipelines_build_path
+                            or pipeline_id in self.dependent_pipelines_build_path
                     ):
                         pipelines_build_path = (
                             self.pipelines_build_path
@@ -450,8 +454,8 @@ class ProphecyBuildTool:
             local_path_dbfs_map = dict()
             if generate_pipeline_config_from_pipeline_component:
                 for (
-                    base_pipeline_id,
-                    local_config_path,
+                        base_pipeline_id,
+                        local_config_path,
                 ) in self.pipeline_to_local_config_path.items():
                     if base_pipeline_id in self.pipeline_to_dbfs_config_path:
                         local_path_dbfs_map[
@@ -513,8 +517,8 @@ class ProphecyBuildTool:
                     found_jobs = response["jobs"] if "jobs" in response else []
                     for potential_found_job in found_jobs:
                         if (
-                            potential_found_job["settings"]["name"]
-                            == job_request["name"]
+                                potential_found_job["settings"]["name"]
+                                == job_request["name"]
                         ):
                             found_job = potential_found_job
                             break
@@ -561,7 +565,7 @@ class ProphecyBuildTool:
             unit_test_results = {}
 
             for pipeline_i, (path_pipeline, pipeline) in enumerate(
-                self.pipelines.items()
+                    self.pipelines.items()
             ):
                 print(
                     "\n  Unit Testing pipeline %s [%s/%s]"
@@ -573,9 +577,9 @@ class ProphecyBuildTool:
                 )
                 if self.project_language == "python":
                     if os.path.isfile(
-                        os.path.join(
-                            path_pipeline_absolute, f"test{os.sep}TestSuite.py"
-                        )
+                            os.path.join(
+                                path_pipeline_absolute, f"test{os.sep}TestSuite.py"
+                            )
                     ):
                         unit_test_results[path_pipeline] = self.test_python(
                             path_pipeline_absolute, path_pipeline
@@ -605,18 +609,18 @@ class ProphecyBuildTool:
     def get_python_dependencies(self, path_pipeline_absolute, path_pipeline):
         python_dependencies = []
         if (
-            Process.process_sequential(
-                [
-                    # Export dependencies to egg_info/requires.txt
-                    Process(
-                        [self.python_cmd, "setup.py", "-q", "egg_info"],
-                        path_pipeline_absolute,
-                        is_shell=(self.operating_system == "win32"),
-                        running_message="    Getting Python dependencies...",
-                    )
-                ]
-            )
-            == 0
+                Process.process_sequential(
+                    [
+                        # Export dependencies to egg_info/requires.txt
+                        Process(
+                            [self.python_cmd, "setup.py", "-q", "egg_info"],
+                            path_pipeline_absolute,
+                            is_shell=(self.operating_system == "win32"),
+                            running_message="    Getting Python dependencies...",
+                        )
+                    ]
+                )
+                == 0
         ):
             egg_info_requires_glob = glob(
                 f"{path_pipeline_absolute}/**/*.egg-info/requires.txt", recursive=True
@@ -755,8 +759,8 @@ class ProphecyBuildTool:
             self.pipeline_to_local_config_path = {}
             self.pipeline_to_dbfs_config_path = {}
             for (
-                pipeline_config_path,
-                pipeline_config_object,
+                    pipeline_config_path,
+                    pipeline_config_object,
             ) in self.pipeline_configurations.items():
                 self.pipeline_to_local_config_path[
                     pipeline_config_object["basePipeline"]
@@ -792,7 +796,7 @@ class ProphecyBuildTool:
             )
 
             if not os.path.isfile(
-                os.path.join(path_pipeline_absolute, pipeline_dependencies_file)
+                    os.path.join(path_pipeline_absolute, pipeline_dependencies_file)
             ):
                 print(
                     f"\n[bold red]Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]"
@@ -832,8 +836,8 @@ class ProphecyBuildTool:
         local_config_to_dbfs_config_path_map = {}
         for json_config in json_configs:
             for (
-                pipeline_id,
-                pipeline_config_path,
+                    pipeline_id,
+                    pipeline_config_path,
             ) in self.pipeline_to_local_config_path.items():
                 if pipeline_id in json_config:
                     local_config_to_dbfs_config_path_map[

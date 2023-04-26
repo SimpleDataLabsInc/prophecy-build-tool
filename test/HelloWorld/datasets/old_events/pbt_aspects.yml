@@ -1,0 +1,47 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: result
+    type:
+      type: struct
+      fields:
+      - name: count
+        type: string
+        nullable: true
+        metadata: {}
+      - name: events
+        type:
+          type: array
+          elementType:
+            type: struct
+            fields:
+            - name: category1
+              type: string
+              nullable: true
+              metadata: {}
+            - name: category2
+              type: string
+              nullable: true
+              metadata: {}
+            - name: date
+              type: string
+              nullable: true
+              metadata: {}
+            - name: description
+              type: string
+              nullable: true
+              metadata: {}
+            - name: granularity
+              type: string
+              nullable: true
+              metadata: {}
+            - name: lang
+              type: string
+              nullable: true
+              metadata: {}
+          containsNull: true
+        nullable: true
+        metadata: {}
+    nullable: true
+    metadata: {}

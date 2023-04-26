@@ -19,9 +19,14 @@ def cli():
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
-def build(path):
+@click.option(
+    "--pipelines",
+    help="Pipeline names(comma separated) which can be used to filter pipelines to be build",
+    default="",
+)
+def build(path, pipelines):
     pbt = ProphecyBuildTool(path)
-    pbt.build(dict())
+    pbt.build(pipelines)
 
 
 @cli.command()
