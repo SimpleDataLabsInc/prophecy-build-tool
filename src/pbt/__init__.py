@@ -67,9 +67,7 @@ def validate(path):
     help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
     default="",
 )
-@click.option(
-    "--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines"
-)
+@click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
 def deploy(
     path,
     dependent_projects_path,
