@@ -1,7 +1,8 @@
 from click.testing import CliRunner
 from src.pbt import build
+import os
 
-PROJECT_PATH = "./HelloWorld"
+PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 
 
 def test_build_path_default():
@@ -37,10 +38,10 @@ def test_build_path_pipeline_with_invalid_filter():
     assert "Filtering pipelines: ['customers_orders', 'INVALID_PIPELINE_NAME']" in result.output
     assert "Building pipeline pipelines/customers_orders" in result.output
 
+
 def test_build_path_pipeline_invalid_filter_only():
     runner = CliRunner()
     result = runner.invoke(build, ['--path', PROJECT_PATH, '--pipelines', 'INVALID_PIPELINE_NAME'])
     assert result.exit_code == 1
     assert "Found 4 pipelines" in result.output
     assert "No matching pipelines found for given pipelines names: ['INVALID_PIPELINE_NAME']" in result.output
-
