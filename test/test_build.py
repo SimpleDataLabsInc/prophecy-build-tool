@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from src.pbt import build
+from pbt import build
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
