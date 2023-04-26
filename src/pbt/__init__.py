@@ -77,9 +77,7 @@ def deploy(
     fabric_ids,
     skip_builds,
 ):
-    pbt = ProphecyBuildTool(
-        path, dependent_projects_path, release_version, project_id, prophecy_url
-    )
+    pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids, skip_builds)
 
 

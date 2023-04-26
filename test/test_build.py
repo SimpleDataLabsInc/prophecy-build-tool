@@ -19,9 +19,7 @@ def test_build_path_default():
 
 def test_build_path_pipeline_filter():
     runner = CliRunner()
-    result = runner.invoke(
-        build, ["--path", PROJECT_PATH, "--pipelines", "customers_orders,join_agg_sort"]
-    )
+    result = runner.invoke(build, ["--path", PROJECT_PATH, "--pipelines", "customers_orders,join_agg_sort"])
     assert result.exit_code == 0
     assert "Found 4 pipelines" in result.output
     assert "Building 2 pipelines" in result.output
@@ -54,7 +52,4 @@ def test_build_path_pipeline_invalid_filter_only():
     result = runner.invoke(build, ["--path", PROJECT_PATH, "--pipelines", "INVALID_PIPELINE_NAME"])
     assert result.exit_code == 1
     assert "Found 4 pipelines" in result.output
-    assert (
-        "No matching pipelines found for given pipelines names: ['INVALID_PIPELINE_NAME']"
-        in result.output
-    )
+    assert "No matching pipelines found for given pipelines names: ['INVALID_PIPELINE_NAME']" in result.output
