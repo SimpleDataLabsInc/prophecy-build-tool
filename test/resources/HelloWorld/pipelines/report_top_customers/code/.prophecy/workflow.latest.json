@@ -2,10 +2,9 @@
   "metainfo" : {
     "id" : "1",
     "language" : "python",
-    "fabricId" : "1025",
+    "fabricId" : "1527",
     "frontEndLanguage" : "sql",
     "mode" : "batch",
-    "interimMode" : "Full",
     "udfs" : {
       "language" : "python",
       "udfs" : [ ]
@@ -19,18 +18,29 @@
         "type" : "record",
         "fields" : [ ]
       },
-      "fabrics" : {
-        "dev" : {
-          "type" : "record",
-          "fields" : [ ]
-        }
-      }
+      "oldCommon" : {
+        "type" : "record",
+        "fields" : [ ]
+      },
+      "fabrics" : { },
+      "instances" : { },
+      "selected" : "default",
+      "nonEditable" : [ ],
+      "isSubscribedPipelineWithPipelineConfigs" : false
     },
     "sparkConf" : [ ],
     "hadoopConf" : [ ],
     "codeMode" : "sparse",
     "buildSystem" : "maven",
-    "externalDependencies" : [ ]
+    "externalDependencies" : [ ],
+    "isImported" : false,
+    "interimMode" : "Full",
+    "interimModeEnabled" : true,
+    "visualCodeInterimMode" : "Disabled",
+    "recordsLimit" : {
+      "enabled" : false,
+      "value" : 1000
+    }
   },
   "connections" : [ {
     "id" : "939",
@@ -60,18 +70,20 @@
         "slug" : "Customer_Orders",
         "x" : 400,
         "y" : 277,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ ],
         "outputs" : [ {
           "id" : "64023",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "datasetId" : "datasets/customers_orders"
@@ -85,21 +97,24 @@
         "slug" : "By_Total_Amount",
         "x" : 618,
         "y" : 277,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "6489",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ {
           "id" : "8295",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "columnsSelector" : [ "6489##amounts" ],
@@ -119,19 +134,21 @@
         "label" : "Report",
         "slug" : "Report",
         "x" : 1040,
-        "y" : 275,
-        "language" : "python",
+        "y" : 280,
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "73978",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "datasetId" : "datasets/report"
@@ -143,23 +160,26 @@
       "metadata" : {
         "label" : "Top 10",
         "slug" : "Top_10",
-        "x" : 830,
-        "y" : 276,
-        "language" : "python",
+        "x" : 840,
+        "y" : 280,
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "94929",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ {
           "id" : "21008",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "limit" : "10"
@@ -169,6 +189,7 @@
   "ports" : {
     "inputs" : [ ],
     "outputs" : [ ],
-    "selectedInputFields" : [ ]
+    "selectedInputFields" : [ ],
+    "isCustomOutputSchema" : false
   }
 }

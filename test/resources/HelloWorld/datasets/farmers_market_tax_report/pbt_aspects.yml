@@ -1,0 +1,32 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: has_fm_high_income_percent
+    type: double
+    nullable: true
+    metadata: {}
+  - name: no_fm_high_income_percent
+    type: double
+    nullable: true
+    metadata: {}
+  - name: has_fm_high_income
+    type: long
+    nullable: true
+    metadata: {}
+  - name: has_fm_low_income
+    type: long
+    nullable: true
+    metadata: {}
+  - name: no_fm_high_income
+    type: long
+    nullable: true
+    metadata: {}
+  - name: no_fm_low_income
+    type: long
+    nullable: true
+    metadata: {}
+  - name: num_zipcodes
+    type: long
+    nullable: false
+    metadata: {}

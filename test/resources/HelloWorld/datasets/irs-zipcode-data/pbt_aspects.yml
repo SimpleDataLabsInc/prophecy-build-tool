@@ -1,0 +1,460 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: STATEFIPS
+    type: string
+    nullable: true
+    metadata: {}
+  - name: STATE
+    type: string
+    nullable: true
+    metadata: {}
+  - name: zipcode
+    type: string
+    nullable: true
+    metadata: {}
+  - name: agi_stub
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N1
+    type: string
+    nullable: true
+    metadata: {}
+  - name: MARS1
+    type: string
+    nullable: true
+    metadata: {}
+  - name: MARS2
+    type: string
+    nullable: true
+    metadata: {}
+  - name: MARS4
+    type: string
+    nullable: true
+    metadata: {}
+  - name: PREP
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N2
+    type: string
+    nullable: true
+    metadata: {}
+  - name: NUMDEP
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00100
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N02650
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A02650
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N00200
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00200
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N00300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N00600
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00600
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N00650
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00650
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N00700
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00700
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N00900
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00900
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N01000
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A01000
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N01400
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A01400
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N01700
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A01700
+    type: string
+    nullable: true
+    metadata: {}
+  - name: SCHF
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N02300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A02300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N02500
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A02500
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N26270
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A26270
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N02900
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A02900
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03220
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03220
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03270
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03270
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03150
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03150
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03210
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03210
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03230
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03230
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N03240
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A03240
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N04470
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A04470
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A00101
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N18425
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A18425
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N18450
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A18450
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N18500
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A18500
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N18300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A18300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N19300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A19300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N19700
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A19700
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N04800
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A04800
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N05800
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A05800
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N09600
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A09600
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07100
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07100
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07180
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07180
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07230
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07230
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07240
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07240
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07220
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07220
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N07260
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A07260
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N09400
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A09400
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N10600
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A10600
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N59660
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A59660
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N59720
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A59720
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N11070
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A11070
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N10960
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A10960
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N06500
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A06500
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N10300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A10300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N85330
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A85330
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N85300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A85300
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N11901
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A11901
+    type: string
+    nullable: true
+    metadata: {}
+  - name: N11902
+    type: string
+    nullable: true
+    metadata: {}
+  - name: A11902
+    type: string
+    nullable: true
+    metadata: {}

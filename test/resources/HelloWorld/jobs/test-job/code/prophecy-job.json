@@ -1,0 +1,233 @@
+{
+  "metainfo" : {
+    "type" : "Databricks",
+    "fabricId" : "647",
+    "jobId" : "jobs/test-job",
+    "name" : "test-job1234",
+    "schedule" : "0 0 0 1/1 * ? *",
+    "scheduleTimeZone" : "UTC",
+    "jobClusterMode" : {
+      "clusterMode" : "Single"
+    },
+    "enabled" : false,
+    "defaultClusterSize" : "Small",
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "type" : "Inherited",
+      "retries" : 0,
+      "alerting" : {
+        "emails" : "",
+        "onStart" : false,
+        "onSuccess" : false,
+        "onFailure" : false
+      }
+    },
+    "availableFabrics" : [ {
+      "id" : "1744",
+      "name" : "default-rj-dev",
+      "clusterSizes" : {
+        "default" : "small",
+        "availableClusterSizes" : [ "small", "large", "medium" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    }, {
+      "id" : "1527",
+      "name" : "ashish-fabric",
+      "clusterSizes" : {
+        "default" : "small",
+        "availableClusterSizes" : [ "small" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    }, {
+      "id" : "647",
+      "name" : "dev",
+      "clusterSizes" : {
+        "default" : "Small",
+        "availableClusterSizes" : [ "Small" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    }, {
+      "id" : "1174",
+      "name" : "demos",
+      "clusterSizes" : {
+        "default" : "small",
+        "availableClusterSizes" : [ "small" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    }, {
+      "id" : "1941",
+      "name" : "jpmc-training",
+      "clusterSizes" : {
+        "default" : "Small",
+        "availableClusterSizes" : [ "Small" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    } ]
+  },
+  "processes" : {
+    "ArSdb2hDVoocxsmXZfryE$$xnwdY_E4kY96e_y6Hpvoa" : {
+      "id" : "ArSdb2hDVoocxsmXZfryE$$xnwdY_E4kY96e_y6Hpvoa",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "customers_orders",
+        "slug" : "customers_orders",
+        "x" : 380,
+        "y" : 280
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "Blob8WwYrkFC6XhXRb334$$z4RRd5HbUhH0emKt6t7bS",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "BrdbTuWJto3WjcfvFbr4K$$b_DfZkwJfNaIH57t72ZhX",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/customers_orders",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloWorld" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        }
+      }
+    },
+    "xYsdye3HqdT7SAHHdspha$$qHM1mODad1KrZaOcZh4Rs" : {
+      "id" : "xYsdye3HqdT7SAHHdspha$$qHM1mODad1KrZaOcZh4Rs",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "join_agg_sort",
+        "slug" : "join_agg_sort",
+        "x" : 800,
+        "y" : 260
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "7yHD8a9dIBo79UzWFMKOB$$ZJzBdnd8vs6PIvt_zDNrl",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "5OTHOvb8YLHhK47dkG-WD$$fvwQoIpBbF15ptlTzFNm8",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/join_agg_sort",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloWorld" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        }
+      }
+    },
+    "2Qt-UDIlet516Il0Mc-XE$$UeC-a5UGnYsyD-8WaBWFU" : {
+      "id" : "2Qt-UDIlet516Il0Mc-XE$$UeC-a5UGnYsyD-8WaBWFU",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "report_top_customers",
+        "slug" : "report_top_customers",
+        "x" : 840,
+        "y" : 480
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "psYRC0T_PuXGK9QNzGoKN$$ANytBXanwJ1gN66l4n4bW",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "xU9iv6-R02c7_xDFbeQOD$$Gx5_svwfLczFBiW8LdC6m",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/report_top_customers",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloWorld" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        }
+      }
+    }
+  },
+  "connections" : [ {
+    "id" : "l3LqmCOKZCpJC1raonpnx",
+    "source" : "ArSdb2hDVoocxsmXZfryE$$xnwdY_E4kY96e_y6Hpvoa",
+    "target" : "xYsdye3HqdT7SAHHdspha$$qHM1mODad1KrZaOcZh4Rs",
+    "sourcePort" : "BrdbTuWJto3WjcfvFbr4K$$b_DfZkwJfNaIH57t72ZhX",
+    "targetPort" : "7yHD8a9dIBo79UzWFMKOB$$ZJzBdnd8vs6PIvt_zDNrl"
+  }, {
+    "id" : "fY3Q5-KUfrA3nffsXfTDT",
+    "source" : "ArSdb2hDVoocxsmXZfryE$$xnwdY_E4kY96e_y6Hpvoa",
+    "target" : "2Qt-UDIlet516Il0Mc-XE$$UeC-a5UGnYsyD-8WaBWFU",
+    "sourcePort" : "BrdbTuWJto3WjcfvFbr4K$$b_DfZkwJfNaIH57t72ZhX",
+    "targetPort" : "psYRC0T_PuXGK9QNzGoKN$$ANytBXanwJ1gN66l4n4bW"
+  } ]
+}
