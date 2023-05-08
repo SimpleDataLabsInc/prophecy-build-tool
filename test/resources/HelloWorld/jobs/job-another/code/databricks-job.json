@@ -1,5 +1,5 @@
 {
-  "fabric_id" : "647",
+  "fabric_id" : "648",
   "components" : [ {
     "PipelineComponent" : {
       "id" : "pipelines/farmers-markets-irs",
