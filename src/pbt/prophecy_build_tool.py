@@ -19,6 +19,13 @@ from rich import print
 from .process import Process
 
 
+# find pipelines which are dependencies for a job
+def generate_pipeline_deps(job_id):
+    print("ashish: finding pipeline for job_id")
+    pipelines_to_build = {}
+    return pipelines_to_build
+
+
 class ProphecyBuildTool:
     def __init__(
         self,
@@ -200,8 +207,26 @@ class ProphecyBuildTool:
         else:
             return overall_build_status, self.pipelines_build_path
 
-    def deploy(self, fabric_ids: str = "", skip_builds: bool = False):
+    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_id=None):
+
+        # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
+        # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
+        if job_id and fabric_ids:
+            print(f"[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_id")
+            raise Exception()
+
+        if job_id and skip_builds:
+            print(f"[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease pass either --skip-builds or --job_id filter")
+            raise Exception()
+
         fabric_ids = list(i.strip() for i in fabric_ids.split(r",")) if fabric_ids else list()
+
+        if not fabric_ids and not job_id:
+            print("Deploying jobs for all Fabrics")
+        elif job_id: # job_id filter is provided
+            print(f"Filtering pipelines for job_id: {job_id}")
+        else:
+            print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         self._verify_databricks_configs()
         config = EnvironmentVariableConfigProvider().get_config()
@@ -211,8 +236,12 @@ class ProphecyBuildTool:
         self.dbfs_service = DbfsService(self.api_client)
         self.jobs_service = JobsService(self.api_client)
 
-        if not skip_builds:
+        if not skip_builds and not job_id: # build all pipelines
             self.build(dict())
+        elif job_id:
+            pipelines_to_build = generate_pipeline_deps(job_id)
+            self.build(pipelines_to_build)
+        # pass pipelines to be build using jobid
         else:
             print("[SKIP]: Skipping builds for all pipelines as '--skip-builds' flag is passed.")
 
@@ -221,10 +250,6 @@ class ProphecyBuildTool:
         pipelines_upload_failures = collections.defaultdict(list)
         job_update_failures = dict()
 
-        if not fabric_ids:
-            print("Deploying jobs for all Fabrics")
-        else:
-            print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         for job_idx, (path_job, job) in enumerate(self.jobs.items()):
             pipelines_upload_failures_job = collections.defaultdict(list)
