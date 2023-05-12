@@ -11,8 +11,10 @@ def test_deploy_path_default():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH])
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying 2 jobs" in result.output
     assert "Deploying jobs for all Fabrics" in result.output
     assert "[START]:  Deploying job jobs/test-job" in result.output
@@ -30,8 +32,10 @@ def test_deploy_path_fabric_id_filter():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--fabric-ids", "647"])
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying jobs only for given Fabric IDs: ['647']" in result.output
     assert "[START]:  Deploying job jobs/test-job" in result.output
     assert "[DEPLOY]: Job being deployed for fabric id: 647" in result.output
@@ -43,8 +47,10 @@ def test_deploy_path_pipeline_invalid_fabric_id():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--fabric-ids", "999"])
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying jobs only for given Fabric IDs: ['999']" in result.output
     assert "[START]:  Deploying job jobs/test-job" in result.output
     assert "[SKIP]: Job skipped as it belongs to fabric id (not passed): 647" in result.output
@@ -63,8 +69,10 @@ def test_deploy_with_job_id_filter_and_skip_builds():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--job-ids", "test-job", "--skip-builds"])
     assert result.exit_code == 1
-    assert "[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease pass " \
-           "either --skip-builds or --job_id filter" in result.output
+    assert (
+        "[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease pass "
+        "either --skip-builds or --job_id filter" in result.output
+    )
 
 
 def test_deploy_path_pipeline_with_job_id_filter():
@@ -72,8 +80,10 @@ def test_deploy_path_pipeline_with_job_id_filter():
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--job-ids", "test-job"])
 
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying jobs only for given Job IDs: ['test-job']" in result.output
     assert "[INFO]: Total Unique pipelines dependencies found: 3" in result.output
     assert "[INFO]: Building given custom pipelines" in result.output
@@ -92,8 +102,10 @@ def test_deploy_path_pipeline_with_multiple_job_id_filter():
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--job-ids", "test-job,job-another"])
 
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying jobs only for given Job IDs: ['test-job', 'job-another']" in result.output
     assert "[INFO]: Total Unique pipelines dependencies found: 4" in result.output
     assert "[INFO]: Building given custom pipelines" in result.output
@@ -112,8 +124,10 @@ def test_deploy_path_pipeline_with_one_invalid_job_id_filter():
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--job-ids", "invalid1,test-job"])
 
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying jobs only for given Job IDs: ['invalid1', 'test-job']" in result.output
     assert "[INFO]: Total Unique pipelines dependencies found: 3" in result.output
     assert "[INFO]: Building given custom pipelines" in result.output
@@ -131,8 +145,12 @@ def test_deploy_path_pipeline_with_all_invalid_job_ids_filter():
 
     assert result.exit_code == 1
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
-           "farmers-markets-irs (python)" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+        "farmers-markets-irs (python)" in result.output
+    )
     assert "Deploying jobs only for given Job IDs: ['invalid1', 'invalid2']" in result.output
-    assert "[ERROR]: No Job IDs matches with passed --job_id filter ['invalid1', 'invalid2']\nAvailable Job IDs are: " \
-           "dict_keys(['jobs/test-job', 'jobs/job-another']" in result.output
+    assert (
+        "[ERROR]: No Job IDs matches with passed --job_id filter ['invalid1', 'invalid2']\nAvailable Job IDs are: "
+        "dict_keys(['jobs/test-job', 'jobs/job-another']" in result.output
+    )
