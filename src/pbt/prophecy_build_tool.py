@@ -80,7 +80,7 @@ class ProphecyBuildTool:
 
     # find all the pipelines which are needed to be build for the jobs
     def generate_pipeline_deps(self):
-        pipeline_deps = []
+        all_jobs_deps = []
         for job_idx, (path_job, job) in enumerate(self.jobs.items()):
             prophecy_job_definition = self.get_prophecy_job_json_path(path_job)
             with open(prophecy_job_definition, "r") as _in:
@@ -88,12 +88,12 @@ class ProphecyBuildTool:
 
             pipeline_deps = [x['properties']['pipelineId'] for x in job_definition["processes"].values() if
                              x['component'] == 'Pipeline']
-            pipeline_deps.extend(pipeline_deps)
+            all_jobs_deps.extend(pipeline_deps)
 
-        unique_deps = set(pipeline_deps)
-        print(f"\n[bold blue][INFO]: Total Unique pipelines deps found: {len(unique_deps)}\n {unique_deps}[/bold blue]")
+        unique_deps = set(all_jobs_deps)
+        print(f"\n[bold blue][INFO]: Total Unique pipelines dependencies found: {len(unique_deps)}\n {unique_deps}[/bold blue]")
         pipelines_to_build = {k: v for k, v in self.pipelines.items() if k in unique_deps}
-        print(f"\n[INFO]: Total Filtered pipelines to build: {len(pipelines_to_build)}\n {pipelines_to_build}")
+        print(f"\n[INFO]: Total Filtered pipelines to build: {len(pipelines_to_build)}")
         return pipelines_to_build
 
     def get_python_commands(self, cwd):
@@ -171,7 +171,7 @@ class ProphecyBuildTool:
                 print("\n[bold yellow]No matching pipelines found for given pipelines names: %s" % (pipeline_filter))
                 raise Exception()
         else: # pipelines are provided
-            print(f"\n[bold blue]Building filtered pipelines: {len(pipelines)}")
+            print(f"\n[INFO]: Building given custom pipelines: {pipelines}")
 
         print("\n[bold blue]Building %s pipelines [/bold blue]" % len(pipelines))
         overall_build_status = True
@@ -232,25 +232,26 @@ class ProphecyBuildTool:
         else:
             return overall_build_status, self.pipelines_build_path
 
-    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_id=None):
+    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
 
         # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
         # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
-        if job_id and fabric_ids:
-            print(f"[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_id")
+        if job_ids and fabric_ids:
+            print(f"[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_ids")
             raise Exception()
 
-        if job_id and skip_builds:
+        if job_ids and skip_builds:
             print(f"[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease "
                   f"pass either --skip-builds or --job_id filter")
             raise Exception()
 
         fabric_ids = list(i.strip() for i in fabric_ids.split(r",")) if fabric_ids else list()
+        job_ids = list(i.strip() for i in job_ids.split(r",")) if job_ids else list()
 
-        if not fabric_ids and not job_id:
+        if not fabric_ids and not job_ids:
             print("Deploying jobs for all Fabrics")
-        elif job_id:  # job_id filter is provided
-            print(f"Filtering pipelines for job_id: {job_id}")
+        elif job_ids:  # job_id filter is provided
+            print(f"Deploying jobs only for given Job IDs: {str(job_ids)}")
         else:
             print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
@@ -262,10 +263,17 @@ class ProphecyBuildTool:
         self.dbfs_service = DbfsService(self.api_client)
         self.jobs_service = JobsService(self.api_client)
 
-        if not skip_builds and not job_id:  # build all pipelines
+        if not skip_builds and not job_ids:  # build all pipelines
             self.build(dict())
-        elif job_id:  # TODO: can we enable multliple job_ids using ','
-            self.jobs = {k: v for k, v in self.jobs.items() if k.split("/")[1] == job_id}
+        elif job_ids:
+            filtered_jobs = {k: v for k, v in self.jobs.items() if k.split("/")[1] in job_ids}
+            if len(filtered_jobs) == 0:
+                print(f"[ERROR]: No Job IDs matches with passed --job_id filter {str(job_ids)}\nAvailable Job IDs are: {self.jobs.keys()}")
+                raise Exception()
+            else:
+                self.jobs = filtered_jobs
+                self.jobs_count = len(self.jobs)
+            print("[INFO]: Generating depending pipelines for all jobs as '--job-ids' flag is passed.")
             pipelines_to_build = self.generate_pipeline_deps()
             self.build(pipelines_to_build)
         else:
