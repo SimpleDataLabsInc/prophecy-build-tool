@@ -39,7 +39,6 @@ def test_build_path_pipeline_with_invalid_filter():
             "customers_orders,INVALID_PIPELINE_NAME",
         ],
     )
-    print(result.output)
     assert result.exit_code == 0
     assert "Found 4 pipelines" in result.output
     assert "Building 1 pipelines" in result.output

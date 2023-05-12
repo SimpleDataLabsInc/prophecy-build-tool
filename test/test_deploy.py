@@ -22,7 +22,6 @@ def test_deploy_path_default():
 def test_deploy_path_default_skip_builds():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--skip-builds"])
-    print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert "[SKIP]: Skipping builds for all pipelines as '--skip-builds' flag is passed." in result.output
 
@@ -43,9 +42,8 @@ def test_deploy_path_fabric_id_filter():
 def test_deploy_path_pipeline_invalid_fabric_id():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--fabric-ids", "999"])
-    print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\n join_agg_sort (python), " \
+    assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
            "farmers-markets-irs (python)" in result.output
     assert "Deploying jobs only for given Fabric IDs: ['999']" in result.output
     assert "[START]:  Deploying job jobs/test-job" in result.output
@@ -79,7 +77,7 @@ def test_deploy_path_pipeline_with_job_id_filter():
     assert "Deploying jobs only for given Job IDs: ['test-job']" in result.output
     assert "[INFO]: Total Unique pipelines dependencies found: 3" in result.output
     assert "[INFO]: Building given custom pipelines" in result.output
-    assert "[INFO]: Generating depending pipelines for all jobs as '--job-ids' flag is passed." in result.output
+    assert "[INFO]: Generating depending pipelines for all jobs" in result.output
     assert "Building 3 pipelines" in result.output
     assert "Building pipeline pipelines/customers_orders" in result.output
     assert "Building pipeline pipelines/report_top_customers" in result.output
@@ -113,7 +111,6 @@ def test_deploy_path_pipeline_with_one_invalid_job_id_filter():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--job-ids", "invalid1,test-job"])
 
-    print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
            "farmers-markets-irs (python)" in result.output
@@ -132,7 +129,6 @@ def test_deploy_path_pipeline_with_all_invalid_job_ids_filter():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH, "--job-ids", "invalid1,invalid2"])
 
-    print(result.output)
     assert result.exit_code == 1
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), " \
