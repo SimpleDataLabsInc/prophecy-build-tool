@@ -67,6 +67,11 @@ def validate(path):
     help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
     default="",
 )
+@click.option(
+    "--job-id",
+    help="Job ID which can be used to filter jobs for deployment",
+    default="",
+)
 @click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
 def deploy(
     path,
@@ -75,10 +80,11 @@ def deploy(
     project_id,
     prophecy_url,
     fabric_ids,
+    job_id,
     skip_builds,
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
-    pbt.deploy(fabric_ids, skip_builds)
+    pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_id=job_id)
 
 
 @cli.command()
