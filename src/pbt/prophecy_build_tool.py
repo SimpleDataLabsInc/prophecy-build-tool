@@ -66,6 +66,37 @@ class ProphecyBuildTool:
             prophecy_url if prophecy_url else os.getenv("PROPHECY_URL_PLACEHOLDER", "__PROPHECY_URL_PLACEHOLDER__")
         )
 
+    def get_databricks_job_json_path(self, path_job):
+        path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), "code")
+        return os.path.join(path_job_absolute, "databricks-job.json")
+
+    def get_prophecy_job_json_path(self, path_job):
+        path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), "code")
+        return os.path.join(path_job_absolute, "prophecy-job.json")
+
+    # find all the pipelines which are needed to be build for the jobs
+    def generate_pipeline_deps(self):
+        all_jobs_deps = []
+        for job_idx, (path_job, job) in enumerate(self.jobs.items()):
+            prophecy_job_definition = self.get_prophecy_job_json_path(path_job)
+            with open(prophecy_job_definition, "r") as _in:
+                job_definition = json.load(_in)
+
+            pipeline_deps = [
+                x["properties"]["pipelineId"]
+                for x in job_definition["processes"].values()
+                if x["component"] == "Pipeline"
+            ]
+            all_jobs_deps.extend(pipeline_deps)
+
+        unique_deps = set(all_jobs_deps)
+        print(
+            f"\n[bold blue][INFO]: Total Unique pipelines dependencies found: {len(unique_deps)}\n {unique_deps}[/bold blue]"
+        )
+        pipelines_to_build = {k: v for k, v in self.pipelines.items() if k in unique_deps}
+        print(f"\n[INFO]: Total Filtered pipelines to build: {len(pipelines_to_build)}")
+        return pipelines_to_build
+
     def get_python_commands(self, cwd):
         if (
             Process.process_sequential(
@@ -133,13 +164,15 @@ class ProphecyBuildTool:
     def build(self, pipelines, exit_on_build_failure=True):
         if not pipelines:  # if pipelines not provided run for all pipelines
             pipelines = self.pipelines
-        else:  # else filter pipelines
+        elif isinstance(pipelines, str):  # elif filter pipelines provided as string
             pipeline_filter = [x.strip() for x in pipelines.split(",")]
             print("\n[bold blue]Filtering pipelines: %s [/bold blue]" % str(pipeline_filter))
             pipelines = {k: v for k, v in self.pipelines.items() if k.split("/")[1] in pipeline_filter}
             if not pipelines:  # empty no matching pipeline found
                 print("\n[bold yellow]No matching pipelines found for given pipelines names: %s" % (pipeline_filter))
                 raise Exception()
+        else:  # pipelines are provided
+            print(f"\n[INFO]: Building given custom pipelines: {pipelines}")
 
         print("\n[bold blue]Building %s pipelines [/bold blue]" % len(pipelines))
         overall_build_status = True
@@ -200,8 +233,29 @@ class ProphecyBuildTool:
         else:
             return overall_build_status, self.pipelines_build_path
 
-    def deploy(self, fabric_ids: str = "", skip_builds: bool = False):
+    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
+        # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
+        # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
+        if job_ids and fabric_ids:
+            print(f"[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_ids")
+            raise Exception()
+
+        if job_ids and skip_builds:
+            print(
+                f"[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease "
+                f"pass either --skip-builds or --job_id filter"
+            )
+            raise Exception()
+
         fabric_ids = list(i.strip() for i in fabric_ids.split(r",")) if fabric_ids else list()
+        job_ids = list(i.strip() for i in job_ids.split(r",")) if job_ids else list()
+
+        if not fabric_ids and not job_ids:
+            print("Deploying jobs for all Fabrics")
+        elif job_ids:  # job_id filter is provided
+            print(f"Deploying jobs only for given Job IDs: {str(job_ids)}")
+        else:
+            print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         self._verify_databricks_configs()
         config = EnvironmentVariableConfigProvider().get_config()
@@ -211,8 +265,21 @@ class ProphecyBuildTool:
         self.dbfs_service = DbfsService(self.api_client)
         self.jobs_service = JobsService(self.api_client)
 
-        if not skip_builds:
+        if not skip_builds and not job_ids:  # build all pipelines
             self.build(dict())
+        elif job_ids:
+            filtered_jobs = {k: v for k, v in self.jobs.items() if k.split("/")[1] in job_ids}
+            if len(filtered_jobs) == 0:
+                print(
+                    f"[ERROR]: No Job IDs matches with passed --job_id filter {str(job_ids)}\nAvailable Job IDs are: {self.jobs.keys()}"
+                )
+                raise Exception()
+            else:
+                self.jobs = filtered_jobs
+                self.jobs_count = len(self.jobs)
+            print("[INFO]: Generating depending pipelines for all jobs as '--job-ids' flag is passed.")
+            pipelines_to_build = self.generate_pipeline_deps()
+            self.build(pipelines_to_build)
         else:
             print("[SKIP]: Skipping builds for all pipelines as '--skip-builds' flag is passed.")
 
@@ -221,17 +288,11 @@ class ProphecyBuildTool:
         pipelines_upload_failures = collections.defaultdict(list)
         job_update_failures = dict()
 
-        if not fabric_ids:
-            print("Deploying jobs for all Fabrics")
-        else:
-            print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
-
         for job_idx, (path_job, job) in enumerate(self.jobs.items()):
             pipelines_upload_failures_job = collections.defaultdict(list)
             print("\n[START]:  Deploying job %s [%s/%s]" % (path_job, job_idx + 1, self.jobs_count))
 
-            path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), "code")
-            path_job_definition = os.path.join(path_job_absolute, "databricks-job.json")
+            path_job_definition = self.get_databricks_job_json_path(path_job)
 
             with open(path_job_definition, "r") as _in:
                 data = _in.read()

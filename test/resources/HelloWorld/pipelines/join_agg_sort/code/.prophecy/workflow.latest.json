@@ -2,10 +2,9 @@
   "metainfo" : {
     "id" : "1",
     "language" : "python",
-    "fabricId" : "1025",
+    "fabricId" : "647",
     "frontEndLanguage" : "sql",
     "mode" : "batch",
-    "interimMode" : "Full",
     "udfs" : {
       "language" : "python",
       "udfs" : [ ]
@@ -19,18 +18,29 @@
         "type" : "record",
         "fields" : [ ]
       },
-      "fabrics" : {
-        "dev" : {
-          "type" : "record",
-          "fields" : [ ]
-        }
-      }
+      "oldCommon" : {
+        "type" : "record",
+        "fields" : [ ]
+      },
+      "fabrics" : { },
+      "instances" : { },
+      "selected" : "default",
+      "nonEditable" : [ ],
+      "isSubscribedPipelineWithPipelineConfigs" : false
     },
     "sparkConf" : [ ],
     "hadoopConf" : [ ],
     "codeMode" : "sparse",
     "buildSystem" : "maven",
-    "externalDependencies" : [ ]
+    "externalDependencies" : [ ],
+    "isImported" : false,
+    "interimMode" : "Full",
+    "interimModeEnabled" : true,
+    "visualCodeInterimMode" : "Disabled",
+    "recordsLimit" : {
+      "enabled" : false,
+      "value" : 1000
+    }
   },
   "connections" : [ {
     "id" : "370",
@@ -78,21 +88,24 @@
         "slug" : "TotalByCustomer",
         "x" : 862,
         "y" : 340,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "89787",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ {
           "id" : "42284",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "doPivot" : false,
@@ -143,18 +156,20 @@
         "slug" : "Orders",
         "x" : 364,
         "y" : 450,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ ],
         "outputs" : [ {
           "id" : "59024",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "datasetId" : "datasets/orders"
@@ -168,18 +183,20 @@
         "slug" : "Customers",
         "x" : 366,
         "y" : 221,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ ],
         "outputs" : [ {
           "id" : "66665",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "datasetId" : "datasets/customers"
@@ -193,21 +210,24 @@
         "slug" : "Cleanup",
         "x" : 1069,
         "y" : 341,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "30337",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ {
           "id" : "77921",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "columnsSelector" : [ "30337##first_name", "30337##last_name", "30337##amounts", "30337##customer_id" ],
@@ -243,24 +263,28 @@
         "slug" : "PerCustomer",
         "x" : 645,
         "y" : 340,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "27588",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         }, {
           "id" : "21857",
-          "slug" : "in1"
+          "slug" : "in1",
+          "isStreaming" : false
         } ],
         "outputs" : [ {
           "id" : "70086",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "conditions" : [ {
@@ -318,18 +342,20 @@
         "slug" : "WriteReport",
         "x" : 1502,
         "y" : 341,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "59249",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "datasetId" : "datasets/customer_totals"
@@ -343,21 +369,24 @@
         "slug" : "SortBiggestOrders",
         "x" : 1288,
         "y" : 341,
-        "language" : "python",
         "phase" : 0,
         "cache" : false,
-        "detailedStats" : false
+        "detailedStats" : false,
+        "isImported" : false
       },
       "ports" : {
         "inputs" : [ {
           "id" : "34799",
-          "slug" : "in0"
+          "slug" : "in0",
+          "isStreaming" : false
         } ],
         "outputs" : [ {
           "id" : "93463",
-          "slug" : "out"
+          "slug" : "out",
+          "isStreaming" : false
         } ],
-        "selectedInputFields" : [ ]
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false
       },
       "properties" : {
         "columnsSelector" : [ "34799##amount" ],
@@ -374,6 +403,7 @@
   "ports" : {
     "inputs" : [ ],
     "outputs" : [ ],
-    "selectedInputFields" : [ ]
+    "selectedInputFields" : [ ],
+    "isCustomOutputSchema" : false
   }
 }

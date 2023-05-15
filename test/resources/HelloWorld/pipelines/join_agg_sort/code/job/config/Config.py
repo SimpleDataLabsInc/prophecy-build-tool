@@ -1,8 +1,11 @@
+from prophecy.config import ConfigBase
 
-class Config:
 
-    def __init__(self, fabricName: str=None):
-        self.update(fabricName)
+class Config(ConfigBase):
 
-    def update(self, fabricName: str):
-        self.fabricName = fabricName
+    def __init__(self, ):
+        self.spark = None
+        self.update()
+
+    def update(self, ):
+        pass
