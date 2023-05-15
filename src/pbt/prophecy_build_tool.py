@@ -460,7 +460,7 @@ class ProphecyBuildTool:
                 print("   Create/Update failed for jobs: %s" % (" ,".join(job_update_failures.keys())))
             sys.exit(1)
 
-    def test(self):
+    def test(self, build_jars: str = ""):
         if self._verify_unit_test_env():
             unit_test_results = {}
 
@@ -470,7 +470,10 @@ class ProphecyBuildTool:
                 path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), "code")
                 if self.project_language == "python":
                     if os.path.isfile(os.path.join(path_pipeline_absolute, f"test{os.sep}TestSuite.py")):
+                        # unique_key_for_jars = \
+                        self._setJarsNeededForUT(build_jars)
                         unit_test_results[path_pipeline] = self.test_python(path_pipeline_absolute, path_pipeline)
+                        self.removeJarsKeyFromEnv()
                 elif self.project_language == "scala":
                     unit_test_results[path_pipeline] = self.test_scala(path_pipeline_absolute)
             is_any_ut_failed = False
@@ -729,3 +732,22 @@ class ProphecyBuildTool:
     def _error(cls, message: str):
         print("[bold red]ERROR[/bold red]:", message)
         sys.exit(1)
+
+    def _setJarsNeededForUT(self, build_jars):
+        fallBackSparkPackages = [
+            "com.typesafe.play:play-functional_2.12:2.6.13",
+            "com.typesafe.play:play-json_2.12:2.6.13",
+            "com.typesafe.akka:akka-http-core_2.12:10.1.6",
+            "joda-time:joda-time:2.12.5",
+            "com.crealytics:spark-excel_2.12:3.2.2_0.18.0",
+            # "net.sf.py4j:py4j:0.10.9.2"
+            "io.prophecy:prophecy-libs_2.12:6.3.0-3.1.2"
+        ]
+        import random
+        uniqueKey = random.random()
+        jars_unique_key: str = f"driver_library_path_{uniqueKey}"
+        os.environ["JARS_GIVEN_BY_USER"] = build_jars if build_jars and (build_jars != "") else ",".join(fallBackSparkPackages)
+        # return jars_unique_key
+
+    def removeJarsKeyFromEnv(self):
+        del os.environ["JARS_GIVEN_BY_USER"]
