@@ -19,9 +19,6 @@ from rich import print
 from .process import Process
 
 
-# find pipelines which are dependencies for a job
-
-
 class ProphecyBuildTool:
     def __init__(
         self,
@@ -71,13 +68,11 @@ class ProphecyBuildTool:
 
     def get_databricks_job_json_path(self, path_job):
         path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), "code")
-        path_job_definition = os.path.join(path_job_absolute, "databricks-job.json")
-        return path_job_definition
+        return os.path.join(path_job_absolute, "databricks-job.json")
 
     def get_prophecy_job_json_path(self, path_job):
         path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), "code")
-        path_job_definition = os.path.join(path_job_absolute, "prophecy-job.json")
-        return path_job_definition
+        return os.path.join(path_job_absolute, "prophecy-job.json")
 
     # find all the pipelines which are needed to be build for the jobs
     def generate_pipeline_deps(self):
