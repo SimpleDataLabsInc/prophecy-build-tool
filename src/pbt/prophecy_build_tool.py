@@ -734,20 +734,11 @@ class ProphecyBuildTool:
         sys.exit(1)
 
     def _setJarsNeededForUT(self, build_jars):
-        fallBackSparkPackages = [
-            "com.typesafe.play:play-functional_2.12:2.6.13",
-            "com.typesafe.play:play-json_2.12:2.6.13",
-            "com.typesafe.akka:akka-http-core_2.12:10.1.6",
-            "joda-time:joda-time:2.12.5",
-            "com.crealytics:spark-excel_2.12:3.2.2_0.18.0",
-            # "net.sf.py4j:py4j:0.10.9.2"
-            "io.prophecy:prophecy-libs_2.12:6.3.0-3.1.2"
-        ]
         import random
         uniqueKey = random.random()
         jars_unique_key: str = f"driver_library_path_{uniqueKey}"
-        os.environ["JARS_GIVEN_BY_USER"] = build_jars if build_jars else ""
+        os.environ["SPARK_JARS_CONFIG"] = build_jars if build_jars else ""
         # return jars_unique_key
 
     def removeJarsKeyFromEnv(self):
-        del os.environ["JARS_GIVEN_BY_USER"]
+        del os.environ["SPARK_JARS_CONFIG"]
