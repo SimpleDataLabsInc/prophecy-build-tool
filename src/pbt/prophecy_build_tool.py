@@ -746,7 +746,7 @@ class ProphecyBuildTool:
         import random
         uniqueKey = random.random()
         jars_unique_key: str = f"driver_library_path_{uniqueKey}"
-        os.environ["JARS_GIVEN_BY_USER"] = build_jars if build_jars and (build_jars != "") else ",".join(fallBackSparkPackages)
+        os.environ["JARS_GIVEN_BY_USER"] = build_jars if build_jars else ""
         # return jars_unique_key
 
     def removeJarsKeyFromEnv(self):
