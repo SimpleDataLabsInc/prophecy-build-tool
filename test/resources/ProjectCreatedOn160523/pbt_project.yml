@@ -1,0 +1,138 @@
+name: Automated-scala-true-PBT-External
+description: ''
+version: 0.0.1-SNAPSHOT
+author: abhisheks+e2etests@prophecy.io
+language: scala
+buildSystem: ''
+buildSystemDetails:
+  artefactID: automatedscalatruepbtexternal
+  parentArtefactID: abhishekse2etestsprophecy.io_team
+  buildSystem: maven
+  author: null
+  createdAt: '2023-05-16 13:57:42'
+  modifiedAt: '2023-05-16 13:57:42'
+pipelines:
+  pipelines/AutomatedPBT-truescala:
+    name: AutomatedPBT-truescala
+    description: automation workflow
+    author: abhisheks+e2etests@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: scala
+    createdAt: '2023-05-16 13:58:31'
+    modifiedAt: '2023-05-16 14:02:40'
+    datasets:
+      inputs:
+      - datasets/s3_source_dataset
+      outputs: []
+    subgraphs: []
+    dependencies: {}
+  pipelines/AutomatedPBTNo-truescala:
+    name: AutomatedPBTNo-truescala
+    description: automation workflow
+    author: abhisheks+e2etests@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: scala
+    createdAt: '2023-05-16 14:02:47'
+    modifiedAt: '2023-05-16 14:02:58'
+    datasets:
+      inputs:
+      - datasets/s3_source_dataset
+      outputs: []
+    subgraphs: []
+    dependencies: {}
+datasets:
+  datasets/s3_source_dataset:
+    name: s3_source_dataset
+    description: ''
+    author: abhisheks+e2etests@prophecy.io
+    createdAt: '2023-05-16 14:00:00'
+    modifiedAt: '2023-05-16 14:00:00'
+    mode: batch
+    physicalDatasets:
+      captain_livy:
+        fabricId: 1654
+        datasetType: File
+        description: ''
+        author: abhisheks+e2etests@prophecy.io
+        createdAt: '2023-05-16 14:00:00'
+        modifiedAt: '2023-05-16 14:00:00'
+templates: {}
+jobs:
+  jobs/AutomatedPBT-truescala:
+    name: AutomatedPBT-truescala
+    description: ''
+    fabricUID: 2730
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: small
+    scheduleCron: 0 0 0 1/1 * ? 2090
+    timeout: null
+    alerting:
+      emails: abhisheks+e2etests@prophecy.io
+      onStart: true
+      onSuccess: false
+      onFailure: true
+    pipelines:
+    - pipelines/AutomatedPBT-truescala
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: true
+    createdAt: '2023-05-16 14:01:29'
+    modifiedAt: '2023-05-16 14:01:59'
+    author: abhisheks+e2etests@prophecy.io
+  jobs/AutomatedPBTNo-truescala:
+    name: AutomatedPBTNo-truescala
+    description: ''
+    fabricUID: 2730
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: small
+    scheduleCron: 0 0 0 1/1 * ? 2090
+    timeout: null
+    alerting:
+      emails: abhisheks+e2etests@prophecy.io
+      onStart: true
+      onSuccess: false
+      onFailure: true
+    pipelines:
+    - pipelines/AutomatedPBTNo-truescala
+    jobClusterMode:
+      clusterMode:
+        Multi: {}
+      clusterId: null
+    enabled: true
+    createdAt: '2023-05-16 14:03:08'
+    modifiedAt: '2023-05-16 14:03:35'
+    author: abhisheks+e2etests@prophecy.io
+functions:
+  author: null
+  createdAt: '2023-05-16 13:57:42'
+  modifiedAt: '2023-05-16 13:57:42'
+  gems: {}
+  udfs: {}
+  udafs: {}
+  expressions: {}
+subgraphs: {}
+sqlModels: {}
+sqlMacros: {}
+sqlSeeds: {}
+sqlSources: {}
+sqlUnreferencedSources: {}
+sqlPipeline: null
+dependencies: []
+projectDependencies:
+  '5689':
+    projectUID: 5689
+    projectName: scala_project
+    repositoryPath: gitUri=http://gitserver:3000/Z9fNRzJ4_team_1793/A4ifzK0R_project_5689.git&subPath=
+    version: scala_project/1.0
+    author: null
+    createdAt: '2022-12-26 17:50:31'
+    modifiedAt: '2022-12-26 17:50:31'
+pipelineConfigurations: {}
