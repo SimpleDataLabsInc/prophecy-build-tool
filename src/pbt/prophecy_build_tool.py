@@ -521,7 +521,7 @@ class ProphecyBuildTool:
                 print("   Create/Update failed for jobs: %s" % (" ,".join(job_update_failures.keys())))
             sys.exit(1)
 
-    def test(self):
+    def test(self, build_jars: str = ""):
         if self._verify_unit_test_env():
             unit_test_results = {}
 
@@ -531,7 +531,10 @@ class ProphecyBuildTool:
                 path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), "code")
                 if self.project_language == "python":
                     if os.path.isfile(os.path.join(path_pipeline_absolute, f"test{os.sep}TestSuite.py")):
+                        # unique_key_for_jars = \
+                        self._setJarsNeededForUT(build_jars)
                         unit_test_results[path_pipeline] = self.test_python(path_pipeline_absolute, path_pipeline)
+                        self.removeJarsKeyFromEnv()
                 elif self.project_language == "scala":
                     unit_test_results[path_pipeline] = self.test_scala(path_pipeline_absolute)
             is_any_ut_failed = False
@@ -790,3 +793,13 @@ class ProphecyBuildTool:
     def _error(cls, message: str):
         print("[bold red]ERROR[/bold red]:", message)
         sys.exit(1)
+
+    def _setJarsNeededForUT(self, build_jars):
+        import random
+        uniqueKey = random.random()
+        jars_unique_key: str = f"driver_library_path_{uniqueKey}"
+        os.environ["SPARK_JARS_CONFIG"] = build_jars if build_jars else ""
+        # return jars_unique_key
+
+    def removeJarsKeyFromEnv(self):
+        del os.environ["SPARK_JARS_CONFIG"]

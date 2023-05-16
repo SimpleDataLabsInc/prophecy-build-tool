@@ -93,9 +93,14 @@ def deploy(
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
-def test(path):
+@click.option(
+    "--driver-library-path",
+    help="Jar path of prophecy-python-libs and other required dependencies",
+    required=False,
+)
+def test(path, driver_library_path):
     pbt = ProphecyBuildTool(path)
-    pbt.test()
+    pbt.test(driver_library_path)
 
 
 if __name__ == "pbt":
