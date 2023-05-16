@@ -1,0 +1,80 @@
+{
+  "fabric_id" : "2730",
+  "components" : [ {
+    "PipelineComponent" : {
+      "path" : "dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPBT-truescala.jar",
+      "nodeName" : "AutomatedPBT-truescala",
+      "id" : "UdLnfStnPvcaeeQ9ZReVQ",
+      "language" : "scala",
+      "pipelineId" : "pipelines/AutomatedPBT-truescala"
+    }
+  } ],
+  "request" : {
+    "format" : "MULTI_TASK",
+    "name" : "AutomatedPBT-truescala",
+    "job_clusters" : [ {
+      "job_cluster_key" : "AutomatedPBT-truescala_default_small",
+      "new_cluster" : {
+        "spark_version" : "12.2.x-scala2.12",
+        "node_type_id" : "i3.xlarge",
+        "driver_node_type_id" : "i3.xlarge",
+        "num_workers" : 1,
+        "spark_conf" : {
+          "prophecy.metadata.fabric.id" : "2730",
+          "prophecy.metadata.job.uri" : "jobs/AutomatedPBT-truescala",
+          "prophecy.metadata.is.interactive.run" : "true",
+          "prophecy.project.id" : "25178",
+          "prophecy.execution.service.url" : "wss://execution.dp.uitesting.prophecy.io/eventws",
+          "prophecy.packages.path" : "{\"pipelines/AutomatedPBT-truescala\":\"dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/25178/1684245708024/pipeline/AutomatedPBT-truescala.jar\"}",
+          "prophecy.metadata.job.branch" : "scalaPbtBranch",
+          "prophecy.metadata.url" : "__PROPHECY_URL_PLACEHOLDER__",
+          "prophecy.execution.metrics.interims.table" : "prophecy.interims_manual",
+          "prophecy.execution.metrics.pipeline-metrics.table" : "prophecy.pipeline_runs_manual",
+          "prophecy.execution.metrics.component-metrics.table" : "prophecy.component_runs_manual",
+          "prophecy.execution.metrics.disabled" : false
+        },
+        "aws_attributes" : {
+          "first_on_demand" : 1,
+          "availability" : "SPOT_WITH_FALLBACK"
+        }
+      }
+    } ],
+    "email_notifications" : {
+      "on_start" : [ "abhisheks+e2etests@prophecy.io" ],
+      "on_failure" : [ "abhisheks+e2etests@prophecy.io" ]
+    },
+    "tasks" : [ {
+      "task_key" : "AutomatedPBT-truescala",
+      "job_cluster_key" : "AutomatedPBT-truescala_default_small",
+      "spark_jar_task" : {
+        "main_class_name" : "io.prophecy.pipelines.automatedpbttruescala.Main",
+        "parameters" : [ "-i", "default", "-O", "{}" ]
+      },
+      "libraries" : [ {
+        "maven" : {
+          "coordinates" : "io.prophecy:prophecy-libs_2.12:3.3.0-7.0.21"
+        }
+      }, {
+        "pypi" : {
+          "package" : "prophecy-libs==1.5.0"
+        }
+      }, {
+        "jar" : "dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPBT-truescala.jar"
+      } ],
+      "email_notifications" : { },
+      "max_retries" : 0
+    } ],
+    "max_concurrent_runs" : 1,
+    "schedule" : {
+      "quartz_cron_expression" : "0 0 0 1/1 * ? 2090",
+      "timezone_id" : "UTC",
+      "pause_status" : "UNPAUSED"
+    },
+    "access_control_list" : [ ]
+  },
+  "cluster_mode" : {
+    "clusterMode" : "Single"
+  },
+  "secret_scope" : "prophecy_jobs_778",
+  "sorted_processes" : [ "UdLnfStnPvcaeeQ9ZReVQ" ]
+}

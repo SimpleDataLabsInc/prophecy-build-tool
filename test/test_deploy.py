@@ -3,8 +3,11 @@ from src.pbt import deploy
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
-os.environ["DATABRICKS_HOST"] = "test"
-os.environ["DATABRICKS_TOKEN"] = "test"
+PROJECT_PATH_NEW = str(os.getcwd()) + "/test/resources/ProjectCreatedOn160523"
+if os.environ.get("DATABRICKS_HOST") is None:
+    os.environ["DATABRICKS_HOST"] = "test"
+if os.environ.get("DATABRICKS_TOKEN") is None:
+    os.environ["DATABRICKS_TOKEN"] = "test"
 
 
 def test_deploy_path_default():
@@ -19,6 +22,26 @@ def test_deploy_path_default():
     assert "Deploying jobs for all Fabrics" in result.output
     assert "[START]:  Deploying job jobs/test-job" in result.output
     assert "[START]:  Deploying job jobs/job-another" in result.output
+
+
+def test_deploy_path_default_new_project():
+    runner = CliRunner()
+    result = runner.invoke(deploy, ["--path", PROJECT_PATH_NEW, "--release-version", "1.0", "--project-id", "1"])
+    assert "Found 2 jobs: AutomatedPBT-truescala, AutomatedPBTNo-truescala" in result.output
+    assert "Found 2 pipelines: AutomatedPBT-truescala (scala), AutomatedPBTNo-truescala \n(scala)" in result.output
+    assert "Building pipeline pipelines/AutomatedPBT-truescala" in result.output
+    assert "Building pipeline pipelines/AutomatedPBTNo-truescala" in result.output
+    assert "Deploying job jobs/AutomatedPBT-truescala" in result.output
+    assert "Deploying job jobs/AutomatedPBTNo-truescala" in result.output
+    assert (
+        "Uploading AutomatedPBT-truescala-1.0.jar to \ndbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPB\nT-truescala.jar"
+        in result.output
+    )
+    assert (
+        "Uploading AutomatedPBTNo-truescala-1.0.jar to \ndbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPB\nTNo-truescala.jar"
+        in result.output
+    )
+    assert "[DONE]: Deployment completed successfully!" in result.output
 
 
 def test_deploy_path_default_skip_builds():

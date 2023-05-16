@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.1.0.1",
+    version="1.1.0.2",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
@@ -26,7 +26,7 @@ setuptools.setup(
     install_requires=[
         "requests>=2.28.0",
         "PyYAML>=6.0",
-        "databricks_cli>=0.17.1",
+        "databricks_cli>=0.17.7",
         "rich>=12.5.1",
         "wheel",
         "build",
