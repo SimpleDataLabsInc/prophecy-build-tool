@@ -12,7 +12,7 @@ python -m pytest test/test_* -v
 * we use `flake8` to check linting and `black` to format our code.
 * To check flake8 errors locally use
 ```shell
- flake8 . --count --exit-zero --statistics 
+ flake8 . --count --statistics 
 ```
 
 * To format all code in `src/` and `test/` directories use, use
