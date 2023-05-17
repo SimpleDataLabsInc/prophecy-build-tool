@@ -8,5 +8,5 @@ wheel
 pytest-html
 pytest
 pytest-click
-flake8==6.0.0
+flake8
 black==23.3.0
