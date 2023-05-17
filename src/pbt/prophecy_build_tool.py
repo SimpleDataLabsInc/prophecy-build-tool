@@ -237,13 +237,13 @@ class ProphecyBuildTool:
         # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
         # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
         if job_ids and fabric_ids:
-            print(f"[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_ids")
+            print("[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_ids")
             raise Exception()
 
         if job_ids and skip_builds:
             print(
-                f"[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease "
-                f"pass either --skip-builds or --job_id filter"
+                "[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease "
+                "pass either --skip-builds or --job_id filter"
             )
             raise Exception()
 
@@ -385,7 +385,10 @@ class ProphecyBuildTool:
                                         and self.project_language == project.project_language
                                     ):
                                         print("    Building dependent project's pipeline:")
-                                        (dependent_build_status, dependent_build_paths,) = project.build(
+                                        (
+                                            dependent_build_status,
+                                            dependent_build_paths,
+                                        ) = project.build(
                                             {
                                                 k: v
                                                 for (k, v) in project.pipelines.items()
@@ -796,10 +799,9 @@ class ProphecyBuildTool:
         sys.exit(1)
 
     def _setJarsNeededForUT(self, build_jars):
-        import random
-
-        uniqueKey = random.random()
-        jars_unique_key: str = f"driver_library_path_{uniqueKey}"
+        # import random
+        # uniqueKey = random.random()
+        # jars_unique_key: str = f"driver_library_path_{uniqueKey}"
         os.environ["SPARK_JARS_CONFIG"] = build_jars if build_jars else ""
         # return jars_unique_key
 
