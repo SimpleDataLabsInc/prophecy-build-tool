@@ -322,7 +322,11 @@ class ProphecyBuildTool:
 
             for component in components:
                 if "PipelineComponent" in component:
-                    pipeline_uri = component["PipelineComponent"]["id"]
+                    pipeline_component = component["PipelineComponent"]
+                    if "pipelineId" in pipeline_component:
+                        pipeline_uri = pipeline_component["pipelineId"]
+                    else:
+                        pipeline_uri = pipeline_component["id"]
 
                     # Matches project_id/pipelines/pipeline_name or pipelines/pipeline_name
                     # group(2) should return pipelines/pipeline_name
@@ -381,10 +385,7 @@ class ProphecyBuildTool:
                                         and self.project_language == project.project_language
                                     ):
                                         print("    Building dependent project's pipeline:")
-                                        (
-                                            dependent_build_status,
-                                            dependent_build_paths,
-                                        ) = project.build(
+                                        (dependent_build_status, dependent_build_paths,) = project.build(
                                             {
                                                 k: v
                                                 for (k, v) in project.pipelines.items()
@@ -796,6 +797,7 @@ class ProphecyBuildTool:
 
     def _setJarsNeededForUT(self, build_jars):
         import random
+
         uniqueKey = random.random()
         jars_unique_key: str = f"driver_library_path_{uniqueKey}"
         os.environ["SPARK_JARS_CONFIG"] = build_jars if build_jars else ""
