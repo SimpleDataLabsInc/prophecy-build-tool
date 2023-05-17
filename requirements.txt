@@ -6,8 +6,7 @@ setuptools>=49.2.1
 pytest
 wheel
 pytest-html
-pyspark==3.3.0
 pytest
 pytest-click
 flake8
-black
+black==23.3.0

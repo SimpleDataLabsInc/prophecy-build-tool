@@ -33,15 +33,20 @@ def test_deploy_path_default_new_project():
     assert "Building pipeline pipelines/AutomatedPBTNo-truescala" in result.output
     assert "Deploying job jobs/AutomatedPBT-truescala" in result.output
     assert "Deploying job jobs/AutomatedPBTNo-truescala" in result.output
-    assert (
-        "Uploading AutomatedPBT-truescala-1.0.jar to \ndbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPB\nT-truescala.jar"
-        in result.output
-    )
-    assert (
-        "Uploading AutomatedPBTNo-truescala-1.0.jar to \ndbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPB\nTNo-truescala.jar"
-        in result.output
-    )
-    assert "[DONE]: Deployment completed successfully!" in result.output
+
+    # If running with Databricks creds on GitHub Actions
+    if os.environ["DATABRICKS_HOST"] != "test":
+        assert (
+            "Uploading AutomatedPBT-truescala-1.0.jar to "
+            "\ndbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPB\nT-truescala.jar"
+            in result.output
+        )
+        assert (
+            "Uploading AutomatedPBTNo-truescala-1.0.jar to "
+            "\ndbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/1/1.0/pipeline/AutomatedPB\nTNo-truescala.jar"
+            in result.output
+        )
+        assert "[DONE]: Deployment completed successfully!" in result.output
 
 
 def test_deploy_path_default_skip_builds():
