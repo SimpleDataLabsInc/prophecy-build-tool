@@ -17,6 +17,7 @@ from requests import HTTPError
 from rich import print
 
 from .process import Process
+import tempfile
 
 
 class ProphecyBuildTool:
@@ -321,6 +322,15 @@ class ProphecyBuildTool:
             generate_pipeline_config_from_pipeline_component = False
 
             for component in components:
+                if "ScriptComponent" in component:
+                    script_component = component["ScriptComponent"]
+                    content = script_component["content"]
+                    path = script_component["path"]
+                    temp_file = tempfile.NamedTemporaryFile(delete=False)
+                    temp_file.write(content.encode('ascii'))
+                    temp_file.close()
+                    self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
+                    os.unlink(temp_file.name)
                 if "PipelineComponent" in component:
                     pipeline_component = component["PipelineComponent"]
                     if "pipelineId" in pipeline_component:
