@@ -329,6 +329,7 @@ class ProphecyBuildTool:
                     temp_file = tempfile.NamedTemporaryFile(delete=False)
                     temp_file.write(content.encode('ascii'))
                     temp_file.close()
+                    print(f"Uploading script to path: {path}")
                     self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
                     os.unlink(temp_file.name)
                 if "PipelineComponent" in component:
