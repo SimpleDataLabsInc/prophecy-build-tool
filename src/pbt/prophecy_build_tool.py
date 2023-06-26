@@ -133,7 +133,7 @@ class ProphecyBuildTool:
             print("ERROR: python not found")
             sys.exit(1)
 
-    def validate(self):
+    def validate(self, treat_warnings_as_errors: bool):
         pipelines = self.pipelines
         print("\n[bold blue]Validating %s pipelines [/bold blue]" % len(pipelines))
         overall_validate_status = True
@@ -148,9 +148,17 @@ class ProphecyBuildTool:
             )
             if os.path.exists(workflow_json_path_pipeline_absolute):
                 workflow = json.load(open(workflow_json_path_pipeline_absolute, "r"))
+                has_error = False
                 if "diagnostics" in workflow:
-                    print(f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]")
-                    overall_validate_status = False
+                    diagnostics = workflow["diagnostics"]
+                    for diagnostic in diagnostics:
+                        if ("severity" not in diagnostic) or (diagnostic["severity"] == 1) or (
+                                treat_warnings_as_errors and diagnostic["severity"] == 2):
+                            has_error = True
+                            break
+                    if (has_error):
+                        print(f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]")
+                        overall_validate_status = False
                 else:
                     print(f"\n[bold blue] Pipeline is validated: {pipeline['name']}[/bold blue]")
             else:
