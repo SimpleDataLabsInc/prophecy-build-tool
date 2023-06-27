@@ -148,15 +148,20 @@ class ProphecyBuildTool:
             )
             if os.path.exists(workflow_json_path_pipeline_absolute):
                 workflow = json.load(open(workflow_json_path_pipeline_absolute, "r"))
-                has_error = False
+                num_errors = 0
+                num_warnings = 0
                 if "diagnostics" in workflow:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
-                        if ("severity" not in diagnostic) or (diagnostic["severity"] == 1) or (
-                                treat_warnings_as_errors and diagnostic["severity"] == 2):
-                            has_error = True
-                            break
-                    if (has_error):
+                        if diagnostic.get('severity') == 1:
+                            print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
+                            num_errors += 1
+                        elif diagnostic.get('severity') == 2:
+                            print(
+                                f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                            num_warnings += 1
+                    print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
+                    if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 1):
                         print(f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]")
                         overall_validate_status = False
                 else:
