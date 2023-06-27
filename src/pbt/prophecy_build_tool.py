@@ -161,7 +161,7 @@ class ProphecyBuildTool:
                                 f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
                             num_warnings += 1
                     print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
-                    if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 1):
+                    if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
                         print(f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]")
                         overall_validate_status = False
                 else:
