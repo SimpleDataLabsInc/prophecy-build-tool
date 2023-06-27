@@ -133,7 +133,7 @@ class ProphecyBuildTool:
             print("ERROR: python not found")
             sys.exit(1)
 
-    def validate(self):
+    def validate(self, treat_warnings_as_errors: bool):
         pipelines = self.pipelines
         print("\n[bold blue]Validating %s pipelines [/bold blue]" % len(pipelines))
         overall_validate_status = True
@@ -148,9 +148,22 @@ class ProphecyBuildTool:
             )
             if os.path.exists(workflow_json_path_pipeline_absolute):
                 workflow = json.load(open(workflow_json_path_pipeline_absolute, "r"))
+                num_errors = 0
+                num_warnings = 0
                 if "diagnostics" in workflow:
-                    print(f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]")
-                    overall_validate_status = False
+                    diagnostics = workflow["diagnostics"]
+                    for diagnostic in diagnostics:
+                        if diagnostic.get('severity') == 1:
+                            print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
+                            num_errors += 1
+                        elif diagnostic.get('severity') == 2:
+                            print(
+                                f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                            num_warnings += 1
+                    print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
+                    if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
+                        print(f"\n[bold red]Pipeline is Broken: {pipeline['name']}[/bold red]")
+                        overall_validate_status = False
                 else:
                     print(f"\n[bold blue] Pipeline is validated: {pipeline['name']}[/bold blue]")
             else:
