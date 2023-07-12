@@ -35,9 +35,16 @@ def build(path, pipelines):
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
-def validate(path):
+@click.option(
+    "--treat-warnings-as-errors",
+    help="Specifies whether to treat warnings as errors.",
+    is_flag=True,
+    required=False,
+    default=False
+)
+def validate(path, treat_warnings_as_errors):
     pbt = ProphecyBuildTool(path)
-    pbt.validate()
+    pbt.validate(treat_warnings_as_errors)
 
 
 @cli.command()
