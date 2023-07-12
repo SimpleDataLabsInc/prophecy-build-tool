@@ -52,6 +52,7 @@ class ProphecyBuildTool:
         self.python_cmd, self.pip_cmd = self.get_python_commands(path_root)
         self.pipelines_build_path = {}
         self.dependent_pipelines_build_path = {}
+        self.uploaded_target_paths = set()
         self.project_release = (
             release_version
             if release_version
@@ -427,7 +428,7 @@ class ProphecyBuildTool:
                         )
                         source_path = pipelines_build_path[pipeline_id]["source_absolute"]
                         target_path = component["PipelineComponent"]["path"]
-                        if not pipelines_build_path[pipeline_id]["uploaded"]:
+                        if not pipelines_build_path[pipeline_id]["uploaded"] or target_path not in self.uploaded_target_paths:
                             print(
                                 "    Uploading %s to %s"
                                 % (
@@ -439,6 +440,7 @@ class ProphecyBuildTool:
                             try:
                                 self.dbfs_service.put(target_path, overwrite=True, src_path=source_path)
                                 pipelines_build_path[pipeline_id]["uploaded"] = True
+                                self.uploaded_target_paths.add(target_path)
                             except HTTPError as e:
                                 pipelines_upload_failures_job[pipeline_id].append(e.response.text)
                                 pipelines_upload_failures[pipeline_id].append(e.response.text)
