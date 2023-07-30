@@ -1,0 +1,144 @@
+{
+  "metainfo" : {
+    "type" : "Prophecy",
+    "fabricId" : "7557",
+    "jobId" : "jobs/AirPM",
+    "name" : "AirPM",
+    "dagName" : "T1pOdPE4Id95D5CaTQdQ2A_",
+    "schedule" : "0 0 1 11 *",
+    "enabled" : false,
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "ignore_first_depends_on_past" : true,
+      "pool" : "n7pJN9mh",
+      "do_xcom_push" : true
+    },
+    "jobClusterMode" : {
+      "clusterMode" : "Single"
+    },
+    "availableFabrics" : [ {
+      "id" : "5295",
+      "name" : "dev_airflow"
+    }, {
+      "id" : "5839",
+      "name" : "airflow_test"
+    }, {
+      "id" : "6144",
+      "name" : "airflow_composer1"
+    }, {
+      "id" : "7616",
+      "name" : "mwa"
+    }, {
+      "id" : "7040",
+      "name" : "dev_airflow_mwaa"
+    }, {
+      "id" : "7617",
+      "name" : "pmair"
+    }, {
+      "id" : "7557",
+      "name" : "dev_airflow_prophecy_managed",
+      "trialStartDate" : 1687261887500
+    } ],
+    "catchup" : true,
+    "endDate" : "2024-07-17",
+    "scheduleTimeZone" : "UTC",
+    "dagParams" : {
+      "instances" : {
+        "default" : { }
+      },
+      "params" : { },
+      "selected" : "default"
+    }
+  },
+  "processes" : {
+    "4UhVe97QTvxf5bYKihWeV$$2N9yB7iBpHepcL3gS6uHn" : {
+      "id" : "4UhVe97QTvxf5bYKihWeV$$2N9yB7iBpHepcL3gS6uHn",
+      "component" : "DBT",
+      "metadata" : {
+        "label" : "DBT_0",
+        "slug" : "DBT_0",
+        "x" : 340,
+        "y" : 160
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "N38VTJ2ZccjwhSz50PDx0$$MAXextwfB6ASSV1P8ckDh",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "gZb44SXJqfSxPLsz95k1D$$xE3zvk1mNtm01E2OQmxA6",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "cacheSelectedOnly" : null,
+        "gitSubPath" : null,
+        "runModelWithParents" : false,
+        "defer" : null,
+        "noDefer" : null,
+        "runSeed" : true,
+        "gitEntity" : "branch",
+        "noPartialParse" : null,
+        "warnErrorOptions" : null,
+        "gitTokenSecret" : null,
+        "state" : null,
+        "useExperimentalParser" : null,
+        "gitSshUrl" : null,
+        "indirectSelection" : null,
+        "partialParse" : null,
+        "runRun" : true,
+        "vars" : null,
+        "noPrint" : null,
+        "quiet" : null,
+        "projectId" : "30650",
+        "runOnlyModel" : false,
+        "favorState" : null,
+        "failFast" : null,
+        "noStaticParser" : null,
+        "runTest" : false,
+        "select" : null,
+        "recordTimingInfo" : null,
+        "fullRefresh" : null,
+        "noCacheSelectedOnly" : null,
+        "noFavorState" : null,
+        "isProphecyManaged" : false,
+        "profile" : null,
+        "noVersionCheck" : null,
+        "noWriteJson" : false,
+        "printerWidth" : null,
+        "sqlFabricId" : "5287",
+        "gitEntityValue" : "dev",
+        "logFormat" : null,
+        "runModelWithChildren" : false,
+        "dbtProfileSecret" : null,
+        "models" : null,
+        "target" : null,
+        "exclude" : null,
+        "runDeps" : true,
+        "noAnonymousUsageStats" : null,
+        "selector" : null,
+        "targetPath" : null,
+        "threads" : null,
+        "warnError" : null,
+        "currentProjectModels" : [ {
+          "label" : "test_random_snow_1",
+          "value" : "test_random_snow_1",
+          "id" : "30650/.prophecy/metadata/sqlmodels/test_random_snow_1",
+          "name" : "test_random_snow_1"
+        } ],
+        "profilesDir" : null,
+        "taskId" : null,
+        "logPath" : null,
+        "storeFailures" : null
+      }
+    }
+  },
+  "connections" : [ ]
+}

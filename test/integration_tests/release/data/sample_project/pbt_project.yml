@@ -1,0 +1,122 @@
+name: newProject
+description: ''
+version: 0.0.1
+author: pankaj+110@prophecy.io
+language: scala
+buildSystem: ''
+buildSystemDetails:
+  artefactID: newproject
+  parentArtefactID: pankaj110prophecy.io_team
+  buildSystem: maven
+  author: null
+  createdAt: '2023-07-07 08:32:15'
+pipelines:
+  pipelines/Omega:
+    name: Omega
+    description: ''
+    author: pankaj+110@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: scala
+    createdAt: '2023-07-07 08:32:15'
+    datasets:
+      inputs:
+      - datasets/newDS
+      outputs: []
+    subgraphs: []
+    dependencies: {}
+  pipelines/Delta:
+    name: Delta
+    description: ''
+    author: pankaj+110@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: scala
+    createdAt: '2023-07-20 04:50:06'
+    datasets:
+      inputs:
+      - datasets/newDS
+      outputs: []
+    subgraphs: []
+    dependencies: {}
+datasets:
+  datasets/newDS:
+    name: newDS
+    description: ''
+    author: pankaj+110@prophecy.io
+    createdAt: '2023-07-07 08:43:04'
+    mode: batch
+    physicalDatasets:
+      newFab:
+        fabricId: 413
+        datasetType: File
+        description: ''
+        author: pankaj+110@prophecy.io
+        createdAt: '2023-07-07 08:43:04'
+templates: {}
+jobs:
+  jobs/newJob01:
+    name: newJob01
+    description: ''
+    fabricUID: 413
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: Omega
+    scheduleCron: 0 0 0 1/1 * ? *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/Omega
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: null
+    createdAt: '2023-07-07 08:46:09'
+    author: pankaj+110@prophecy.io
+  jobs/secondJob02:
+    name: secondJob02
+    description: ''
+    fabricUID: 412
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: Small
+    scheduleCron: 0 0 0 1/1 * ? *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/Delta
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: null
+    createdAt: '2023-07-20 04:54:21'
+    author: pankaj+110@prophecy.io
+functions:
+  author: null
+  createdAt: '2023-07-07 08:32:15'
+  gems: {}
+  udfs: {}
+  udafs: {}
+  expressions: {}
+subgraphs: {}
+sqlModels: {}
+sqlMacros: {}
+sqlSeeds: {}
+sqlSources: {}
+sqlUnreferencedSources: {}
+sqlPipeline: null
+dependencies: []
+projectDependencies: {}
+pipelineConfigurations: {}

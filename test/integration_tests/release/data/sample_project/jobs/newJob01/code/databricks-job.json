@@ -1,0 +1,120 @@
+{
+  "fabric_id" : "413",
+  "components" : [ {
+    "ScriptComponent" : {
+      "path" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/newJob01/Script_1--342935075.py",
+      "nodeName" : "Script_1",
+      "id" : "b1ICXJIs9DGdEJXdQUHrQ$$BqVdqhQBwOwrzFFl58UiM",
+      "language" : "python",
+      "content" : "print(\"Changes\")"
+    }
+  }, {
+    "PipelineComponent" : {
+      "path" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/Omega.jar",
+      "nodeName" : "Omega",
+      "id" : "2PibbFXeiVRFIykux8eBL",
+      "language" : "scala",
+      "pipelineId" : "pipelines/Omega"
+    }
+  }, {
+    "DLTPipelineComponent" : {
+      "id" : "E3176ZH7hQ4x0ht8su_z2$$7_1YbRr0ko0Y89OaFUMY2",
+      "nodeName" : "DLTPipeline_1",
+      "language" : "python",
+      "content" : ""
+    }
+  } ],
+  "request" : {
+    "format" : "MULTI_TASK",
+    "name" : "newJob01",
+    "job_clusters" : [ {
+      "job_cluster_key" : "newJob01_default_Omega",
+      "new_cluster" : {
+        "ssh_public_keys" : [ ],
+        "spark_version" : "12.2.x-scala2.12",
+        "node_type_id" : "i3.xlarge",
+        "num_workers" : 1,
+        "custom_tags" : { },
+        "init_scripts" : [ ],
+        "spark_conf" : {
+          "spark.prophecy.metadata.fabric.id" : "413",
+          "spark.prophecy.metadata.job.uri" : "__PROJECT_ID_PLACEHOLDER__/jobs/newJob01",
+          "spark.prophecy.metadata.is.interactive.run" : "false",
+          "spark.prophecy.project.id" : "__PROJECT_ID_PLACEHOLDER__",
+          "spark.prophecy.execution.service.url" : "wss://execution.dev.cloud.prophecy.io/execution/eventws",
+          "prophecy.packages.path" : "{\"pipelines/Omega\":\"dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/Omega.jar\"}",
+          "spark.prophecy.metadata.job.branch" : "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
+          "spark.prophecy.metadata.url" : "__PROPHECY_URL_PLACEHOLDER__",
+          "spark.prophecy.execution.metrics.disabled" : false
+        },
+        "spark_env_vars" : {
+          "PYSPARK_PYTHON" : "/databricks/python3/bin/python3"
+        },
+        "runtime_engine" : "PHOTON",
+        "aws_attributes" : {
+          "first_on_demand" : 1,
+          "availability" : "SPOT_WITH_FALLBACK",
+          "zone_id" : "auto",
+          "spot_bid_price_percent" : 100,
+          "ebs_volume_count" : 0
+        },
+        "data_security_mode" : "LEGACY_SINGLE_USER_STANDARD"
+      }
+    } ],
+    "email_notifications" : { },
+    "tasks" : [ {
+      "task_key" : "Script_1",
+      "job_cluster_key" : "newJob01_default_Omega",
+      "spark_python_task" : {
+        "python_file" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/newJob01/Script_1--342935075.py"
+      },
+      "email_notifications" : { },
+      "max_retries" : 0
+    }, {
+      "task_key" : "Omega",
+      "depends_on" : [ {
+        "task_key" : "Script_1"
+      } ],
+      "job_cluster_key" : "newJob01_default_Omega",
+      "spark_jar_task" : {
+        "main_class_name" : "io.prophecy.pipelines.omega.Main",
+        "parameters" : [ "-i", "default", "-O", "{\"a\":\"titu\",\"b\":\"betu\",\"c\":{\"d\":[{\"t\":\"leetu\"}],\"e\":{\"k\":\"omega\"}}}" ]
+      },
+      "libraries" : [ {
+        "maven" : {
+          "coordinates" : "io.prophecy:prophecy-libs_2.12:3.3.0-7.1.1"
+        }
+      }, {
+        "pypi" : {
+          "package" : "prophecy-libs==1.5.8"
+        }
+      }, {
+        "jar" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/Omega.jar"
+      } ],
+      "email_notifications" : { },
+      "max_retries" : 0
+    }, {
+      "task_key" : "DLTPipeline_1",
+      "depends_on" : [ {
+        "task_key" : "Omega"
+      } ],
+      "pipeline_task" : {
+        "pipeline_id" : "7e5f477b-f9b8-408a-9701-765ec3d82fe7",
+        "full_refresh" : true
+      },
+      "email_notifications" : { },
+      "max_retries" : 0
+    } ],
+    "max_concurrent_runs" : 1,
+    "schedule" : {
+      "quartz_cron_expression" : "0 0 0 1/1 * ? *",
+      "timezone_id" : "UTC",
+      "pause_status" : "PAUSED"
+    }
+  },
+  "cluster_mode" : {
+    "clusterMode" : "Single"
+  },
+  "secret_scope" : "prophecy_jobs_348",
+  "sorted_processes" : [ "b1ICXJIs9DGdEJXdQUHrQ$$BqVdqhQBwOwrzFFl58UiM", "2PibbFXeiVRFIykux8eBL", "E3176ZH7hQ4x0ht8su_z2$$7_1YbRr0ko0Y89OaFUMY2" ]
+}

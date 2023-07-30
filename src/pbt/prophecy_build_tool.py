@@ -153,12 +153,11 @@ class ProphecyBuildTool:
                 if "diagnostics" in workflow:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
-                        if diagnostic.get('severity') == 1:
+                        if diagnostic.get("severity") == 1:
                             print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
                             num_errors += 1
-                        elif diagnostic.get('severity') == 2:
-                            print(
-                                f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                        elif diagnostic.get("severity") == 2:
+                            print(f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
                             num_warnings += 1
                     print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
@@ -340,7 +339,7 @@ class ProphecyBuildTool:
                     content = script_component["content"]
                     path = script_component["path"]
                     temp_file = tempfile.NamedTemporaryFile(delete=False)
-                    temp_file.write(content.encode('ascii'))
+                    temp_file.write(content.encode("ascii"))
                     temp_file.close()
                     print(f"Uploading script to path: {path}")
                     self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
