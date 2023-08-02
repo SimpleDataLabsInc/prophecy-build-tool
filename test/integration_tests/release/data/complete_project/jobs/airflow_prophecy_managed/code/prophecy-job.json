@@ -1,0 +1,221 @@
+{
+  "metainfo" : {
+    "type" : "Prophecy",
+    "fabricId" : "7557",
+    "jobId" : "jobs/airflow_prophecy_managed",
+    "name" : "airflow_prophecy_managed",
+    "dagName" : "ut2c4qU9RLTIy3q4LCnkjQ_",
+    "schedule" : "0 0/1 * * *",
+    "enabled" : false,
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "ignore_first_depends_on_past" : true,
+      "pool" : "n7pJN9mh",
+      "do_xcom_push" : true
+    },
+    "jobClusterMode" : {
+      "clusterMode" : "Single"
+    },
+    "availableFabrics" : [ {
+      "id" : "5295",
+      "name" : "dev_airflow"
+    }, {
+      "id" : "5839",
+      "name" : "airflow_test"
+    }, {
+      "id" : "6144",
+      "name" : "airflow_composer1"
+    }, {
+      "id" : "7616",
+      "name" : "mwa"
+    }, {
+      "id" : "7040",
+      "name" : "dev_airflow_mwaa"
+    }, {
+      "id" : "7617",
+      "name" : "pmair"
+    }, {
+      "id" : "7557",
+      "name" : "dev_airflow_prophecy_managed",
+      "trialStartDate" : 1687261887500
+    } ],
+    "catchup" : true,
+    "endDate" : "2024-07-17",
+    "scheduleTimeZone" : "UTC",
+    "dagParams" : {
+      "instances" : {
+        "default" : { }
+      },
+      "params" : { },
+      "selected" : "default"
+    }
+  },
+  "processes" : {
+    "EjHfV574pqqGEGy3saq2I" : {
+      "id" : "EjHfV574pqqGEGy3saq2I",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "OnlyOne",
+        "slug" : "OnlyOne",
+        "x" : 100,
+        "y" : 100
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "in",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "out",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "fabricId" : "7557",
+        "clusterSize" : "2068/small",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "complete_project" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "jobSize" : "",
+        "pipelineId" : "pipelines/OnlyOne"
+      }
+    },
+    "G7rqYPcYO487zEeWojvKb$$axDiSrEdY4hhXTnKkW7BD" : {
+      "id" : "G7rqYPcYO487zEeWojvKb$$axDiSrEdY4hhXTnKkW7BD",
+      "component" : "Email",
+      "metadata" : {
+        "label" : "Email_1",
+        "slug" : "Email_1",
+        "x" : 320,
+        "y" : 80
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "6a_53eLT76qTQmqzXDV4r$$Z1LMPq81avtcQyEUCRp66",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "FOdbZ_oOFK1KHhwtLXTVx$$LET9BmwAeb7eDgbV_8rud",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "emailCC" : null,
+        "subject" : "Delta",
+        "emailBCC" : null,
+        "emailTo" : "pankaj@prophecy.io",
+        "emailConnectionId" : "ATSPdLpyCoWns1X5aXZeO",
+        "htmlContent" : "Delta",
+        "taskId" : null
+      }
+    },
+    "N2Na27GLb0q0ycIw6PR9L$$YYzIwnLI-XwZOgwVMsacO" : {
+      "id" : "N2Na27GLb0q0ycIw6PR9L$$YYzIwnLI-XwZOgwVMsacO",
+      "component" : "DBT",
+      "metadata" : {
+        "label" : "DBT_1",
+        "slug" : "DBT_1",
+        "x" : 500,
+        "y" : 100
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "CwdDWOmy9N1RWi06QArLS$$S8Y17_PiPxFlmGiiPWHRG",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "V7yBGdsvDrB-n2zEMlGFL$$08s0OgarsBMRolNmzR857",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "cacheSelectedOnly" : null,
+        "gitSubPath" : null,
+        "runModelWithParents" : false,
+        "defer" : null,
+        "noDefer" : null,
+        "runSeed" : false,
+        "gitEntity" : "branch",
+        "noPartialParse" : null,
+        "warnErrorOptions" : null,
+        "gitTokenSecret" : null,
+        "state" : null,
+        "useExperimentalParser" : null,
+        "gitSshUrl" : null,
+        "indirectSelection" : null,
+        "partialParse" : null,
+        "runRun" : true,
+        "vars" : null,
+        "noPrint" : null,
+        "quiet" : null,
+        "projectId" : "24113",
+        "runOnlyModel" : false,
+        "favorState" : null,
+        "failFast" : null,
+        "noStaticParser" : null,
+        "runTest" : true,
+        "select" : null,
+        "recordTimingInfo" : null,
+        "fullRefresh" : null,
+        "noCacheSelectedOnly" : null,
+        "noFavorState" : null,
+        "isProphecyManaged" : false,
+        "profile" : null,
+        "noVersionCheck" : null,
+        "noWriteJson" : false,
+        "printerWidth" : null,
+        "sqlFabricId" : "5287",
+        "gitEntityValue" : "main",
+        "logFormat" : null,
+        "runModelWithChildren" : false,
+        "dbtProfileSecret" : null,
+        "models" : null,
+        "target" : null,
+        "exclude" : null,
+        "runDeps" : false,
+        "noAnonymousUsageStats" : null,
+        "selector" : null,
+        "targetPath" : null,
+        "threads" : null,
+        "warnError" : null,
+        "currentProjectModels" : [ {
+          "label" : "env_uitesting_main_model_snow_1",
+          "value" : "env_uitesting_main_model_snow_1",
+          "id" : "24113/.prophecy/metadata/sqlmodels/env_uitesting_main_model_snow_1",
+          "name" : "env_uitesting_main_model_snow_1"
+        } ],
+        "profilesDir" : null,
+        "taskId" : null,
+        "logPath" : null,
+        "storeFailures" : null
+      }
+    }
+  },
+  "connections" : [ {
+    "id" : "zjxGzJO1SnJaqZ_dnm2eJ$$fPYeLBLU5FpGNkFiHxFfz",
+    "source" : "EjHfV574pqqGEGy3saq2I",
+    "target" : "G7rqYPcYO487zEeWojvKb$$axDiSrEdY4hhXTnKkW7BD",
+    "sourcePort" : "out",
+    "targetPort" : "6a_53eLT76qTQmqzXDV4r$$Z1LMPq81avtcQyEUCRp66"
+  }, {
+    "id" : "XlR2BS4I2yPqSoLLeMv51$$vihhDyFR0IPbTtGGgrxna",
+    "source" : "G7rqYPcYO487zEeWojvKb$$axDiSrEdY4hhXTnKkW7BD",
+    "target" : "N2Na27GLb0q0ycIw6PR9L$$YYzIwnLI-XwZOgwVMsacO",
+    "sourcePort" : "FOdbZ_oOFK1KHhwtLXTVx$$LET9BmwAeb7eDgbV_8rud",
+    "targetPort" : "CwdDWOmy9N1RWi06QArLS$$S8Y17_PiPxFlmGiiPWHRG"
+  } ]
+}

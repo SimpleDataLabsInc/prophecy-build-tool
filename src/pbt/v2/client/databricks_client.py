@@ -1,16 +1,16 @@
-import base64
 import json
-import os
 import tempfile
+from typing import Dict
 
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.dbfs.api import DbfsApi
+from databricks_cli.dbfs.dbfs_path import DbfsPath
 from databricks_cli.jobs.api import JobsApi
-from databricks_cli.sdk import DbfsService, JobsService, SecretService
 from databricks_cli.sdk import ApiClient
+from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 
-from src.pbt.v2.state_config import StateConfig
+from src.pbt.v2.state_config import StateConfigAndDBTokens
 
 
 class DatabricksClient:
@@ -23,13 +23,15 @@ class DatabricksClient:
         self.secret = SecretApi(ApiClient(host=host, token=token, api_version="2.0"))
 
     @classmethod
-    def from_state_config(cls, state_config: StateConfig, db_fabrics_to_token: dict = {}, fabric_id: str = None):
+    def from_state_config(cls, state_config_and_db_tokens: StateConfigAndDBTokens, fabric_id: str = None):
+        state_config = state_config_and_db_tokens.state_config
+        db_tokens = state_config_and_db_tokens.db_tokens
         if fabric_id is None or fabric_id == "" or state_config.contains_fabric(
-                fabric_id) is False or db_fabrics_to_token.get(fabric_id) is None:
+                fabric_id) is False or db_tokens.get(fabric_id) is None:
             # todo improve the error messages.
             raise ValueError("fabric_id must be provided")
 
-        return cls(state_config.get_fabric(fabric_id).url, db_fabrics_to_token.get(fabric_id))
+        return cls(state_config.get_fabric(fabric_id).url, db_tokens.get(fabric_id))
 
     @classmethod
     def from_environment_variables(cls):
@@ -48,7 +50,7 @@ class DatabricksClient:
             self.upload_src_path(src_path=temp_file.name, destination_path=path)
 
     def upload_src_path(self, src_path: str, destination_path: str):
-        self.dbfs.put_file(src_path=src_path, dbfs_path=destination_path, overwrite=True)
+        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
 
     def path_exist(self, path: str):
         return self.dbfs.get_status(path) is not None
@@ -59,16 +61,19 @@ class DatabricksClient:
     def create_scope(self, secret_scope: str):
         response = self.secret.list_scopes()
         if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
-            self.secret.create_scope(secret_scope)
+            self.secret.create_scope(secret_scope, initial_manage_principal="users", scope_backend_type=None,
+                                     backend_azure_keyvault=None)
         else:
             print(f"Scope {secret_scope} already exists.")
             return True
 
     def create_secret(self, scope: str, key: str, value: str):
-        self.secret.put_secret(scope, key, value)
+        self.secret.put_secret(scope, key, value, None)
 
-    def create_job(self, content:dict):
-        return self.job.create_job(**content)
+    def create_job(self, content: Dict[str, str]):
+        #  service doesn't provide way to create job from json.
+
+        return self.job.create_job(content)
 
     def get_job(self, job_id: str):
         return self.job.get_job(job_id)
@@ -78,8 +83,16 @@ class DatabricksClient:
 
     def pause_job(self, job_id: str):
         response = self.job.get_job(job_id)
-        if response['settings']['schedule'] is not 'Paused':
-            self.job_client.update_job(job_id, schedule='Paused')
+        if response.get('settings', {}).get('schedule', {}).get('pause_status', None) is not 'Paused':
+            response['settings']['schedule']['pause_status'] = 'Paused'
+            self.job_client.update_job(job_id, new_settings=response)
+        else:
+            print(f"Job {job_id} is already paused.")
 
-    def reset_job(self, job_id:str, update_request:str):
-        self.job.reset_job(job_id, update_request)
+    def reset_job(self, job_id: str, update_request: Dict[str, str]):
+        new_settings = {'job_id': job_id, 'new_settings': update_request}
+        try:
+            self.job.reset_job(new_settings)
+        except Exception as e:
+            print(f"Error while resetting job {job_id}. Error: {e}")
+

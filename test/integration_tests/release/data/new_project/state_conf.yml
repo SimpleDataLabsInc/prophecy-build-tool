@@ -10,17 +10,20 @@ fabrics:
     type: test
     name: test
     url: https://dbc-147abc45-b6c7.cloud.databricks.com
+    content: ""
+    is_airflow: false
 
 jobs:
 -   fabric_id: '1'
     id: 'jobs/anotherJob'
-    job_id: '1'
+    scheduler_job_id: '1'
     name: jobs01
     type: databricks
     is_paused: true
+
 -   fabric_id: '1'
     id: '2'
-    job_id: '1'
+    scheduler_job_id: '1'
     name: jobs02
     type: databricks
     is_paused: true

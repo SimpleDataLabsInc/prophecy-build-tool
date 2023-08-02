@@ -1,73 +1,17 @@
-import zipfile
-
-import pydantic
-from pydantic.dataclasses import dataclass
-import yaml
-import collections
-import json
 import os
-import re
-import subprocess
-import sys
-from glob import glob
-from os import listdir
-from os.path import basename, isfile, join, dirname
-from typing import Dict, Optional
-import base64
-import hashlib
-import re
 from typing import Optional
-from zipfile import ZipFile
-# from cryptography.hazmat.primitives import hashes, kdf
-# from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-# from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-# from cryptography.hazmat.backends import default_backend
-from pydantic_yaml import parse_yaml_raw_as
-import hashlib
-from src.pbt.metadata.my_enums import find_mode, StepMetadata, DbtComponents
-from typing import List
-from abc import ABC, abstractmethod
 
-from src.pbt.v2.client.airflow_client import AirflowRestClient
-from src.pbt.v2.client.databricks_client import DatabricksClient
-from src.pbt.v2.project_models import ScriptComponentsModel
-from src.pbt.v2.state_config import StateConfig
+import yaml
+
+from src.pbt.metadata.my_enums import find_mode
 from src.pbt.v2.constants import *
-
-'''
- containing context on the current project release as well as the older jobs too.
- 
- structure of release_helper 
- 
- - fabrics:
-     - id 
-       name 
-       kind {airflow/databricks}
-       url {remote url} ## should be in-memory  or we can marshal it 
-       token {token} ## should be in-memory or we can marshal it
-     - id 
-       name    
-       kind {airflow/databricks}
-       url {remote url}
-       token {token}
- - jobs 
-     - fabricId 
-       jobID // optional here means that the jobs wasn't deployed in the last iteration but present in the code. 
-       scheduler {databricks/composer}
-       created_at
-       created_by 
-  - pipelines 
-     - id 
-     - id
-     - id
-          
-'''
+import re
 
 
 class ProjectParser:
 
-    def __init__(self, project_path: str, release_mode: str = None, state_config_path: str = None,
-                 project_id: str = None):
+    def __init__(self, project_path: str, release_mode: str = None,
+                 project_id: Optional[str] = None, release_version: Optional[str] = None):
 
         self.project_path = project_path
         self.release_mode = find_mode(release_mode)
@@ -81,21 +25,10 @@ class ProjectParser:
         self.databricks_jobs = None
         self.airflow_jobs = None
 
-        self.state_config = None
-
-        self.load_state_config(state_config_path)
-
         self.load_project_config()
 
         self.project_id = project_id
-
-    def load_state_config(self, state_config_path: str = None):
-        if state_config_path is not None:
-            with open(state_config_path, "r") as state_config:
-                data = state_config.read()
-                self.state_config = parse_yaml_raw_as(StateConfig, data)
-        else:
-            self.state_config = StateConfig.empty_state_config()
+        self.release_version = release_version
 
     def load_project_config(self):
         pbt_project_path = os.path.join(self.project_path, PBT_FILE_NAME)
@@ -127,24 +60,29 @@ class ProjectParser:
 
             self.pipeline_configurations[pipeline_config_object[BASE_PIPELINE]] = configurations
 
-    def pipeline_headers(self) -> List[StepMetadata]:
-        sorted_pipelines = sorted(self.pipelines)
-        step_metadata_list = []
-
-        for i, pipeline in enumerate(sorted_pipelines):
-            header = f"Building pipeline {pipeline}"
-            step_metadata_list.append(StepMetadata(pipeline, header, "build", "pipeline"))
-
-        return step_metadata_list
-
     def get_files(self, pipeline_path: str, aspect: str):
         return os.path.join(self.project_path, pipeline_path + '/' + aspect)
+
+    def __replace_placeholders(self, path: str, content: str) -> str:
+        if self.project_id is not None and len(self.project_id) > 0 and (
+                path.endswith('.json') or path.endswith('.scala') or path.endswith('.py')):
+            content = content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id)
+
+        if self.release_version is not None and len(self.release_version) > 0 and (
+                path.endswith('.json') or path.endswith('.scala') or path.endswith('.py')):
+            content = content.replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version)
+
+        return content
 
     def load_databricks_job(self, job_id: str) -> Optional[str]:
         content = None
         with open(os.path.join(self.project_path, job_id, "code", "databricks-job.json"), "r") as file:
-            content = file.read()
+            content = self.__replace_placeholders('databricks-job.json', file.read())
+
         return content
+
+    def load_airflow_base_folder_path(self, job_id):
+        return os.path.join(self.project_path, job_id, "code")
 
     def load_airflow_folder(self, job_id):
         rdc = {}
@@ -153,8 +91,9 @@ class ProjectParser:
             for filename in filenames:
                 full_path = os.path.join(dir_path, filename)
                 with open(full_path, 'r') as file:
-                    content = file.read()
-                    rdc[full_path] = content
+                    relative_path = os.path.relpath(full_path, base_path)
+                    content = self.__replace_placeholders(relative_path, file.read())
+                    rdc[relative_path] = content
                     # Do something with the content
         return rdc
 
@@ -164,5 +103,49 @@ class ProjectParser:
             content = file.read()
         return content
 
+    def load_pipeline_base_path(self, pipeline):
+        return os.path.join(self.project_path, pipeline, "code")
 
+    @staticmethod
+    def is_cross_project_pipeline(pipeline):
 
+        HTTPSURIAllRepoPatterns = re.compile(
+            r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)")
+
+        match = HTTPSURIAllRepoPatterns.search(pipeline)
+        if match:
+            git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
+            return project_subscription_project_id, path
+        else:
+            return None
+
+    def load_pipeline_folder(self, pipeline):
+        rdc = {}
+        cross_project_pipeline_details = self.is_cross_project_pipeline(pipeline)
+        if cross_project_pipeline_details is not None:
+            sub_path = f".prophecy/{cross_project_pipeline_details[0]}/{cross_project_pipeline_details[1]}"
+        else:
+            sub_path = pipeline
+
+        base_path = os.path.join(self.project_path, sub_path, "code")
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                full_path = os.path.join(dir_path, filename)
+                with open(full_path, 'r') as file:
+                    relative_path = os.path.relpath(full_path, base_path)
+                    try:
+                        content = self.__replace_placeholders(relative_path, file.read())
+                    except Exception as e:
+                        print(f"Failed to replace placeholders in {relative_path}")
+                        raise e
+                    rdc[relative_path] = content
+                    # Do something with the content
+        return rdc
+
+    @staticmethod
+    def get_pipeline_whl_or_jar(base_path: str):
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                full_path = os.path.join(dir_path, filename)
+                if full_path.endswith(".whl") or full_path.endswith(".jar"):
+                    return full_path

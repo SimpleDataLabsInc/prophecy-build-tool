@@ -1,0 +1,156 @@
+name: complete_project
+description: ''
+version: 0.0.1
+author: abhisheks+e2etests@prophecy.io
+language: scala
+buildSystem: ''
+buildSystemDetails:
+  artefactID: complete_project
+  parentArtefactID: abhishekse2etestsprophecy.io_team
+  buildSystem: maven
+  author: null
+  createdAt: '2023-07-31 13:00:10'
+pipelines:
+  pipelines/OnlyOne:
+    name: OnlyOne
+    description: ''
+    author: abhisheks+e2etests@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: scala
+    createdAt: '2023-07-31 13:00:10'
+    datasets:
+      inputs:
+      - datasets/newDS
+      outputs: []
+    subgraphs: []
+    dependencies: {}
+datasets:
+  datasets/newDS:
+    name: newDS
+    description: ''
+    author: abhisheks+e2etests@prophecy.io
+    createdAt: '2023-07-31 13:07:09'
+    mode: batch
+    physicalDatasets:
+      dev:
+        fabricId: 2730
+        datasetType: File
+        description: ''
+        author: abhisheks+e2etests@prophecy.io
+        createdAt: '2023-07-31 13:07:09'
+templates: {}
+jobs:
+  jobs/airflow_prophecy_managed:
+    name: airflow_prophecy_managed
+    description: ''
+    fabricUID: 7557
+    scheduler:
+      Prophecy: {}
+    cloudProvider: null
+    jobSize: null
+    scheduleCron: 0 0/1 * * *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/OnlyOne
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: null
+    createdAt: '2023-07-31 13:07:40'
+    author: abhisheks+e2etests@prophecy.io
+  jobs/JobMWAA:
+    name: JobMWAA
+    description: ''
+    fabricUID: 7040
+    scheduler:
+      MWAA: {}
+    cloudProvider: null
+    jobSize: null
+    scheduleCron: 0 0/1 * * *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/OnlyOne
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: true
+    createdAt: '2023-07-31 13:17:52'
+    author: abhisheks+e2etests@prophecy.io
+  jobs/ComposerJob:
+    name: ComposerJob
+    description: ''
+    fabricUID: 5295
+    scheduler:
+      Composer: {}
+    cloudProvider: null
+    jobSize: null
+    scheduleCron: 0 0/1 * * *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/OnlyOne
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: true
+    createdAt: '2023-07-31 13:28:29'
+    author: abhisheks+e2etests@prophecy.io
+  jobs/RegularDatabricks:
+    name: RegularDatabricks
+    description: ''
+    fabricUID: 2730
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: small
+    scheduleCron: 0 0 0 1/1 * ? *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/OnlyOne
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: null
+    createdAt: '2023-07-31 13:30:25'
+    author: abhisheks+e2etests@prophecy.io
+functions:
+  author: null
+  createdAt: '2023-07-31 13:00:10'
+  gems: {}
+  udfs: {}
+  udafs: {}
+  expressions: {}
+subgraphs: {}
+sqlModels: {}
+sqlMacros: {}
+sqlSeeds: {}
+sqlSources: {}
+sqlUnreferencedSources: {}
+sqlPipeline: null
+dependencies: '[]'
+projectDependencies: {}
+pipelineConfigurations: {}

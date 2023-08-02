@@ -1,0 +1,279 @@
+{
+  "metainfo" : {
+    "type" : "Databricks",
+    "fabricId" : "413",
+    "jobId" : "jobs/nuJob",
+    "name" : "nuJob",
+    "schedule" : "0 0 0 1/1 * ? *",
+    "scheduleTimeZone" : "UTC",
+    "jobClusterMode" : {
+      "clusterMode" : "Single"
+    },
+    "enabled" : false,
+    "defaultClusterSize" : "Omega",
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "type" : "Inherited",
+      "retries" : 0,
+      "alerting" : {
+        "emails" : "",
+        "onStart" : false,
+        "onSuccess" : false,
+        "onFailure" : false
+      }
+    },
+    "availableFabrics" : [ {
+      "id" : "412",
+      "name" : "dev",
+      "clusterSizes" : {
+        "default" : "Small",
+        "availableClusterSizes" : [ "Small" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    }, {
+      "id" : "413",
+      "name" : "newFab",
+      "clusterSizes" : {
+        "default" : "Omega",
+        "availableClusterSizes" : [ "Omega" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "PublicCentral" : { }
+      }
+    }, {
+      "id" : "410",
+      "name" : "omega",
+      "clusterSizes" : {
+        "default" : "Omega",
+        "availableClusterSizes" : [ "Omega" ]
+      },
+      "pylibsResolutionMode" : {
+        "PublicCentral" : { }
+      },
+      "scalalibsResolutionMode" : {
+        "DBFS" : {
+          "path" : "dbfs:/FileStore/jars/maven/io/prophecy/prophecy-libs-assembly-3.3.0-7.0.51-SNAPSHOT.jar"
+        }
+      }
+    } ],
+    "accessControlList" : [ ]
+  },
+  "processes" : {
+    "0TzT_9XT6Uv9kKVP03gI1$$Jm0Qwu9eyAe958UwCc-Cd" : {
+      "id" : "0TzT_9XT6Uv9kKVP03gI1$$Jm0Qwu9eyAe958UwCc-Cd",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "Pipeline_0",
+        "slug" : "Pipeline_0",
+        "x" : 140,
+        "y" : 160
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "kX4LU2AHr0_dslefo-oI6$$EsEVJCKn9auas6iZpRSX8",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "tRT--4Ovwweh48ra7pAhN$$QgMa8NQQXXYrsjZUUxrYA",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "gitUri=http://gitserver:3000/0jhffmAa_team_348/TQCL1LSr_project_1665.git&subPath=&tag=newProject/1.0&projectSubscriptionProjectId=1665&path=pipelines/Omega",
+        "configurations" : {
+          "schema" : [ {
+            "name" : "a",
+            "optional" : false,
+            "kind" : {
+              "type" : "string",
+              "value" : "pankaj"
+            },
+            "isReferenced" : false,
+            "isWorkflowNodeConfiguration" : false
+          }, {
+            "name" : "b",
+            "optional" : false,
+            "kind" : {
+              "type" : "string",
+              "value" : "execution"
+            },
+            "isReferenced" : false,
+            "isWorkflowNodeConfiguration" : false
+          }, {
+            "name" : "c",
+            "optional" : false,
+            "kind" : {
+              "type" : "record",
+              "fields" : [ {
+                "name" : "d",
+                "optional" : false,
+                "kind" : {
+                  "type" : "array",
+                  "elementType" : {
+                    "type" : "record",
+                    "fields" : [ {
+                      "name" : "t",
+                      "optional" : false,
+                      "kind" : {
+                        "type" : "string",
+                        "value" : null
+                      },
+                      "isReferenced" : false,
+                      "isWorkflowNodeConfiguration" : false
+                    } ]
+                  },
+                  "value" : [ {
+                    "t" : "p1"
+                  }, {
+                    "t" : "p3"
+                  } ]
+                },
+                "isReferenced" : false,
+                "isWorkflowNodeConfiguration" : false
+              }, {
+                "name" : "e",
+                "optional" : false,
+                "kind" : {
+                  "type" : "record",
+                  "fields" : [ {
+                    "name" : "k",
+                    "optional" : false,
+                    "kind" : {
+                      "type" : "string",
+                      "value" : "p2"
+                    },
+                    "isReferenced" : false,
+                    "isWorkflowNodeConfiguration" : false
+                  } ]
+                },
+                "isReferenced" : false,
+                "isWorkflowNodeConfiguration" : false
+              } ]
+            },
+            "isReferenced" : false,
+            "isWorkflowNodeConfiguration" : false
+          } ],
+          "instances" : {
+            "newProject" : [ "default" ],
+            "SubscribedProject" : [ "Delta" ]
+          },
+          "overrides" : {
+            "a" : "titu",
+            "b" : "beetu",
+            "c" : {
+              "e" : {
+                "k" : "situu"
+              },
+              "d" : [ {
+                "t" : "moon"
+              }, {
+                "t" : "mars"
+              } ]
+            }
+          },
+          "selectedInstance" : "Delta"
+        }
+      }
+    },
+    "Fy_X99cwCI-ySAg_vVsWF$$gMZI1hMKcDLqUJmozTWyM" : {
+      "id" : "Fy_X99cwCI-ySAg_vVsWF$$gMZI1hMKcDLqUJmozTWyM",
+      "component" : "Script",
+      "metadata" : {
+        "label" : "Script_1",
+        "slug" : "Script_1",
+        "x" : -480,
+        "y" : -40
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "IB96IqTMZE9LrfrIbmNXa$$DcsEjcWwMU7SjzOhBYV1Q",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "onxjMWnlCfArwVMng5VpN$$qhOw3HykT2_su8Nh9hj2d",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false
+        }
+      },
+      "properties" : {
+        "code" : "print(\"Delta\")"
+      }
+    },
+    "_2qfJ7tV04Xc6CD_7_Hi5$$zhrNjHQT07FqcQrJGX1fV" : {
+      "id" : "_2qfJ7tV04Xc6CD_7_Hi5$$zhrNjHQT07FqcQrJGX1fV",
+      "component" : "Script",
+      "metadata" : {
+        "label" : "Script_2",
+        "slug" : "Script_2",
+        "x" : -638,
+        "y" : -40.20000076293945
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "AqgcFqw9K_J7UHygSAWeY$$lUETmVOkQQPIMzCf56yKz",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "eIXcq-c-OsX-D2pYKXiDo$$uxuNpxLb6yQDQa1v2Hj5f",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false
+        }
+      },
+      "properties" : {
+        "code" : "print(\"Omega\")"
+      }
+    }
+  },
+  "connections" : [ {
+    "id" : "3-rG8YZKNnsapC-L4kH8Y",
+    "source" : "Fy_X99cwCI-ySAg_vVsWF$$gMZI1hMKcDLqUJmozTWyM",
+    "target" : "0TzT_9XT6Uv9kKVP03gI1$$Jm0Qwu9eyAe958UwCc-Cd",
+    "sourcePort" : "onxjMWnlCfArwVMng5VpN$$qhOw3HykT2_su8Nh9hj2d",
+    "targetPort" : "kX4LU2AHr0_dslefo-oI6$$EsEVJCKn9auas6iZpRSX8"
+  }, {
+    "id" : "YZEjdmKjGQx43IsM_qxUU$$g3EJq0FbctLCAP0fXXYR-",
+    "source" : "_2qfJ7tV04Xc6CD_7_Hi5$$zhrNjHQT07FqcQrJGX1fV",
+    "target" : "Fy_X99cwCI-ySAg_vVsWF$$gMZI1hMKcDLqUJmozTWyM",
+    "sourcePort" : "eIXcq-c-OsX-D2pYKXiDo$$uxuNpxLb6yQDQa1v2Hj5f",
+    "targetPort" : "IB96IqTMZE9LrfrIbmNXa$$DcsEjcWwMU7SjzOhBYV1Q"
+  } ]
+}
