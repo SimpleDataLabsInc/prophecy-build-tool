@@ -5,25 +5,20 @@ version: '1'
 
 fabrics:
   - id: "1"
-    is_spark: true
-    is_sql: true
-    type: test
+    type: databricks
     name: test
-    url: https://dbc-147abc45-b6c7.cloud.databricks.com
-    is_airflow: false
+    db_info:
+      url: https://dbc-147abc45-b6c7.cloud.databricks.com
+      token: dapiaf6081ad7c1dc999082d377027eeee96
   - id: "2730"
-    is_spark: true
-    is_sql: true
-    type: test
+    type: databricks
     name: random_fabric
-    url: https://dbc-147abc45-b6c7.cloud.databricks.com
-    is_airflow: false
+    db_info:
+      url: https://dbc-147abc45-b6c7.cloud.databricks.com
+      token: dapiaf6081ad7c1dc999082d377027eeee96
   - id: '7557'
-    is_spark: false
-    is_sql: true
-    type: test
+    type: airflow
     name: airflow_prophecy_managed
-    url: ""
     content:
       expiry: '2024-07-17'
       pool_name: n7pJN9mh
@@ -47,13 +42,9 @@ fabrics:
         airflow_url: https://e166d4f526a74aa0938d6d282fa1aa62-dot-us-central1.composer.googleusercontent.com
         dag_location: gcs://us-central1-prophecy-airflo-75c3e311-bucket/dags/
       provider_type: prophecy
-    is_airflow: false
   - id: '7040'
-    is_spark: false
-    is_sql: true
-    type: test
+    type: airflow
     name: mwaa
-    url: ""
     content:
       mwaa_info:
         region: us-west-2
@@ -64,13 +55,9 @@ fabrics:
         dag_location: dags
         environment_name: ProphecyAirflow243
       provider_type: mwaa
-    is_airflow: false
   - id: '5295'
-    is_spark: false
-    is_sql: true
-    type: test
+    type: airflow
     name: composer_regular
-    url: ""
     content:
       composer_info:
         key_json: |
@@ -93,7 +80,6 @@ fabrics:
         airflow_url: https://96ec09ba93ab46f4afee01dac7ce9e3d-dot-us-central1.composer.googleusercontent.com
         dag_location: gs://us-central1-composer2-qa-efebe067-bucket/dags
       provider_type: composer
-    is_airflow: false
 
 jobs: [ ]
 projectGitTokens:

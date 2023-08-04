@@ -10,8 +10,9 @@ from databricks_cli.sdk import ApiClient
 from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 
-from src.pbt.v2.state_config import StateConfigAndDBTokens
+from src.pbt.v2.state_config import ProjectConfig
 from src.pbt.v2.client.databricks_client.permission_cpi import PermissionsApi
+from src.pbt.v2.utility import Either
 
 
 class DatabricksClient:
@@ -25,15 +26,16 @@ class DatabricksClient:
         self.permission = PermissionsApi(ApiClient(host=host, token=token, api_version="2.0"))
 
     @classmethod
-    def from_state_config(cls, state_config_and_db_tokens: StateConfigAndDBTokens, fabric_id: str = None):
-        state_config = state_config_and_db_tokens.state_config
-        db_tokens = state_config_and_db_tokens.db_tokens
+    def from_state_config(cls, project_config: ProjectConfig, fabric_id: str = None):
+        state_config = project_config.state_config
+        fabric_info = state_config.get_fabric(str(fabric_id))
+
         if fabric_id is None or fabric_id == "" or state_config.contains_fabric(
-                fabric_id) is False or db_tokens.get(fabric_id) is None:
+                str(fabric_id)) is False or fabric_info is None and fabric_info.db_info is None:
             # todo improve the error messages.
             raise ValueError("fabric_id must be provided")
 
-        return cls(state_config.get_fabric(fabric_id).base_url, db_tokens.get(fabric_id))
+        return cls(fabric_info.db_info.url, fabric_info.db_info.token)
 
     @classmethod
     def from_environment_variables(cls):
@@ -63,6 +65,7 @@ class DatabricksClient:
     def check_and_create_secret_scope(self, secret_scope: str):
         response = self.secret.list_scopes()
         if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
+            print(f"Creating scope {secret_scope}.")
             self.secret.create_scope(secret_scope, initial_manage_principal="users", scope_backend_type=None,
                                      backend_azure_keyvault=None)
         else:
@@ -75,26 +78,35 @@ class DatabricksClient:
     def create_job(self, content: Dict[str, str]):
         return self.job.create_job(content)
 
-    def get_job(self, job_id: str):
-        return self.job.get_job(job_id)
+    def get_job(self, scheduler_job_id: str):
+        return self.job.get_job(scheduler_job_id)
 
     def delete_job(self, job_id: str):
         self.job.delete_job(job_id)
 
-    def pause_job(self, job_id: str):
-        response = self.job.get_job(job_id)
-        if response.get('settings', {}).get('schedule', {}).get('pause_status', None) is not 'Paused':
-            response['settings']['schedule']['pause_status'] = 'Paused'
-            self.job_client.update_job(job_id, new_settings=response)
+    def pause_job(self, scheduler_job_id: str) -> Either:
+        response = self.job.get_job(scheduler_job_id)
+
+        try:
+            pause_status = response['settings']['schedule']['pause_status']
+        except KeyError as e:
+            print(f"No pause_status found in job {scheduler_job_id} settings")
+            return Either(left=e)
+
+        if pause_status != 'Paused':
+            updated_settings = dict(response)
+            updated_settings['settings']['schedule']['pause_status'] = 'Paused'
+            self.job_client.update_job(scheduler_job_id, new_settings=updated_settings)
+            print(f"Job {scheduler_job_id} has been paused.")
+            return Either(right=True)
         else:
-            print(f"Job {job_id} is already paused.")
+            print(f"Job {scheduler_job_id} is already paused.")
+            return Either(right=False)
 
     def reset_job(self, scheduler_job_id: str, update_request: Dict[str, str]):
         new_settings = {'job_id': scheduler_job_id, 'new_settings': update_request}
-        try:
-            self.job.reset_job(new_settings)
-        except Exception as e:
-            print(f"Error while resetting job {scheduler_job_id}. Error: {e}")
 
-    def patch_job_acl(self, scheduler_job_id:str, acl):
+        self.job.reset_job(new_settings)
+
+    def patch_job_acl(self, scheduler_job_id: str, acl):
         self.permission.patch_job(scheduler_job_id, acl)

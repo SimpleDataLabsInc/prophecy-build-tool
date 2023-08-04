@@ -25,7 +25,7 @@ class ProjectFileNotFoundException(ValueError):
         self.message = message
 
 
-class UnknownAirflowProvider(ValueError):
+class UnknownAirflowProviderException(ValueError):
     def __init__(self, message):
         self.message = message
 

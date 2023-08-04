@@ -52,6 +52,7 @@ class ProphecyBuildTool:
         self.python_cmd, self.pip_cmd = self.get_python_commands(path_root)
         self.pipelines_build_path = {}
         self.dependent_pipelines_build_path = {}
+        self.uploaded_target_paths = set()
         self.project_release = (
             release_version
             if release_version
@@ -153,11 +154,12 @@ class ProphecyBuildTool:
                 if "diagnostics" in workflow:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
-                        if diagnostic.get("severity") == 1:
+                        if diagnostic.get('severity') == 1:
                             print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
                             num_errors += 1
-                        elif diagnostic.get("severity") == 2:
-                            print(f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                        elif diagnostic.get('severity') == 2:
+                            print(
+                                f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
                             num_warnings += 1
                     print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
@@ -339,7 +341,7 @@ class ProphecyBuildTool:
                     content = script_component["content"]
                     path = script_component["path"]
                     temp_file = tempfile.NamedTemporaryFile(delete=False)
-                    temp_file.write(content.encode("ascii"))
+                    temp_file.write(content.encode('ascii'))
                     temp_file.close()
                     print(f"Uploading script to path: {path}")
                     self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
@@ -439,7 +441,7 @@ class ProphecyBuildTool:
                         )
                         source_path = pipelines_build_path[pipeline_id]["source_absolute"]
                         target_path = component["PipelineComponent"]["path"]
-                        if not pipelines_build_path[pipeline_id]["uploaded"]:
+                        if not pipelines_build_path[pipeline_id]["uploaded"] or target_path not in self.uploaded_target_paths:
                             print(
                                 "    Uploading %s to %s"
                                 % (
@@ -451,6 +453,7 @@ class ProphecyBuildTool:
                             try:
                                 self.dbfs_service.put(target_path, overwrite=True, src_path=source_path)
                                 pipelines_build_path[pipeline_id]["uploaded"] = True
+                                self.uploaded_target_paths.add(target_path)
                             except HTTPError as e:
                                 pipelines_upload_failures_job[pipeline_id].append(e.response.text)
                                 pipelines_upload_failures[pipeline_id].append(e.response.text)

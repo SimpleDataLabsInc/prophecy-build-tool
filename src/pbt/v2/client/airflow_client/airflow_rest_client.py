@@ -6,7 +6,7 @@ from src.pbt.v2.project_models import DAG
 class AirflowRestClient(ABC):
 
     @abstractmethod
-    def delete_dag_file(self, dag_id: str) -> bool:
+    def delete_dag_file(self, dag_id: str):
         pass
 
     @abstractmethod

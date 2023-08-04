@@ -9,21 +9,21 @@ from src.pbt.v2.project.components.airflow_jobs import AirflowJobs
 from src.pbt.v2.project.components.databricks_jobs import DatabricksJobs
 from src.pbt.v2.project.project_parser import ProjectParser
 from src.pbt.v2.project_models import StepMetadata
-from src.pbt.v2.state_config import StateConfigAndDBTokens
+from src.pbt.v2.state_config import ProjectConfig
+from src.pbt.v2.utility import Either
 
 
 class Pipelines:
     def __init__(self, project_parser: ProjectParser, databricks_jobs: DatabricksJobs,
                  airflow_jobs: AirflowJobs,
-                 state_config_and_db_tokens: StateConfigAndDBTokens):
+                 project_config: ProjectConfig):
 
         self.databricks_jobs = databricks_jobs
         self.airflow_jobs = airflow_jobs
 
         self.project_parser = project_parser
-        self.state_config_and_db_tokens = state_config_and_db_tokens
+        self.project_config = project_config
 
-        self.config = "2"
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case project doesn't have any pipelines.
 
@@ -41,7 +41,7 @@ class Pipelines:
             for pipeline_id in self._pipeline_components_from_jobs():
                 print(f"Building pipeline {pipeline_id}")
 
-                pipeline_builder = PackageBuilder(self.project_parser, pipeline_id, self.state_config_and_db_tokens)
+                pipeline_builder = PackageBuilder(self.project_parser, pipeline_id, self.project_config)
                 futures.append(executor.submit(lambda: pipeline_builder.build_and_get_pipeline()))
 
             for future in as_completed(futures):
@@ -53,22 +53,22 @@ class Pipelines:
 
     def deploy(self):
         if not self.has_pipelines:
-            self.build_and_upload()
+            self.build_and_upload([])
 
         for job_json in self.databricks_jobs.valid_databricks_jobs.values():
 
             fabric_id = job_json.get_fabric_id
 
             # Deploy pipelines only if they are referenced in a job.
-            for pipeline_id in job_json.pipelines_id_and_name():
+            for pipeline_id in job_json.pipelines:
 
                 from_path = self.pipeline_id_to_local_path[pipeline_id]
                 file_name = os.path.basename(from_path)
 
-                subscribed_project_id, subscribed_project_release_version = ProjectParser.is_cross_project_pipeline(
+                subscribed_project_id, subscribed_project_release_version, path = ProjectParser.is_cross_project_pipeline(
                     from_path)
 
-                base_path = self.state_config_and_db_tokens.get_base_path()
+                base_path = self.project_config.get_base_path()
 
                 if subscribed_project_id is not None:
                     to_path = f"{base_path}/{subscribed_project_id}/{subscribed_project_release_version}/pipeline/{file_name}"
@@ -83,19 +83,21 @@ class Pipelines:
         pipeline_components = []
 
         for job_id, job_data in self.databricks_jobs.valid_databricks_jobs.items():
-            pipeline_components.extend(job_data.pipelines_id_and_name)
+            pipeline_components.extend(job_data.pipelines)
 
         for job_id, job_data in self.airflow_jobs.valid_airflow_jobs.items():
-            pipeline_components.extend(job_data.pipelines_id_and_name)
+            pipeline_components.extend(job_data.pipelines)
 
         sorted_pipeline_components = list(set(pipeline_components))
         project_all_pipelines = list(self.project_parser.pipelines.keys())
 
-        if self.config == "1":
-            return sorted_pipeline_components
-        else:
-            project_all_pipelines.extend(sorted_pipeline_components)
-            return project_all_pipelines
+        return project_all_pipelines + sorted_pipeline_components
+        # todo introduce release mode
+        # if self.release_mode == "1":
+        #     return sorted_pipeline_components
+        # else:
+        #     project_all_pipelines.extend(sorted_pipeline_components)
+        #     return project_all_pipelines
 
 
 # look at the nexus client, download the jar in target folder or dist folder and return or
@@ -103,7 +105,7 @@ class Pipelines:
 class PackageBuilder:
 
     def __init__(self, project_parser: ProjectParser, pipeline_id: str,
-                 state_config_and_db_tokens: StateConfigAndDBTokens = None, is_tests_enabled: bool = False):
+                 state_config_and_db_tokens: ProjectConfig = None, is_tests_enabled: bool = False):
 
         self.pipeline_id = pipeline_id
         self.is_tests_enabled = is_tests_enabled
@@ -140,27 +142,35 @@ class PackageBuilder:
             return self.pipeline_id, path
 
     def _try_uploading_to_nexus(self, path):
-        client = NexusClient.initialize_nexus_client(self.state_config_and_db_tokens)
-        response = client.upload_file(self.project_parser.project_id, self.project_parser.release_version,
+        try:
+            client = NexusClient.initialize_nexus_client(self.state_config_and_db_tokens)
+            response = client.upload_file(self.project_parser.project_id, self.project_parser.release_version,
                                       self.pipeline_id, path)
-        print('Pipeline uploaded to nexus', response)
+            print('Pipeline uploaded to nexus', response)
+        except Exception as e:
+            print('Error while uploading pipeline to nexus', e)
 
     def _try_download_from_nexus(self):
-        client = NexusClient.initialize_nexus_client(self.state_config_and_db_tokens)
-        response = client.download_file(self.project_parser.project_id, self.project_parser.release_version,
-                                        self.pipeline_id)
-        return response
+        try:
+            # atm no reliable support for nexus.
+            client = NexusClient.initialize_nexus_client(self.state_config_and_db_tokens)
+            response = client.download_file(self.project_parser.project_id, self.project_parser.release_version,
+                                            self.pipeline_id)
+            return response
+        except Exception as e:
+            print('Error while downloading pipeline from nexus', e)
+            return Either(left=e)
 
     def mvn_build(self):
-        command = "mvn package -DskipTests" if not self.is_tests_enabled else "mvn package"
+        command = ["mvn", "package", "-DskipTests"] if not self.is_tests_enabled else ["mvn", "package"]
         self._build(command)
 
     def wheel_build(self):
-        command = "python3 setup.py bdist_wheel"
+        command = ["python3","setup.py","bdist_wheel"]
         self._build(command)
 
     # maybe we can try another iteration with yield ?
-    def _build(self, command: str):
+    def _build(self, command: list):
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    cwd=self.base_path)
 

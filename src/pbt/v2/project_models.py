@@ -26,9 +26,6 @@ class JobContent(BaseModel):
     fabric_id: str
     secret_scope: Optional[str]
 
-    def is_script_job(self) -> bool:
-        pass
-
 
 class DbtComponentsModel:
     def __init__(self, fabric_id: str, secret_scope: str, components: List):
@@ -90,3 +87,4 @@ class DAG:
         is_paused = response.get('paused', None)
         owners = response.get('owners', None)
         return DAG(dag_id, fileloc=fileloc, is_paused=is_paused, owners=owners)
+

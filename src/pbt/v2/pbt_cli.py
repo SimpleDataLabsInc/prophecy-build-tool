@@ -1,6 +1,6 @@
 from src.pbt.v2.project.components.project import Project
 from src.pbt.v2.project.project_parser import ProjectParser
-from src.pbt.v2.state_config import StateConfigAndDBTokens
+from src.pbt.v2.state_config import ProjectConfig
 
 
 class PBTCli(object):
@@ -10,7 +10,7 @@ class PBTCli(object):
         self.project_path = project_path
         self.state_config_path = state_config_path
         self.project = Project(ProjectParser(project_path, project_id, release_version),
-                               StateConfigAndDBTokens(state_config_path))
+                               ProjectConfig(state_config_path))
 
     def headers(self):
         """Print headers."""

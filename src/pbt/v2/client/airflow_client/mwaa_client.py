@@ -6,11 +6,12 @@ import datetime
 import boto3
 
 from src.pbt.v2.client.airflow_client.airflow_rest_client import AirflowRestClient
-from src.pbt.v2.client.airflow_client.airflow_utility import retry
 from src.pbt.v2.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
 from src.pbt.v2.project_models import DAG
 import requests
 import json
+
+from src.pbt.v2.utility import retry
 
 
 class MWAARestClient(AirflowRestClient, ABC):
@@ -29,19 +30,7 @@ class MWAARestClient(AirflowRestClient, ABC):
 
         self.environment = self.mwaa_client.get_environment(Name=environment_name)
         self.dag_s3_path = self.environment['Environment']['DagS3Path']
-        self.__source_bucket = self._extract_bucket_name_from_arn()
-
-    def _create_cli_token(self):
-        return self.mwaa_client.create_cli_token(Name=self.environment_name)
-
-    def _expiry_cli_token(self):
-        return ExpiringValue(lambda: self._create_cli_token(), 60 * 60 * 24)
-
-    def _headers(self):
-        return {
-            "Authorization": f"Bearer {self._expiry_cli_token().get_value()['CliToken']}",
-            "User-Agent": "Prophecy"
-        }
+        self._source_bucket = self._extract_bucket_name_from_arn()
 
     def create_secret(self, key: str, value: str) -> bool:
         return True
@@ -49,7 +38,7 @@ class MWAARestClient(AirflowRestClient, ABC):
     def delete_dag_file(self, dag_id: str) -> bool:
         relative_path = f"{self.dag_s3_path}/{dag_id}.zip"
         try:
-            self.s3_aws_client.delete_object(Bucket=self.__source_bucket, Key=relative_path)
+            self.s3_aws_client.delete_object(Bucket=self._source_bucket, Key=relative_path)
             try:
                 response = self._get_response(f"dags delete {dag_id} --yes")
                 return True
@@ -57,20 +46,9 @@ class MWAARestClient(AirflowRestClient, ABC):
                 print("Dag deletion failed, This step was optional", e)
                 return False
         except Exception as e:
-            print(f"Error deleting file {relative_path} from bucket {self.__source_bucket}", e)
+            print(f"Error deleting file {relative_path} from bucket {self._source_bucket}", e)
             raise DagFileDeletionFailedException(
-                f"Error deleting file {relative_path} from bucket {self.__source_bucket}", e)
-
-    def _clean_response(self, text):
-        try:
-            return json.loads(text)  # Try to parse the text as JSON
-        except json.JSONDecodeError:
-            # If unsuccessful, perform string transformations and return the result
-            cleaned_text = "{\"" + text.strip() \
-                .replace(", ", "\", \"") \
-                .replace(": ", "\":\"") \
-                .replace(",\"", ", \"") + "\"}"
-            return json.loads(cleaned_text)
+                f"Error deleting file {relative_path} from bucket {self._source_bucket}", e)
 
     # todo improve both pause and unpause.
     def pause_dag(self, dag_id: str) -> DAG:
@@ -88,25 +66,48 @@ class MWAARestClient(AirflowRestClient, ABC):
     def upload_dag(self, dag_id: str, file_path: str):
         relative_path = f"{self.dag_s3_path}/{dag_id}.zip"
         try:
-            self.s3_aws_client.upload_file(file_path, self.__source_bucket, relative_path)
+            self.s3_aws_client.upload_file(file_path, self._source_bucket, relative_path)
         except Exception as e:
-            print(f"Error uploading file {file_path} to bucket {self.__source_bucket}", e)
-            raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self.__source_bucket}", e)
+            print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
+            raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    # todo new Execution Date is not supported as of now.
     @retry((DagNotAvailableException,), total_tries=50, delay_in_seconds=10, backoff=0)
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response(f"dags list -o json")
         dag_list = json.loads(response)
         dag = next((dag for dag in dag_list if dag['dag_id'] == dag_id and dag['paused'] is not None), None)
-        if dag is None:
-            raise DagNotAvailableException(f"Dag {dag_id} not found")
-        else:
+
+        if dag is not None:
             return DAG.create_from_mwaa(dag)
+        else:
+            raise DagNotAvailableException(f"Dag {dag_id} not found")
 
     def delete_dag(self, dag_id: str) -> str:
         response = self._get_response(f"dags delete {dag_id} --yes")
         return response
+
+    def _create_cli_token(self):
+        return self.mwaa_client.create_cli_token(Name=self.environment_name)
+
+    def _expiry_cli_token(self):
+        return ExpiringValue(lambda: self._create_cli_token(), 60 * 60 * 24)
+
+    def _headers(self):
+        return {
+            "Authorization": f"Bearer {self._expiry_cli_token().get_value()['CliToken']}",
+            "User-Agent": "Prophecy"
+        }
+
+    def _clean_response(self, text):
+        try:
+            return json.loads(text)  # Try to parse the text as JSON
+        except json.JSONDecodeError:
+            # If unsuccessful, perform string transformations and return the result
+            cleaned_text = "{\"" + text.strip() \
+                .replace(", ", "\", \"") \
+                .replace(": ", "\":\"") \
+                .replace(",\"", ", \"") + "\"}"
+            return json.loads(cleaned_text)
 
     def _execute_airflow_command(self, command: str):
         print(f"Expiry cli token {self._expiry_cli_token().get_value()}")
@@ -120,7 +121,7 @@ class MWAARestClient(AirflowRestClient, ABC):
 
         decoded_response = json.loads(response_body)
 
-        if not decoded_response['stdout']:
+        if decoded_response.get('stdout', None) is not None:
             raise Exception(base64.b64decode(decoded_response['stderr']).decode('utf-8'))
         else:
             return base64.b64decode(decoded_response['stdout']).decode('utf-8')

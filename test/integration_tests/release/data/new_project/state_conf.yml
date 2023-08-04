@@ -2,16 +2,16 @@ name: test
 language: scala
 description: test
 version: '1'
+customer_name: 'dev'
+control_plane_name: 'execution'
 
 fabrics:
 -   id: '1'
-    is_spark: true
-    is_sql: true
-    type: test
     name: test
-    url: https://dbc-147abc45-b6c7.cloud.databricks.com
-    content: ""
-    is_airflow: false
+    type: databricks
+    db_info:
+        url: https://dbc-147abc45-b6c7.cloud.databricks.com
+        token: dapiaf6081ad7c1dc999082d377027eeee96
 
 jobs:
 -   fabric_id: '1'

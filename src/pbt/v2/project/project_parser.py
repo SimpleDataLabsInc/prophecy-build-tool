@@ -3,7 +3,6 @@ from typing import Optional
 
 import yaml
 
-from src.pbt.metadata.my_enums import find_mode
 from src.pbt.v2.constants import *
 import re
 
@@ -11,15 +10,13 @@ from src.pbt.v2.exceptions import ProjectPathNotFoundException, ProjectFileNotFo
 
 
 class ProjectParser:
-    _DATABRICKS_JOB_JSON = "databricks_job.json"
+    _DATABRICKS_JOB_JSON = "databricks-job.json"
 
-    def __init__(self, project_path: str, release_mode: str = None,
-                 project_id: Optional[str] = None, release_version: Optional[str] = None):
+    def __init__(self, project_path: str, project_id: Optional[str] = None, release_version: Optional[str] = None):
 
         self.project_id = project_id
         self.release_version = release_version
         self.project_path = project_path
-        self.release_mode = find_mode(release_mode)
 
         self.pbt_project_dict = {}
         self.project_language = None
@@ -32,6 +29,83 @@ class ProjectParser:
         self._load_project_config()
         self._extract_project_info()
         self._load_pipeline_configurations()
+
+    def load_databricks_job(self, job_id: str) -> Optional[str]:
+        content = None
+        with open(os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON), "r") as file:
+            content = self._replace_placeholders(self._DATABRICKS_JOB_JSON, file.read())
+
+        return content
+
+    def load_airflow_base_folder_path(self, job_id):
+        return os.path.join(self.project_path, job_id, "code")
+
+    def load_airflow_folder(self, job_id):
+        rdc = {}
+        base_path = os.path.join(self.project_path, job_id, "code")
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                full_path = os.path.join(dir_path, filename)
+                with open(full_path, 'r') as file:
+                    relative_path = os.path.relpath(full_path, base_path)
+                    content = self._replace_placeholders(relative_path, file.read())
+                    rdc[relative_path] = content
+                    # Do something with the content
+        return rdc
+
+    def load_airflow_aspect(self, job_id: str) -> Optional[str]:
+        content = None
+        with open(os.path.join(self.project_path, job_id, "pbt_aspects.yml"), "r") as file:
+            content = file.read()
+        return content
+
+    def load_pipeline_base_path(self, pipeline):
+        return os.path.join(self.project_path, pipeline, "code")
+
+    @staticmethod
+    def is_cross_project_pipeline(pipeline):
+
+        HTTPSURIAllRepoPatterns = re.compile(
+            r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)")
+
+        match = HTTPSURIAllRepoPatterns.search(pipeline)
+        if match:
+            git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
+            return project_subscription_project_id, tag.split('/')[1], path
+        else:
+            return None, None, None
+
+    def load_pipeline_folder(self, pipeline):
+        rdc = {}
+        (project_subscription_id, version, pipeline_path) = self.is_cross_project_pipeline(pipeline)
+        if project_subscription_id is not None:
+            sub_path = f".prophecy/{project_subscription_id}/{pipeline_path}"
+        else:
+            sub_path = pipeline
+
+        base_path = os.path.join(self.project_path, sub_path, "code")
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                if filename.endswith(('.py', '.json', '.conf', '.scala', 'pom.xml')):
+                    full_path = os.path.join(dir_path, filename)
+                    with open(full_path, 'r') as file:
+                        relative_path = os.path.relpath(full_path, base_path)
+                        try:
+                            content = self._replace_placeholders(relative_path, file.read())
+                        except Exception as e:
+                            print(f"Failed to replace placeholders in {relative_path}")
+                            raise e
+                        rdc[relative_path] = content
+                        # Do something with the content
+        return rdc
+
+    @staticmethod
+    def get_pipeline_whl_or_jar(base_path: str):
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                full_path = os.path.join(dir_path, filename)
+                if full_path.endswith(".whl") or full_path.endswith(".jar"):
+                    return full_path
 
     def _verify_project(self):
         if not os.path.exists(self.project_path):
@@ -80,79 +154,3 @@ class ProjectParser:
             content = content.replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version)
 
         return content
-
-    def load_databricks_job(self, job_id: str) -> Optional[str]:
-        content = None
-        with open(os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON), "r") as file:
-            content = self._replace_placeholders(self._DATABRICKS_JOB_JSON, file.read())
-
-        return content
-
-    def load_airflow_base_folder_path(self, job_id):
-        return os.path.join(self.project_path, job_id, "code")
-
-    def load_airflow_folder(self, job_id):
-        rdc = {}
-        base_path = os.path.join(self.project_path, job_id, "code")
-        for dir_path, dir_names, filenames in os.walk(base_path):
-            for filename in filenames:
-                full_path = os.path.join(dir_path, filename)
-                with open(full_path, 'r') as file:
-                    relative_path = os.path.relpath(full_path, base_path)
-                    content = self._replace_placeholders(relative_path, file.read())
-                    rdc[relative_path] = content
-                    # Do something with the content
-        return rdc
-
-    def load_airflow_aspect(self, job_id: str) -> Optional[str]:
-        content = None
-        with open(os.path.join(self.project_path, job_id, "pbt_aspects.yml"), "r") as file:
-            content = file.read()
-        return content
-
-    def load_pipeline_base_path(self, pipeline):
-        return os.path.join(self.project_path, pipeline, "code")
-
-    @staticmethod
-    def is_cross_project_pipeline(pipeline):
-
-        HTTPSURIAllRepoPatterns = re.compile(
-            r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)")
-
-        match = HTTPSURIAllRepoPatterns.search(pipeline)
-        if match:
-            git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
-            return project_subscription_project_id, tag.split('/')[1]
-        else:
-            return None, None
-
-    def load_pipeline_folder(self, pipeline):
-        rdc = {}
-        cross_project_pipeline_details = self.is_cross_project_pipeline(pipeline)
-        if cross_project_pipeline_details is not None:
-            sub_path = f".prophecy/{cross_project_pipeline_details[0]}/{cross_project_pipeline_details[1]}"
-        else:
-            sub_path = pipeline
-
-        base_path = os.path.join(self.project_path, sub_path, "code")
-        for dir_path, dir_names, filenames in os.walk(base_path):
-            for filename in filenames:
-                full_path = os.path.join(dir_path, filename)
-                with open(full_path, 'r') as file:
-                    relative_path = os.path.relpath(full_path, base_path)
-                    try:
-                        content = self._replace_placeholders(relative_path, file.read())
-                    except Exception as e:
-                        print(f"Failed to replace placeholders in {relative_path}")
-                        raise e
-                    rdc[relative_path] = content
-                    # Do something with the content
-        return rdc
-
-    @staticmethod
-    def get_pipeline_whl_or_jar(base_path: str):
-        for dir_path, dir_names, filenames in os.walk(base_path):
-            for filename in filenames:
-                full_path = os.path.join(dir_path, filename)
-                if full_path.endswith(".whl") or full_path.endswith(".jar"):
-                    return full_path

@@ -4,11 +4,12 @@ from typing import Dict, Optional, List
 
 import yaml
 
-from src.pbt.v2.client.airflow_client.airflow_utility import create_airflow_client, Either, generate_secure_content
+from src.pbt.v2.client.airflow_client.airflow_utility import create_airflow_client
 from src.pbt.v2.project.components.databricks_jobs import FABRIC_UID
 from src.pbt.v2.project.project_parser import ProjectParser
 from src.pbt.v2.project_models import StepMetadata
-from src.pbt.v2.state_config import JobsInfo, StateConfigAndDBTokens
+from src.pbt.v2.state_config import JobInfo, ProjectConfig
+from src.pbt.v2.utility import Either, generate_secure_content
 
 
 def does_dag_file_exist(rdc: Dict[str, str]) -> bool:
@@ -85,13 +86,11 @@ class AirflowJobDataProcessor:
         return str(fabric_id) if fabric_id is not None else None
 
     @property
-    def pipelines_id_and_name(self):
-        for pipeline_dict in self.job_pbt.get('pipelines', []):
-            for pipeline_id, pipeline_json in pipeline_dict.items():
-                yield pipeline_id, pipeline_json.get('name', None)
+    def pipelines(self):
+        return self.job_pbt.get('pipelines', [])
 
     @property
-    def does_contain_dbt_component(self):
+    def has_dbt_component(self):
         return any(value.get('component', None) == 'dbt' for value in self.prophecy_job_json_dict['processes'].values())
 
     def _initialize_prophecy_job_json(self):
@@ -103,15 +102,15 @@ class AirflowJobDataProcessor:
 
 
 class AirflowJobs:
-    def __init__(self, project_parser: ProjectParser, state_config_and_db_tokens: StateConfigAndDBTokens):
+    def __init__(self, project_parser: ProjectParser, project_config: ProjectConfig):
         self._project_parser = project_parser
-        self._state_config = state_config_and_db_tokens.state_config
-        self._state_config_db_tokens = state_config_and_db_tokens
+        self._project_config = project_config
 
         self._airflow_jobs: Dict[str, AirflowJobDataProcessor] = {}
-        self.valid_airflow_jobs: Dict[str, AirflowJobDataProcessor] = {}
         self._in_valid_airflow_jobs: Dict[str, AirflowJobDataProcessor] = {}
         self._airflow_jobs_without_code = {}
+
+        self.valid_airflow_jobs: Dict[str, AirflowJobDataProcessor] = {}
         self.prophecy_managed_dbt_jobs: Dict[str, AirflowJobDataProcessor] = {}
 
         self._airflow_clients = {}
@@ -122,16 +121,16 @@ class AirflowJobs:
 
     def get_airflow_client(self, fabric_id):
         if fabric_id not in self._airflow_clients:
-            self._airflow_clients[fabric_id] = create_airflow_client(fabric_id, self._state_config_db_tokens)
+            self._airflow_clients[fabric_id] = create_airflow_client(fabric_id, self._project_config)
         return self._airflow_clients[fabric_id]
 
     def headers(self):
         job_types = {
             "Remove": self._remove_jobs(),
             "Add": self._add_jobs(),
-            "Pause": self._airflow_jobs_to_be_paused(),
-            "Delete": self._renamed_jobs(),
-            "Skipped": self._skipped_jobs()
+            "Pause": self._pause_jobs(),
+            "Delete": self._rename_jobs(),
+            "Skipped": self._skip_jobs()
         }
 
         all_headers = []
@@ -195,7 +194,7 @@ class AirflowJobs:
 
     def _validate_airflow_job(self, job_id: str, job_data: AirflowJobDataProcessor):
 
-        is_prophecy_managed_fabric = self._state_config.is_fabric_prophecy_managed(job_data.fabric_id)
+        is_prophecy_managed_fabric = self._project_config.state_config.is_fabric_prophecy_managed(job_data.fabric_id)
         rdc = job_data.rdc
 
         if does_dag_file_exist(rdc) is False:
@@ -212,16 +211,16 @@ class AirflowJobs:
         else:
             return Either(right=rdc)
 
-    # we won't be able to check the prophecy_job_json structure to prophecy_job.json verbatim.
+    # we won't be able to completely validated the prophecy_job_json structure to prophecy_job.json.
     def _initialize_prophecy_managed_dbt_jobs(self):
 
-        for job_id, job_jsons in self.valid_airflow_jobs.items():
+        for job_id, job_data in self.valid_airflow_jobs.items():
 
-            is_job_enabled = job_jsons.is_enabled
-            is_prophecy_managed_fabric = self._state_config.is_fabric_prophecy_managed(job_jsons.fabric_id)
+            is_job_enabled = job_data.is_enabled
+            is_prophecy_managed_fabric = self._project_config.state_config.is_fabric_prophecy_managed(job_data.fabric_id)
 
-            if is_job_enabled and is_prophecy_managed_fabric and job_jsons.does_contain_dbt_component:
-                self.prophecy_managed_dbt_jobs[job_id] = job_jsons
+            if is_job_enabled and is_prophecy_managed_fabric and job_data.has_dbt_component:
+                self.prophecy_managed_dbt_jobs[job_id] = job_data
 
     def _remove_jobs(self):
         return self._jobs_to_be_deleted() + self._jobs_with_fabric_changed()
@@ -240,10 +239,10 @@ class AirflowJobs:
         Compare what exists in state config to what exists in code.
      '''
 
-    def _jobs_to_be_deleted(self) -> List[JobsInfo]:
+    def _jobs_to_be_deleted(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._state_config.get_airflow_jobs
+            airflow_job for airflow_job in self._project_config.state_config.get_airflow_jobs
             if all(
                 airflow_job.job_id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
@@ -255,19 +254,19 @@ class AirflowJobs:
         folder can only have one job with a given job id.
     '''
 
-    def _jobs_with_fabric_changed(self) -> List[JobsInfo]:
+    def _jobs_with_fabric_changed(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._state_config.get_airflow_jobs
+            airflow_job for airflow_job in self._project_config.state_config.get_airflow_jobs
             if any(
                 airflow_job.job_id == job_id and airflow_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_airflow_jobs.items()  # Check only from valid airflow jobs.
             )
         ]
 
-    def _renamed_jobs(self) -> List[JobsInfo]:
+    def _rename_jobs(self) -> List[JobInfo]:
         return [
-            airflow_job for airflow_job in self._state_config.get_airflow_jobs
+            airflow_job for airflow_job in self._project_config.state_config.get_airflow_jobs
 
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id == job_data.fabric_id and
@@ -276,13 +275,13 @@ class AirflowJobs:
             )
         ]
 
-    def _airflow_jobs_to_be_added(self) -> List[JobsInfo]:
+    def _airflow_jobs_to_be_added(self) -> List[JobInfo]:
         return self._jobs_to_be_deleted() + self._jobs_with_fabric_changed()
 
-    def _all_removed_airflow_jobs(self) -> List[JobsInfo]:
-        return list(set(self._renamed_jobs() + self._jobs_with_fabric_changed() + self._jobs_to_be_deleted()))
+    def _all_removed_airflow_jobs(self) -> List[JobInfo]:
+        return list(set(self._rename_jobs() + self._jobs_with_fabric_changed() + self._jobs_to_be_deleted()))
 
-    def _airflow_jobs_to_be_paused(self) -> Dict[str, AirflowJobDataProcessor]:
+    def _pause_jobs(self) -> Dict[str, AirflowJobDataProcessor]:
         new_disabled_jobs = {job_id: job_data for job_id, job_data in self.valid_airflow_jobs.items() if
                              job_data.is_disabled}
 
@@ -300,7 +299,7 @@ class AirflowJobs:
             for job_id, job_data in disabled_jobs_not_in_removed_jobs
             if any(
                 airflow_job.id == job_id and airflow_job.is_paused is False
-                for airflow_job in self._state_config.get_airflow_jobs
+                for airflow_job in self._project_config.state_config.get_airflow_jobs
             )
         }
 
@@ -331,10 +330,10 @@ class AirflowJobs:
                 print(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e)
 
     def _deploy_skipped_jobs(self):
-        for job_id, messages in self._skipped_jobs().items():
+        for job_id, messages in self._skip_jobs().items():
             print(f"Skipping job_id: {job_id} encountered some error ", messages)
 
-    def _skipped_jobs(self):
+    def _skip_jobs(self):
         jobs_to_be_skipped = {}
         for job_id, job_data in self._airflow_jobs.items():
             job_validation = self._validate_airflow_job(job_id, job_data)
@@ -347,13 +346,18 @@ class AirflowJobs:
         return jobs_to_be_skipped
 
     def _deploy_delete_jobs(self):
-        for jobs_info in self._renamed_jobs():
-            client = create_airflow_client(jobs_info.fabric_id, self._state_config_db_tokens)
+        for jobs_info in self._rename_jobs():
             sanitized_job_name = sanitize_job(jobs_info.scheduler_job_id)
-            client.delete_dag_file(sanitized_job_name)
+
+            try:
+                client = create_airflow_client(jobs_info.fabric_id, self._project_config)
+                client.delete_dag_file(sanitized_job_name)
+            except Exception as e:
+                print("Failed to delete dag file for job_id: ", jobs_info.id, e)
+
 
     def _deploy_pause_jobs(self):
-        for job_id, job_data in self._airflow_jobs_to_be_paused().items():
+        for job_id, job_data in self._pause_jobs().items():
             client = self.get_airflow_client(job_data.fabric_id)
 
             if len(job_data.dag_name) > 0:
@@ -371,7 +375,7 @@ class AirflowJobs:
 class AirflowGitSecrets:
 
     def __init__(self, project: ProjectParser, airflow_jobs: AirflowJobs,
-                 state_config_and_db_tokens: StateConfigAndDBTokens):
+                 state_config_and_db_tokens: ProjectConfig):
         self.project = project
         self.airflow_jobs = airflow_jobs
         self.state_config_and_db_tokens = state_config_and_db_tokens

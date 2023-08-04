@@ -12,7 +12,7 @@ from google.oauth2.gdch_credentials import ServiceAccountCredentials
 from requests import HTTPError
 
 from src.pbt.v2.client.airflow_client.mwaa_client import retry
-from src.pbt.v2.exceptions import DagUploadFailedException
+from src.pbt.v2.exceptions import DagUploadFailedException, DagFileDeletionFailedException
 from src.pbt.v2.project_models import DAG
 from google.auth.transport.requests import AuthorizedSession
 import requests
@@ -37,28 +37,25 @@ class ComposerRestClient(AirflowRestClient, ABC):
         self.key_json_file = key_json
         self.dag_location = dag_location
 
-        self.file_path = self.__create_key_json_file(key_json)
+        self.file_path = self._create_key_json_file(key_json)
 
         self.storage_handler = storage.Client.from_service_account_info(json.loads(key_json), project=project_id)
 
-    def delete_dag_file(self, dag_id: str) -> bool:
-        gcs_path_info = self.__get_gcs_path_info()
-        blob: Blob = Blob(gcs_path_info.bucket, self.__get_dag_location(gcs_path_info, dag_id))
-        print("DELETE DAG: ${blobId.getBucket}/${blobId.getName}")
+    def delete_dag_file(self, dag_id: str):
+        gcs_path_info = self._get_gcs_path_info()
+        blob: Blob = Blob(gcs_path_info.bucket, self._get_dag_location(gcs_path_info, dag_id))
         try:
             self.storage_handler.bucket(gcs_path_info.bucket).delete_blob(blob.name)
-            return True
         except Exception as e:
-            print(f"Failed to delete DAG file: ", e)
-            return False
+            raise DagFileDeletionFailedException(f"Failed to delete DAG file: {blob.name} ", e)
 
     def pause_dag(self, dag_id: str) -> DAG:
-        return self.__set_pause_state(dag_id, True)
+        return self._set_pause_state(dag_id, True)
 
     def upload_dag(self, dag_id: str, file_path: str):
-        gcs_path_info = self.__get_gcs_path_info()
+        gcs_path_info = self._get_gcs_path_info()
         bucket = self.storage_handler.get_bucket(gcs_path_info.bucket)
-        dag_location = self.__get_dag_location(gcs_path_info, dag_id)
+        dag_location = self._get_dag_location(gcs_path_info, dag_id)
 
         blob: Blob = Blob(dag_location, gcs_path_info.bucket)
 
@@ -71,12 +68,13 @@ class ComposerRestClient(AirflowRestClient, ABC):
                 os.remove(file_path)
 
     def unpause_dag(self, dag_id: str) -> DAG:
-        return self.__set_pause_state(dag_id, False)
+        return self._set_pause_state(dag_id, False)
 
+    # todo maybe we can add labmda function to print in right format
     def create_secret(self, key: str, value: str) -> bool:
         client = None
         try:
-            client = self.__get_secrets_manager()
+            client = self._get_secrets_manager()
             secret_name = f"projects/{self.project_id}/secrets/{key}"
 
             try:
@@ -126,7 +124,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         response.raise_for_status()
         return response.text
 
-    def __create_key_json_file(self, key_json: str) -> str:
+    def _create_key_json_file(self, key_json: str) -> str:
         temp_file = tempfile.NamedTemporaryFile(prefix="composer", suffix=".json", delete=False)
 
         # Write content to the temporary file
@@ -134,30 +132,32 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
         return temp_file.name
 
-    def __get_dag_location(self, gcp_path_info: GCSPathInfo, dag_id: str) -> str:
+    def _get_dag_location(self, gcp_path_info: GCSPathInfo, dag_id: str) -> str:
         if gcp_path_info is not None and gcp_path_info.path is not None:
             return f"{gcp_path_info.path}/{dag_id}.zip"
         else:
             print(f"Shouldn't be here: {gcp_path_info}")
             return f"{dag_id}.zip"
 
-    def __get_secrets_manager(self):
+    def _get_secrets_manager(self):
         # fill up how to get the credentials
         credentials = ServiceAccountCredentials.from_service_account_file(self.key_json_file)
         client = secretmanager.SecretManagerServiceClient(credentials=credentials)
         return client
 
-    def __get_gcs_path_info(self) -> GCSPathInfo:
+    def _get_gcs_path_info(self) -> GCSPathInfo:
         pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
         match = pattern.match(self.dag_location)
+
         if match:
             bucket, path = match.groups()
             gcs_path_info = GCSPathInfo(bucket, "/".join(path.split("/")))
         else:
             gcs_path_info = None
+
         return gcs_path_info
 
-    def __get_authenticated_session(self):
+    def _get_authenticated_session(self):
 
         if self.client_id is not None and len(self.client_id) > 0:
             print(f'Client Id {self.client_id}')
@@ -173,8 +173,8 @@ class ComposerRestClient(AirflowRestClient, ABC):
         return AuthorizedSession(credentials)
 
     @retry((HTTPError,), total_tries=5, delay_in_seconds=10, backoff=0)
-    def __set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
-        session = self.__get_authenticated_session()
+    def _set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
+        session = self._get_authenticated_session()
         response = session.request(method='PATCH', url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
                                    data=json.dumps({"is_paused": is_paused}),
                                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'})

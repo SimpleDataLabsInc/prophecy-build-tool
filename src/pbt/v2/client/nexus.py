@@ -8,15 +8,15 @@ from urllib.parse import unquote
 
 from requests.auth import HTTPBasicAuth
 
-from src.pbt.v2.client.airflow_client.airflow_utility import Either
 from src.pbt.v2.exceptions import ArtifactDownloadFailedException
+from src.pbt.v2.utility import Either
 
 
 class NexusClient:
 
-    def __init__(self, url: str, username: str, password: str, repository: str):
+    def __init__(self, base_url: str, username: str, password: str, repository: str):
 
-        self.base_url = url  # https://execution.dev.cloud.prophecy.io/artifactory/
+        self.base_url = base_url  # base-url https://execution.dev.cloud.prophecy.io/artifactory/
         self.username = username
         self.password = password
         self.repository = repository
@@ -36,7 +36,13 @@ class NexusClient:
         response = requests.post(url, headers=headers, data=data, auth=HTTPBasicAuth(self.username, self.password))
         return response
 
-    def download_file(self, file_name: str, project_id: str,  release_version: str, pipeline_name: str):
+    '''
+            for now this we will create on our own, but ideally this should be created with the help of pom.xml and setup.py.
+            jar - pipeline_name-1.0.jar
+            wheel - pipeline_name-1.0-py3-none-any.whl 
+    '''
+
+    def download_file(self, file_name: str, project_id: str, release_version: str, pipeline_name: str):
         # https: // execution.dev.cloud.prophecy.io / artifactory / repository / raw_host / ultra / demo / gamma / livy_scala.jar
         url = f'{self.base_url}/repository/{self.repository}/{self._create_file_path(project_id, release_version, pipeline_name)}/{file_name}'
         response = requests.get(url, stream=True)
