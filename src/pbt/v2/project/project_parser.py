@@ -7,44 +7,51 @@ from src.pbt.metadata.my_enums import find_mode
 from src.pbt.v2.constants import *
 import re
 
+from src.pbt.v2.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
+
 
 class ProjectParser:
+    _DATABRICKS_JOB_JSON = "databricks_job.json"
 
     def __init__(self, project_path: str, release_mode: str = None,
                  project_id: Optional[str] = None, release_version: Optional[str] = None):
 
+        self.project_id = project_id
+        self.release_version = release_version
         self.project_path = project_path
         self.release_mode = find_mode(release_mode)
 
-        self.project = None
+        self.pbt_project_dict = {}
         self.project_language = None
         self.jobs = None
         self.pipelines = None
+        self.pipeline_id_to_name = {}
         self.pipeline_configurations = {}
 
-        self.databricks_jobs = None
-        self.airflow_jobs = None
+        self._verify_project()
+        self._load_project_config()
+        self._extract_project_info()
+        self._load_pipeline_configurations()
 
-        self.load_project_config()
+    def _verify_project(self):
+        if not os.path.exists(self.project_path):
+            raise ProjectPathNotFoundException(f"Project path does not exist {self.project_path}")
 
-        self.project_id = project_id
-        self.release_version = release_version
+        if not os.path.exists(os.path.join(self.project_path, PBT_FILE_NAME)):
+            raise ProjectFileNotFoundException(f"Project file does not exist at path {self.project_path}")
 
-    def load_project_config(self):
+    def _load_project_config(self):
         pbt_project_path = os.path.join(self.project_path, PBT_FILE_NAME)
         with open(pbt_project_path, "r") as project_to_release:
-            self.project = yaml.safe_load(project_to_release)
+            self.pbt_project_dict = yaml.safe_load(project_to_release)
 
-        self.extract_project_info()
-        self.load_pipeline_configurations()
+    def _extract_project_info(self):
+        self.project_language = self.pbt_project_dict.get(LANGUAGE, None)
+        self.jobs = self.pbt_project_dict.get(JOBS, {})
+        self.pipelines = self.pbt_project_dict.get(PIPELINES, {})
 
-    def extract_project_info(self):
-        self.project_language = self.project[LANGUAGE]
-        self.jobs = self.project[JOBS]
-        self.pipelines = self.project[PIPELINES]
-
-    def load_pipeline_configurations(self):
-        pipeline_conf = dict(self.project.get(PIPELINE_CONFIGURATIONS, []))
+    def _load_pipeline_configurations(self):
+        pipeline_conf = dict(self.pbt_project_dict.get(PIPELINE_CONFIGURATIONS, []))
 
         for pipeline_config_path, pipeline_config_object in pipeline_conf.items():
             configurations = {}
@@ -63,7 +70,7 @@ class ProjectParser:
     def get_files(self, pipeline_path: str, aspect: str):
         return os.path.join(self.project_path, pipeline_path + '/' + aspect)
 
-    def __replace_placeholders(self, path: str, content: str) -> str:
+    def _replace_placeholders(self, path: str, content: str) -> str:
         if self.project_id is not None and len(self.project_id) > 0 and (
                 path.endswith('.json') or path.endswith('.scala') or path.endswith('.py')):
             content = content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id)
@@ -76,8 +83,8 @@ class ProjectParser:
 
     def load_databricks_job(self, job_id: str) -> Optional[str]:
         content = None
-        with open(os.path.join(self.project_path, job_id, "code", "databricks-job.json"), "r") as file:
-            content = self.__replace_placeholders('databricks-job.json', file.read())
+        with open(os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON), "r") as file:
+            content = self._replace_placeholders(self._DATABRICKS_JOB_JSON, file.read())
 
         return content
 
@@ -92,7 +99,7 @@ class ProjectParser:
                 full_path = os.path.join(dir_path, filename)
                 with open(full_path, 'r') as file:
                     relative_path = os.path.relpath(full_path, base_path)
-                    content = self.__replace_placeholders(relative_path, file.read())
+                    content = self._replace_placeholders(relative_path, file.read())
                     rdc[relative_path] = content
                     # Do something with the content
         return rdc
@@ -115,9 +122,9 @@ class ProjectParser:
         match = HTTPSURIAllRepoPatterns.search(pipeline)
         if match:
             git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
-            return project_subscription_project_id, path
+            return project_subscription_project_id, tag.split('/')[1]
         else:
-            return None
+            return None, None
 
     def load_pipeline_folder(self, pipeline):
         rdc = {}
@@ -134,7 +141,7 @@ class ProjectParser:
                 with open(full_path, 'r') as file:
                     relative_path = os.path.relpath(full_path, base_path)
                     try:
-                        content = self.__replace_placeholders(relative_path, file.read())
+                        content = self._replace_placeholders(relative_path, file.read())
                     except Exception as e:
                         print(f"Failed to replace placeholders in {relative_path}")
                         raise e

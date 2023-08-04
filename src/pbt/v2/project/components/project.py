@@ -31,19 +31,22 @@ def to_dict_recursive(obj):
 
 
 class Project:
-    def __init__(self, project: ProjectParser, state_config_and_db_tokens: StateConfigAndDBTokens):
-        self.project = project
-        self.jobs = self.project.project[JOBS]
-        self.__databricks_jobs = DatabricksJobs(project, state_config_and_db_tokens)
-        self.__airflow_jobs = AirflowJobs(project, state_config_and_db_tokens)
-        self.__script_component = ScriptComponents(project, self.__databricks_jobs, state_config_and_db_tokens)
-        self.__pipeline_configurations = PipelineConfigurations(project, self.__databricks_jobs,
-                                                                state_config_and_db_tokens)
-        self.__pipelines = Pipelines(project, self.__databricks_jobs, self.__airflow_jobs, state_config_and_db_tokens)
-        self.__dbt_component = DBTComponents(project, self.__databricks_jobs, state_config_and_db_tokens)
-        self.__airflow_git_secrets = AirflowGitSecrets(project, self.__airflow_jobs, state_config_and_db_tokens)
+    def __init__(self, project_parser: ProjectParser, state_config_and_db_tokens: StateConfigAndDBTokens):
+        self.project_parser = project_parser
 
-    def should_include(self,  key):
+        self._databricks_jobs = DatabricksJobs(project_parser, state_config_and_db_tokens)
+        self._airflow_jobs = AirflowJobs(project_parser, state_config_and_db_tokens)
+
+        self._script_component = ScriptComponents(project_parser, self._databricks_jobs, state_config_and_db_tokens)
+        self._pipeline_configurations = PipelineConfigurations(project_parser, self._databricks_jobs,
+                                                               state_config_and_db_tokens)
+        self._dbt_component = DBTComponents(project_parser, self._databricks_jobs, state_config_and_db_tokens)
+        self._airflow_git_secrets = AirflowGitSecrets(project_parser, self._airflow_jobs, state_config_and_db_tokens)
+
+        self._pipelines = Pipelines(project_parser, self._databricks_jobs, self._airflow_jobs,
+                                    state_config_and_db_tokens)
+
+    def should_include(self, key):
         ## these are in config objects but we need to remove them.
         return key not in ['spark', 'prophecy_spark']
 
@@ -61,27 +64,33 @@ class Project:
             return obj
 
     def headers(self):
-        headers = self.__script_component.headers() + \
-                  self.__dbt_component.headers() + \
-                  self.__airflow_git_secrets.headers() + \
-                  self.__pipeline_configurations.headers() + \
-                  self.__pipelines.headers() + \
-                  self.__databricks_jobs.headers() + \
-                  self.__airflow_jobs.headers()
+        headers = self._script_component.headers() + \
+                  self._dbt_component.headers() + \
+                  self._airflow_git_secrets.headers() + \
+                  self._pipeline_configurations.headers() + \
+                  self._pipelines.headers() + \
+                  self._databricks_jobs.headers() + \
+                  self._airflow_jobs.headers()
 
         for head in headers:
             print(json.dumps(head, default=to_dict_recursive, indent=4))
 
-    def build(self):
-        self.__pipelines.build()
+    def build(self, pipeline_ids):
+        self._pipelines.build_and_upload(pipeline_ids)
+
+    def validate(self):
+        pass
+
+    def test(self, pipeline_name: List):
+        pass
 
     def deploy(self):
-        self.__script_component.deploy()
-        self.__dbt_component.deploy()
-        self.__pipeline_configurations.deploy()
-        self.__pipelines.deploy()
+        self._script_component.deploy()
+        self._dbt_component.deploy()
+        self._pipeline_configurations.deploy()
+        self._pipelines.deploy()
 
-        self.__airflow_git_secrets.deploy()
+        self._airflow_git_secrets.deploy()
 
-        self.__airflow_jobs.deploy()
-        self.__databricks_jobs.deploy()
+        self._airflow_jobs.deploy()
+        self._databricks_jobs.deploy()

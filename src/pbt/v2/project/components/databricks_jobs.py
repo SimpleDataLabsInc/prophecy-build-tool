@@ -2,7 +2,7 @@ import json
 import subprocess
 from typing import Dict, List
 
-from src.pbt.v2.client.databricks_client import DatabricksClient
+from src.pbt.v2.client.databricks_client.databricks_client import DatabricksClient
 from src.pbt.v2.constants import COMPONENTS_LITERAL, SCALA_LANGUAGE
 from src.pbt.v2.project.project_parser import ProjectParser
 from src.pbt.v2.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata
@@ -15,29 +15,43 @@ FABRIC_UID = "fabricUID"
 DBT_COMPONENT = "DBTComponent"
 
 
-class DatabricksJobsJson:
+class DatabricksJobsDataProcessor:
     def __init__(self, parsed_job_info: Dict[str, str], databricks_job: str):
         self.parsed_job_info = parsed_job_info
         self.databricks_job = databricks_job
+
         try:
             self.databricks_job_json = json.loads(databricks_job)
         except Exception as e:
             self.databricks_job_json = {}
 
+    @property
     def is_valid_job(self):
         return len(self.databricks_job_json) > 0 and len(self.parsed_job_info) > 0
 
     @property
     def get_fabric_id(self):
-        return self.parsed_job_info.get('fabricUID', None)
+        fabric_id = self.parsed_job_info.get('fabricUID', None)
 
-    def get_db_job_json(self):
+        if fabric_id is not None:
+            str(fabric_id)
+
+        return fabric_id
+
+    @property
+    def databricks_json(self):
         return self.databricks_job_json.get('request', None)
 
+    @property
+    def acl(self):
+        return self.databricks_job_json.get('request', {}).get('accessControlList', None)
+
+    @property
     def get_secret_scope(self):
         return self.databricks_job_json.get('secret_scope', None)
 
-    def pipelines(self):
+    @property
+    def pipelines_id_and_name(self):
         return list(set(self.parsed_job_info.get('pipelines', None)))
 
 
@@ -46,159 +60,171 @@ class DatabricksJobs:
     def __init__(self, project: ProjectParser, state_config_and_db_tokens: StateConfigAndDBTokens):
         self.project = project
 
-        self.state_config = state_config_and_db_tokens.state_config
+        self._state_config = state_config_and_db_tokens.state_config
         self.db_tokens = state_config_and_db_tokens.db_tokens
         self.state_config_and_db_tokens = state_config_and_db_tokens
 
-        self.db_jobs = {}
-        self.pipeline_configurations = self.project.pipeline_configurations
-        self.valid_databricks_jobs: Dict[str, DatabricksJobsJson] = {}
-        self.databricks_jobs_without_code = {}
-
+        self._db_jobs = {}
+        self._pipeline_configurations = self.project.pipeline_configurations
+        self.valid_databricks_jobs: Dict[str, DatabricksJobsDataProcessor] = {}
+        self._databricks_jobs_without_code = {}
+        self._db_clients = {}
         self.config = "1"
 
-        self.__initialize_db_jobs()
-        self.__initialize_valid_databricks_jobs()
-
-    def __initialize_db_jobs(self):
-        jobs = {}
-        for job_id, parsed_job in self.project.jobs.items():
-            if 'Databricks' in parsed_job.get('scheduler', None):
-                databricks_job = self.project.load_databricks_job(job_id)
-                jobs[job_id] = DatabricksJobsJson(parsed_job, databricks_job)
-
-        self.db_jobs = jobs
-
-    def __initialize_valid_databricks_jobs(self):
-        for job_id, job_jsons in self.db_jobs.items():
-            if job_jsons.is_valid_job():
-                self.valid_databricks_jobs[job_id] = job_jsons
-            else:
-                self.databricks_jobs_without_code[job_id] = job_jsons
+        self._initialize_db_jobs()
+        self._initialize_valid_databricks_jobs()
 
     def headers(self) -> List[StepMetadata]:
+        job_actions = {
+            "add-job": {"jobs": self._add_jobs(), "message": "Adding job {} for fabric {}"},
+            "refresh-job": {"jobs": self._refresh_jobs(), "message": "Refreshing job {} for fabric {}"},
+            "delete-job": {"jobs": self._delete_jobs(),
+                           "message": "Deleting job {} for fabric {} deployed with id {}"}
+        }
+
         headers = []
-        for job_id, job_json in self.__add_jobs().items():
-            headers.append(
-                StepMetadata(job_id, f"Adding job {job_id} for fabric {job_json.get_fabric_id}", "add-job", "job"))
 
-        for job_id, job_json in self.__refresh_jobs().items():
-            headers.append(
-                StepMetadata(job_id, f"Refreshing job {job_id} for fabric {job_json.get_fabric_id}", "refresh-job",
-                             "job"))
+        for action, data in job_actions.items():
+            for job_id, job_info in data["jobs"].items():
 
-        for job_id, jobs_info in self.__delete_jobs().items():
-            headers.append(
-                StepMetadata(job_id,
-                             f"Deleting job {job_id} for fabric {jobs_info.fabric_id} deployed with id {jobs_info.scheduler_job_id}",
-                             "delete-job", "job"))
+                if action == "delete-job":
+                    message = data["message"].format(job_id, job_info.fabric_id, job_info.scheduler_job_id)
+                else:
+                    message = data["message"].format(job_id, job_info.get_fabric_id)
+
+                headers.append(
+                    StepMetadata(job_id, message, action, "job")
+                )
 
         return headers
 
     def deploy(self):
-        self.__deploy_add_jobs()
-        self.__deploy_refresh_jobs()
-        self.__deploy_delete_jobs()
-        self.__deploy_pause_jobs()
+        self._deploy_add_jobs()
+        self._deploy_refresh_jobs()
+        self._deploy_delete_jobs()
+        self._deploy_pause_jobs()
+
+    def get_databricks_client(self, fabric_id):
+        if fabric_id not in self._db_clients:
+            self._db_clients[fabric_id] = DatabricksClient.from_state_config(self.state_config_and_db_tokens,
+                                                                             self.db_tokens[fabric_id])
+
+        return self._db_clients[fabric_id]
+
+    def _initialize_db_jobs(self):
+        jobs = {}
+
+        for job_id, parsed_job in self.project.jobs.items():
+            if 'Databricks' in parsed_job.get('scheduler', None):
+                databricks_job = self.project.load_databricks_job(job_id)
+                jobs[job_id] = DatabricksJobsDataProcessor(parsed_job, databricks_job)
+
+        self._db_jobs = jobs
+
+    def _initialize_valid_databricks_jobs(self):
+
+        for job_id, job_data in self._db_jobs.items():
+            if job_data.is_valid_job:
+                self.valid_databricks_jobs[job_id] = job_data
+
+            else:
+                self._databricks_jobs_without_code[job_id] = job_data
 
     @property
-    def databricks_job_json_for_refresh_and_new_jobs(self) -> Dict[str, DatabricksJobsJson]:
-        return self.__databricks_job_json(self.__add_and_refresh_jobs())
+    def databricks_job_json_for_refresh_and_new_jobs(self) -> Dict[str, DatabricksJobsDataProcessor]:
+        return self._databricks_job_and_processor_data(self._add_and_refresh_jobs())
 
-    def __add_and_refresh_jobs(self) -> List[str]:
-        return list(set(list(self.__add_jobs().keys()) + list(self.__refresh_jobs().keys())))
+    def _add_and_refresh_jobs(self) -> List[str]:
+        return list(set(list(self._add_jobs().keys()) + list(self._refresh_jobs().keys())))
 
-    def __databricks_job_json(self, jobs: List[str]):
-        databricks_jobs = {}
+    def _databricks_job_and_processor_data(self, jobs: List[str]):
 
-        for job in jobs:
-            databricks_jobs[job] = self.valid_databricks_jobs.get(job, {})
+        return {
+            job: self.valid_databricks_jobs.get(job, {}) for job in jobs
+        }
 
-        return databricks_jobs
+    def _refresh_jobs(self):
+        return {
+            job_info.id: job_info for job_info in self._state_config.get_databricks_jobs
+            if any(
+                job_info.id == job_id and job_info.fabric_id == job_data.get_fabric_id
+                for job_id, job_data in self.valid_databricks_jobs.items()
+            )
+        }
 
-    def __refresh_jobs(self):
-        refresh_jobs = {}
+    def _pause_jobs(self) -> List[JobsInfo]:
 
-        for job_id, job_jsons in self.valid_databricks_jobs.items():
-            if self.state_config.contains_jobs(job_id, str(job_jsons.get_fabric_id)):
-                refresh_jobs[job_id] = job_jsons
+        return [
+            databricks_job for databricks_job in self._state_config.get_databricks_jobs
+            if any(
+                databricks_job.job_id == job_id and databricks_job.fabric_id != job_data.get_fabric_id
+                for job_id, job_data in self.valid_databricks_jobs.items()  # Check only from valid airflow jobs.
+            )
+        ]
 
-        return refresh_jobs
+    def _add_jobs(self) -> Dict[str, DatabricksJobsDataProcessor]:
 
-    def __pause_jobs(self) -> List[JobsInfo]:
-        pause_jobs = []
-        for job in self.state_config.get_databricks_jobs():
+        return {
+            job_id: job_data for job_id, job_data in self.valid_databricks_jobs.items()
+            if self._state_config.contains_jobs(job_id, str(job_data.get_fabric_id)) is False
+        }
 
-            exist_job_with_same_fabric = any(
-                job.id == job_id and job.get_fabric_id == job_jsons.parsed_job_info[FABRIC_UID] for job_id, job_jsons in
-                self.valid_databricks_jobs.items())
-
-            if exist_job_with_same_fabric is False and any(
-                    job.id == job_id for job_id in self.valid_databricks_jobs.keys()):
-                pause_jobs.append(job)
-
-        return pause_jobs
-
-    def __add_jobs(self) -> Dict[str, DatabricksJobsJson]:
-        add_jobs = {}
-
-        for job_id, job_jsons in self.valid_databricks_jobs.items():
-            if self.state_config.contains_jobs(job_id, str(job_jsons.get_fabric_id)) is False:
-                add_jobs[job_id] = job_jsons
-
-        return add_jobs
-
-    def __delete_jobs(self) -> Dict[str, JobsInfo]:
-        deleted_jobs = {}
-
-        for job in self.state_config.get_databricks_jobs():
-            if any(job_id == job.id and job.get_fabric_id == job_content[FABRIC_UID] for job_id, job_content in
-                   self.db_jobs.items()) is False:
-                deleted_jobs[job.id] = job
-
-        return deleted_jobs
+    def _delete_jobs(self) -> Dict[str, JobsInfo]:
+        return {
+            job.id: job for job in self._state_config.get_databricks_jobs()
+            if any(job.id == job_id and job.fabric_id == job_data.get_fabric_id for job_id, job_data in
+                   self.valid_databricks_jobs.items()) is False
+        }
 
     ############ Deploy Jobs ############
 
-    def __deploy_add_jobs(self):
-        for job_id, job_jsons in self.__add_jobs().items():
-            fabric_id = job_jsons.get_fabric_id
+    def _deploy_add_jobs(self):
+        for job_id, job_data in self._add_jobs().items():
+            fabric_id = job_data.get_fabric_id
+
             if fabric_id is not None:
-                client = DatabricksClient.from_state_config(self.state_config_and_db_tokens, str(fabric_id))
-                response = client.create_job(job_jsons.get_db_job_json())
+                response = self.get_databricks_client(fabric_id).create_job(job_data.databricks_json())
                 print(response)
             else:
-                print(f"In valid fabric {fabric_id}")
+                print(f"In valid fabric {fabric_id}, skipping job creation for job_id {job_id}")
 
-    def __deploy_refresh_jobs(self):
-        for (job_id, job_jsons) in self.__refresh_jobs().items():
-            fabric_id = job_jsons.get_fabric_id
+    def _deploy_refresh_jobs(self):
+        for (job_id, job_info) in self._refresh_jobs().items():
+            fabric_id = job_info.fabric_id
+
             if fabric_id is not None:
-                client = DatabricksClient.from_state_config(self.state_config_and_db_tokens, str(fabric_id))
-                response = client.reset_job(job_id, job_jsons.get_db_job_json())
-                print(response)
+                client = self.get_databricks_client(fabric_id)
+                response = client.reset_job(job_info.scheduler_job_id,
+                                            self.valid_databricks_jobs.get(
+                                                job_id).databricks_json())
+                try:
+                    client.patch_job(job_info.scheduler_job_id,
+                                     self.valid_databricks_jobs.get(job_id).acl())
+                except Exception as e:
+                    print('Error while patching job: ', e)
             else:
-                print(f"In valid fabric {fabric_id}")
+                print(f"In valid fabric {fabric_id}, skipping job refresh for job_id {job_id}")
 
-    def __deploy_delete_jobs(self):
-        for (job_id, jobs_info) in self.__delete_jobs():
-            fabric = self.state_config.get_fabric(jobs_info.fabric_id)
-            if fabric is not None:
-                client = DatabricksClient.from_state_config(self.state_config_and_db_tokens, jobs_info.fabric_id)
-                response = client.delete_job(jobs_info.scheduler_job_id)
-                print(response)
-            else:
-                print(f"In valid fabric {fabric}")
+    def _deploy_delete_jobs(self):
+        for (job_id, jobs_info) in self._delete_jobs():
+            fabric = jobs_info.fabric_id
 
-    def __deploy_pause_jobs(self):
-        for jobs_info in self.__pause_jobs():
-            fabric = self.state_config.get_fabric(jobs_info.fabric_id)
             if fabric is not None:
-                client = DatabricksClient.from_state_config(self.state_config_and_db_tokens, jobs_info.fabric_id)
-                response = client.pause_job(jobs_info.scheduler_job_id)
+                response = self.get_databricks_client(jobs_info.fabric_id).delete_job(jobs_info.scheduler_job_id)
                 print(response)
             else:
-                print(f"In valid fabric {fabric}")
+                print(
+                    f"In valid fabric {fabric} not deleting job {jobs_info.id} and databricks id {jobs_info.scheduler_job_id}")
+
+    def _deploy_pause_jobs(self):
+        for jobs_info in self._pause_jobs():
+            fabric = jobs_info.fabric_id
+
+            if fabric is not None:
+                response = self.get_databricks_client(jobs_info.fabric_id).pause_job(jobs_info.scheduler_job_id)
+                print(response)
+            else:
+                print(f"In valid fabric {fabric} for job_id {jobs_info.id} ")
 
 
 class DBTComponents:
@@ -210,42 +236,45 @@ class DBTComponents:
         self.state_config_and_dbt_tokens = state_config_and_db_tokens
 
     def headers(self):
-        return self.__dbt_secrets_headers() + self.__dbt_profiles_to_build_headers()
+        return self._dbt_secrets_headers() + self._dbt_profiles_to_build_headers()
 
     def deploy(self):
-        self.__upload_dbt_secrets()
-        self.__upload_dbt_profiles()
+        self._upload_dbt_secrets()
+        self._upload_dbt_profiles()
 
-    def __upload_dbt_profiles(self):
+    def _upload_dbt_profiles(self):
+
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
             for components in dbt_component_model.components:
+
                 if components.get('profilePath', None) is not None and components.get('profileContent',
                                                                                       None) is not None:
-                    DatabricksClient.from_state_config(self.state_config_and_dbt_tokens, dbt_component_model.fabric_id) \
-                        .upload_content(components['profileContent'], components['profilePath'])
+                    client = self.databricks_jobs.get_databricks_client(dbt_component_model.fabric_id)
+                    client.upload_content(components['profileContent'], components['profilePath'])
 
-    def __upload_dbt_secrets(self):
+    def _upload_dbt_secrets(self):
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
             for dbt_component in dbt_component_model.components:
                 if dbt_component.get('sqlFabricId', None) is not None and dbt_component.get('secretKey',
                                                                                             None) is not None:
-                    DatabricksClient.from_state_config(self.state_config_and_dbt_tokens,
-                                                       str(dbt_component_model.fabric_id)) \
-                        .create_scope(dbt_component_model.secret_scope)
-                    url = DatabricksClient.from_state_config(self.state_config_and_dbt_tokens,
-                                                             fabric_id=dbt_component['sqlFabricId']).host
-                    sql_fabric_token = self.state_config_and_dbt_tokens.db_tokens.get(dbt_component['sqlFabricId'], "")
+                    client = self.databricks_jobs.get_databricks_client(str(dbt_component_model.fabric_id)) \
+                        .check_and_create_secret_scope(dbt_component_model.secret_scope)
+
+                    sqlClient = self.databricks_jobs.get_databricks_client(dbt_component['sqlFabricId'])
+
+                    url = sqlClient.host
+
+                    sql_fabric_token = sqlClient.token
                     git_token = self.state_config.git_token_for_project(dbt_component['projectId'])
 
                     master_token = f"{sql_fabric_token};{git_token}"
 
-                    DatabricksClient.from_host_and_token(url, sql_fabric_token) \
-                        .create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
+                    sqlClient.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
 
                     print(
                         f"Uploaded dbt secrets {dbt_component['secretKey']} to scope {dbt_component_model.secret_scope}")
 
-    def __dbt_profiles_to_build_headers(self):
+    def _dbt_profiles_to_build_headers(self):
         total_dbt_profiles = 0
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
 
@@ -260,7 +289,7 @@ class DBTComponents:
         else:
             return []
 
-    def __dbt_secrets_headers(self):
+    def _dbt_secrets_headers(self):
         total_dbt_secrets = 0
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
 
@@ -299,21 +328,21 @@ class ScriptComponents:
                  state_config_and_db_tokens: StateConfigAndDBTokens):
         self.databricks_jobs = databricks_jobs
         self.project = project
-        self.script_jobs = self.__script_components_from_jobs()
+        self.script_jobs = self._script_components_from_jobs()
         self.state_config_and_db_tokens = state_config_and_db_tokens
         self.state_config = state_config_and_db_tokens.state_config
 
-    def __script_components_from_jobs(self):
+    def _script_components_from_jobs(self):
         job_id_to_script_components = {}
 
-        for jobs_id, job_jsons in self.databricks_jobs.databricks_job_json_for_refresh_and_new_jobs.items():
+        for jobs_id, job_data in self.databricks_jobs.databricks_job_json_for_refresh_and_new_jobs.items():
             script_component_list = []
 
-            for components in job_jsons.databricks_job_json.get(COMPONENTS_LITERAL, []):
+            for components in job_data.databricks_job_json.get(COMPONENTS_LITERAL, []):
                 if SCRIPT_COMPONENT in components:
                     script_component_list.append(components[SCRIPT_COMPONENT])
 
-            fabric_id = job_jsons.get_fabric_id
+            fabric_id = job_data.get_fabric_id
             job_id_to_script_components[jobs_id] = ScriptComponentsModel(fabric_id, script_component_list)
 
         return job_id_to_script_components
@@ -326,11 +355,11 @@ class ScriptComponents:
             return []
 
     def deploy(self):
-        for job_id, script_components in self.__script_components_from_jobs().items():
+
+        for job_id, script_components in self._script_components_from_jobs().items():
             for script in script_components.scripts:
-                client = DatabricksClient.from_state_config(self.state_config_and_db_tokens,
-                                                            str(script_components.fabric_id))
-                response = client.upload_content(content=script.get('content'), path=script.get('path'))
+                client = self.databricks_jobs.get_databricks_client(str(script_components.fabric_id))
+                response = client.upload_content(content=script.get('content', None), path=script.get('path', None))
                 print(response)
 
 
@@ -352,10 +381,13 @@ class PipelineConfigurations:
 
     def deploy(self):
         for pipeline_id, configurations in self.pipeline_configurations.items():
-            path = f"dbfs:/FileStore/prophecy/artifacts/dev/execution/{pipeline_id}"
-            for configuration_name, configuration_content in configurations.items():
-                actual_path = path + "/" + configuration_name + ".json"
-                for fabric_id, token in self.state_config_db_tokens.db_tokens.items():
-                    client = DatabricksClient.from_state_config(self.state_config_db_tokens, str(fabric_id))
-                    client.upload_content(configuration_content, actual_path)
 
+            path = self.state_config_db_tokens.get_base_path()
+            pipeline_path = f'{path}/{pipeline_id}'
+
+            for configuration_name, configuration_content in configurations.items():
+                configuration_path = f'{pipeline_path}/{configuration_name}.json'
+
+                for fabric_id, token in self.state_config_db_tokens.db_tokens.items():
+                    client = self.databricks_jobs.get_databricks_client(str(fabric_id))
+                    client.upload_content(configuration_content, configuration_path)

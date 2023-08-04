@@ -1,44 +1,64 @@
 import json
 import os
+import tempfile
 from pathlib import Path
 
 import requests
 from urllib.parse import unquote
 
+from requests.auth import HTTPBasicAuth
+
+from src.pbt.v2.client.airflow_client.airflow_utility import Either
+from src.pbt.v2.exceptions import ArtifactDownloadFailedException
+
 
 class NexusClient:
 
-    def __init__(self, url: str, username: str, password: str):
-        self.url = url
+    def __init__(self, url: str, username: str, password: str, repository: str):
+
+        self.base_url = url  # https://execution.dev.cloud.prophecy.io/artifactory/
         self.username = username
         self.password = password
-
-    @staticmethod
-    def from_url(url: str):
-        return NexusClient(url, os.getenv('NexusUsername'), os.getenv('NexusPassword'))
+        self.repository = repository
 
     def upload_file(self, file_path: str, project_id: str, pipeline_name: str, release_version: str):
-        url = f"{self.url}/nexus/repository/{project_id}/{pipeline_name}/{release_version}/{file_path}"
-        with open(file_path, 'rb') as file:
-            requests.put(url, auth=(self.username, self.password), data=file.read())
+        headers = {
+            'accept': 'application/json',
+            'Content-Type': 'multipart/form-data',
+        }
+        url = f'{self.base_url}/service/rest/v1/components?repository={self.repository}'
+        data = {
+            'raw.directory': f'/prophecy/artifact/{self._create_file_path(project_id, release_version, pipeline_name)}',
+            'raw.asset1': file_path,
+            'raw.asset1.filename': os.path.basename(file_path),
+        }
 
-    def download_file(self, file_path: str, project_id: str, pipeline_name: str, release_version: str):
-        url = f"{self.url}/nexus/repository/{project_id}/{pipeline_name}/{release_version}/{file_path}"
-        with open(file_path, 'wb') as file:
-            response = requests.get(url, auth=(self.username, self.password))
-            download_url = json.loads(response.content.decode('utf-8')).get('downloadUrl', None)
+        response = requests.post(url, headers=headers, data=data, auth=HTTPBasicAuth(self.username, self.password))
+        return response
 
-            # Send a HTTP request to the URL of the file
-            response = requests.get(download_url, stream=True)
+    def download_file(self, file_name: str, project_id: str,  release_version: str, pipeline_name: str):
+        # https: // execution.dev.cloud.prophecy.io / artifactory / repository / raw_host / ultra / demo / gamma / livy_scala.jar
+        url = f'{self.base_url}/repository/{self.repository}/{self._create_file_path(project_id, release_version, pipeline_name)}/{file_name}'
+        response = requests.get(url, stream=True)
 
-            # Check if the request was successful
-            if response.status_code == 200:
-                # Get the filename from the URL
-                filename = unquote(Path(download_url).name)
-
-                # Write the contents of the response to a file
-                with open(filename, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=128):
+        if response.status_code == 200:
+            # Create a temporary directory
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                file_path = os.path.join(tmp_dir, file_name)
+                with open(file_path, 'wb') as f:
+                    for chunk in response.iter_content(1024):
                         f.write(chunk)
-            else:
-                print(f'Request failed with status code {response.status_code}')
+                print(f"File downloaded at: {file_path}")
+                Either(right=file_path)
+        else:
+            print(f"Unable to download file. HTTP response code: {response.status_code}")
+
+            Either(left=ArtifactDownloadFailedException(response))
+
+    def _create_file_path(self, project_id: str, release_version: str, pipeline_name):
+        # todo cleanup.
+        return f'project_{project_id}/release_version_{release_version}/pipeline_{pipeline_name}'
+
+    @classmethod
+    def initialize_nexus_client(cls, state_config_and_db_tokens):
+        pass

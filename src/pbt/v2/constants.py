@@ -24,7 +24,6 @@ PIPELINES = "pipelines"
 PIPELINE_CONFIGURATIONS = "pipelineConfigurations"
 BASE_PIPELINE = "basePipeline"
 CONFIGURATIONS = "configurations"
-JOBS = "jobs"
 
 JSON_EXTENSION = ".json"
 
@@ -34,3 +33,5 @@ COMPONENTS_LITERAL = "components"
 
 FABRIC_ID = "fabric_id"
 SECRET_SCOPE = "secret_scope"
+
+BASE_PATH = "dbfs:/FileStore/prophecy/artifacts/"

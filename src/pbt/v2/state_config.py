@@ -1,39 +1,13 @@
+import os
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
+from src.pbt.v2.constants import BASE_PATH
+
+
 # todo explore https://docs.pydantic.dev/latest/usage/serialization/#subclasses-of-standard-types
 # explore https://docs.pydantic.dev/latest/usage/models/#generic-models
-
-'''
- more thoughts to explore 
- 
- from pydantic import BaseModel, ValidationError
-from typing import Optional, List, Union
-
-class User(BaseModel):
-    id: int
-    name: str
-    email: Optional[str]
-    friends: List[int] = []
-    type: str
-
-class AdminUser(User):
-    admin_rights: List[str]
-
-class GuestUser(User):
-    guest_since: str
-
-def create_user(data: dict) -> Union[User, AdminUser, GuestUser]:
-    user_type = data.get('type')
-    if user_type == 'admin':
-        return AdminUser(**data)
-    elif user_type == 'guest':
-        return GuestUser(**data)
-    else:
-        return User(**data)
-
-'''
 
 
 class ComposerInfo(BaseModel):
@@ -57,10 +31,8 @@ class MwaaInfo(BaseModel):
 
 
 class Content(BaseModel):
-    expiry: Optional[str] = None
-    pool_name: Optional[str] = None
-    composer_info: Optional[ComposerInfo] = None
     provider_type: Optional[str]
+    composer_info: Optional[ComposerInfo] = None
     mwaa_info: Optional[MwaaInfo] = None
 
 
@@ -68,7 +40,7 @@ class FabricsInfo(BaseModel):
     id: str
     name: str
     url: str
-    type: str
+    provider_type: str
     is_spark: bool
     is_sql: bool
     is_airflow: bool
@@ -105,9 +77,13 @@ class StateConfig(BaseModel):
     def get_jobs(self, job_id: str) -> List[JobsInfo]:
         return [job for job in self.jobs if job.id == job_id]
 
+    def get_job(self, job_id: str, fabric_id: str) -> Optional[JobsInfo]:
+        return next((job for job in self.jobs if job.id == job_id and job.fabric_id == fabric_id), None)
+
     def get_databricks_jobs(self) -> List[JobsInfo]:
         return [job for job in self.jobs if job.type is 'Databricks']
 
+    @property
     def get_airflow_jobs(self) -> List[JobsInfo]:
         return [job for job in self.jobs if job.type is not 'Databricks']
 
@@ -122,10 +98,11 @@ class StateConfig(BaseModel):
                     None)
 
     def is_fabric_prophecy_managed(self, fabric_id: str) -> bool:
-        fabric = self.get_fabric(fabric_id)
-        if fabric is None:
-            return False
-        return True
+        if fabric_id is not None and self.get_fabric(fabric_id) is not None:
+            fabric_info = self.get_fabric(fabric_id)
+            return fabric_info.provider_type == 'Prophecy' and fabric_info.is_airflow
+
+        return False
 
     @classmethod
     def empty_state_config(cls):
@@ -136,13 +113,21 @@ class StateConfigAndDBTokens:
     def __init__(self, path: str, db_tokens: Dict[str, str]):
         self.path = path
         self.state_config = None
-        self.__load_state_config()
+        self._load_state_config()
         self.db_tokens = db_tokens
 
-    def __load_state_config(self):
+    def _load_state_config(self):
         if self.path is not None:
             with open(self.path, "r") as state_config:
                 data = state_config.read()
                 self.state_config = parse_yaml_raw_as(StateConfig, data)
         else:
             self.state_config = StateConfig.empty_state_config()
+
+    @staticmethod
+    def load_from_cli():
+        os.getenv()
+
+    #todo fill this up.
+    def get_base_path(self):
+        return f'{BASE_PATH}/{customer_name}/{control_plane_name}'

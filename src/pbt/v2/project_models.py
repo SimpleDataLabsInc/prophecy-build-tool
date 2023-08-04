@@ -18,15 +18,6 @@ class Component(BaseModel):
     path: Optional[str]
     language: str
 
-    def update_path(self, project_id: str, version: str, release_tag: str):
-        if self.path is not None:
-            return (self.path
-                    .replace("ProjectIdPlaceHolder", project_id)
-                    .replace("ProjectVersionPlaceHolder", version)
-                    .replace("ProjectReleaseTagPlaceHolder", release_tag))
-        else:
-            return None
-
 
 class JobContent(BaseModel):
     job_id: str
@@ -54,9 +45,12 @@ class ScriptComponentsModel:
 
 class DAG:
 
-    def __init__(self, dag_id: str, description: Optional[str] = None, file_token: Optional[str] = None, fileloc: Optional[str]=None,
-                 is_active: Optional[bool] = None, is_paused: bool = True, is_subdag: Optional[bool]=None, owners: List[str]=None,
-                 root_dag_id: Optional[str] = None, schedule_interval: Optional[str] = None, next_dagrun: Optional[str] = None,
+    def __init__(self, dag_id: str, description: Optional[str] = None, file_token: Optional[str] = None,
+                 fileloc: Optional[str] = None,
+                 is_active: Optional[bool] = None, is_paused: bool = True, is_subdag: Optional[bool] = None,
+                 owners: List[str] = None,
+                 root_dag_id: Optional[str] = None, schedule_interval: Optional[str] = None,
+                 next_dagrun: Optional[str] = None,
                  tags: List[str] = []):
         self.dag_id = dag_id
         self.description = description
@@ -90,9 +84,9 @@ class DAG:
 
     # different from the scala release.
     @staticmethod
-    def create_from_mwaa(response:dict):
+    def create_from_mwaa(response: dict):
         dag_id = response.get('dag_id')
         fileloc = response.get('filepath', None)
         is_paused = response.get('paused', None)
         owners = response.get('owners', None)
-        return DAG(dag_id,  fileloc=fileloc,is_paused=is_paused,owners= owners)
+        return DAG(dag_id, fileloc=fileloc, is_paused=is_paused, owners=owners)

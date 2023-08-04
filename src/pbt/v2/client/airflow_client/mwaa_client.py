@@ -6,38 +6,11 @@ import datetime
 import boto3
 
 from src.pbt.v2.client.airflow_client.airflow_rest_client import AirflowRestClient
+from src.pbt.v2.client.airflow_client.airflow_utility import retry
 from src.pbt.v2.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
 from src.pbt.v2.project_models import DAG
 import requests
 import json
-
-
-# back-off :- 0 for making this static delay based retry
-def retry(exceptions, total_tries: int = 3, delay_in_seconds: int = 1, backoff: int = 2):
-    def decorator(func):
-        import time
-        from functools import wraps
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            retries = total_tries
-            while retries > 1:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    if retries < 1:
-                        raise e
-                    print(f"{str(e)}, Retrying in {delay} seconds...")
-                    time.sleep(delay)
-                    retries -= 1
-                    if backoff != 0:
-                        delay = delay * backoff
-
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 class MWAARestClient(AirflowRestClient, ABC):
@@ -56,17 +29,17 @@ class MWAARestClient(AirflowRestClient, ABC):
 
         self.environment = self.mwaa_client.get_environment(Name=environment_name)
         self.dag_s3_path = self.environment['Environment']['DagS3Path']
-        self.__source_bucket = self.__extract_bucket_name_from_arn()
+        self.__source_bucket = self._extract_bucket_name_from_arn()
 
-    def __create_cli_token(self):
+    def _create_cli_token(self):
         return self.mwaa_client.create_cli_token(Name=self.environment_name)
 
-    def __expiry_cli_token(self):
-        return ExpiringValue(lambda: self.__create_cli_token(), 60 * 60 * 24)
+    def _expiry_cli_token(self):
+        return ExpiringValue(lambda: self._create_cli_token(), 60 * 60 * 24)
 
-    def __headers(self):
+    def _headers(self):
         return {
-            "Authorization": f"Bearer {self.__expiry_cli_token().get_value()['CliToken']}",
+            "Authorization": f"Bearer {self._expiry_cli_token().get_value()['CliToken']}",
             "User-Agent": "Prophecy"
         }
 
@@ -78,7 +51,7 @@ class MWAARestClient(AirflowRestClient, ABC):
         try:
             self.s3_aws_client.delete_object(Bucket=self.__source_bucket, Key=relative_path)
             try:
-                response = self.__get_response(f"dags delete {dag_id} --yes")
+                response = self._get_response(f"dags delete {dag_id} --yes")
                 return True
             except Exception as e:
                 print("Dag deletion failed, This step was optional", e)
@@ -88,7 +61,7 @@ class MWAARestClient(AirflowRestClient, ABC):
             raise DagFileDeletionFailedException(
                 f"Error deleting file {relative_path} from bucket {self.__source_bucket}", e)
 
-    def __clean_response(self, text):
+    def _clean_response(self, text):
         try:
             return json.loads(text)  # Try to parse the text as JSON
         except json.JSONDecodeError:
@@ -101,14 +74,14 @@ class MWAARestClient(AirflowRestClient, ABC):
 
     # todo improve both pause and unpause.
     def pause_dag(self, dag_id: str) -> DAG:
-        response_as_text = self.__get_response(f"dags pause {dag_id}")
-        response_as_json = self.__clean_response(response_as_text)
+        response_as_text = self._get_response(f"dags pause {dag_id}")
+        response_as_json = self._clean_response(response_as_text)
         return DAG(**response_as_json)
 
     def unpause_dag(self, dag_id: str) -> DAG:
         self.get_dag(dag_id)
-        response_as_text = self.__get_response(f"dags unpause {dag_id}")
-        response_as_json = self.__clean_response(response_as_text)
+        response_as_text = self._get_response(f"dags unpause {dag_id}")
+        response_as_json = self._clean_response(response_as_text)
         print(f"Response as json {response_as_json}")
         return DAG.create_from_mwaa(response_as_json)
 
@@ -123,7 +96,7 @@ class MWAARestClient(AirflowRestClient, ABC):
     # todo new Execution Date is not supported as of now.
     @retry((DagNotAvailableException,), total_tries=50, delay_in_seconds=10, backoff=0)
     def get_dag(self, dag_id: str) -> DAG:
-        response = self.__get_response(f"dags list -o json")
+        response = self._get_response(f"dags list -o json")
         dag_list = json.loads(response)
         dag = next((dag for dag in dag_list if dag['dag_id'] == dag_id and dag['paused'] is not None), None)
         if dag is None:
@@ -132,20 +105,18 @@ class MWAARestClient(AirflowRestClient, ABC):
             return DAG.create_from_mwaa(dag)
 
     def delete_dag(self, dag_id: str) -> str:
-        response = self.__get_response(f"dags delete {dag_id} --yes")
-        response.raise_for_status()
+        response = self._get_response(f"dags delete {dag_id} --yes")
+        return response
 
-        return response.text
-
-    def __execute_airflow_command(self, command: str):
-        print(f"Expiry cli token {self.__expiry_cli_token().get_value()}")
-        url = f"https://{self.__expiry_cli_token().get_value()['WebServerHostname']}/aws_mwaa/cli"
-        response = requests.post(url, headers=self.__headers(), data=command)
+    def _execute_airflow_command(self, command: str):
+        print(f"Expiry cli token {self._expiry_cli_token().get_value()}")
+        url = f"https://{self._expiry_cli_token().get_value()['WebServerHostname']}/aws_mwaa/cli"
+        response = requests.post(url, headers=self._headers(), data=command)
         response.raise_for_status()  # Raise an HTTPError if the status is 4xx, 5xx
         return response.text  # Get the response body as text
 
-    def __get_response(self, command: str):
-        response_body = self.__execute_airflow_command(command)
+    def _get_response(self, command: str):
+        response_body = self._execute_airflow_command(command)
 
         decoded_response = json.loads(response_body)
 
@@ -154,7 +125,7 @@ class MWAARestClient(AirflowRestClient, ABC):
         else:
             return base64.b64decode(decoded_response['stdout']).decode('utf-8')
 
-    def __extract_bucket_name_from_arn(self) -> str:
+    def _extract_bucket_name_from_arn(self) -> str:
         s3_arn_regex = r"arn:aws:s3:::(.+)"
 
         match = re.match(s3_arn_regex, self.environment['Environment']['SourceBucketArn'])

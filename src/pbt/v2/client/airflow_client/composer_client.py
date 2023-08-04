@@ -12,6 +12,7 @@ from google.oauth2.gdch_credentials import ServiceAccountCredentials
 from requests import HTTPError
 
 from src.pbt.v2.client.airflow_client.mwaa_client import retry
+from src.pbt.v2.exceptions import DagUploadFailedException
 from src.pbt.v2.project_models import DAG
 from google.auth.transport.requests import AuthorizedSession
 import requests
@@ -36,7 +37,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         self.key_json_file = key_json
         self.dag_location = dag_location
 
-        self.file_path = ComposerRestClient.__create_key_json_file(key_json)
+        self.file_path = self.__create_key_json_file(key_json)
 
         self.storage_handler = storage.Client.from_service_account_info(json.loads(key_json), project=project_id)
 
@@ -57,12 +58,14 @@ class ComposerRestClient(AirflowRestClient, ABC):
     def upload_dag(self, dag_id: str, file_path: str):
         gcs_path_info = self.__get_gcs_path_info()
         bucket = self.storage_handler.get_bucket(gcs_path_info.bucket)
-        blob: Blob = Blob(self.__get_dag_location(gcs_path_info, dag_id), gcs_path_info.bucket)
+        dag_location = self.__get_dag_location(gcs_path_info, dag_id)
+
+        blob: Blob = Blob(dag_location, gcs_path_info.bucket)
+
         try:
             bucket.blob(blob_name=blob.name).upload_from_filename(file_path)
         except Exception as e:
-            print(f"Failed to upload DAG file: ", e)
-            raise e
+            raise DagUploadFailedException(f"Failed to upload DAG file: {dag_location} ", e)
         finally:
             if Path(file_path).exists():
                 os.remove(file_path)
@@ -82,6 +85,8 @@ class ComposerRestClient(AirflowRestClient, ABC):
                     request={"parent": secret_name, "payload": {"data": value.encode('UTF-8')}}
                 )
             except Exception as e:
+                print(f"Failed to get secret: {secret_name}, trying to create default one", e)
+
                 parent = f"projects/{self.project_id}"
                 secret = client.create_secret(
                     request={
@@ -121,8 +126,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         response.raise_for_status()
         return response.text
 
-    @staticmethod
-    def __create_key_json_file(key_json: str) -> str:
+    def __create_key_json_file(self, key_json: str) -> str:
         temp_file = tempfile.NamedTemporaryFile(prefix="composer", suffix=".json", delete=False)
 
         # Write content to the temporary file
@@ -130,8 +134,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
         return temp_file.name
 
-    @staticmethod
-    def __get_dag_location(gcp_path_info: GCSPathInfo, dag_id: str) -> str:
+    def __get_dag_location(self, gcp_path_info: GCSPathInfo, dag_id: str) -> str:
         if gcp_path_info is not None and gcp_path_info.path is not None:
             return f"{gcp_path_info.path}/{dag_id}.zip"
         else:
@@ -154,7 +157,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
             gcs_path_info = None
         return gcs_path_info
 
-    def get_authenticated_session(self):
+    def __get_authenticated_session(self):
 
         if self.client_id is not None and len(self.client_id) > 0:
             print(f'Client Id {self.client_id}')
@@ -171,7 +174,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
     @retry((HTTPError,), total_tries=5, delay_in_seconds=10, backoff=0)
     def __set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
-        session = self.get_authenticated_session()
+        session = self.__get_authenticated_session()
         response = session.request(method='PATCH', url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
                                    data=json.dumps({"is_paused": is_paused}),
                                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'})

@@ -11,6 +11,7 @@ from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 
 from src.pbt.v2.state_config import StateConfigAndDBTokens
+from src.pbt.v2.client.databricks_client.permission_cpi import PermissionsApi
 
 
 class DatabricksClient:
@@ -21,6 +22,7 @@ class DatabricksClient:
         self.job = JobsApi(ApiClient(host=host, token=token, api_version="2.1"))
         self.job_client = JobsService(ApiClient(host=host, token=token, api_version="2.1"))
         self.secret = SecretApi(ApiClient(host=host, token=token, api_version="2.0"))
+        self.permission = PermissionsApi(ApiClient(host=host, token=token, api_version="2.0"))
 
     @classmethod
     def from_state_config(cls, state_config_and_db_tokens: StateConfigAndDBTokens, fabric_id: str = None):
@@ -31,7 +33,7 @@ class DatabricksClient:
             # todo improve the error messages.
             raise ValueError("fabric_id must be provided")
 
-        return cls(state_config.get_fabric(fabric_id).url, db_tokens.get(fabric_id))
+        return cls(state_config.get_fabric(fabric_id).base_url, db_tokens.get(fabric_id))
 
     @classmethod
     def from_environment_variables(cls):
@@ -58,7 +60,7 @@ class DatabricksClient:
     def delete(self, path: str):
         self.dbfs.delete(path, recursive=True)
 
-    def create_scope(self, secret_scope: str):
+    def check_and_create_secret_scope(self, secret_scope: str):
         response = self.secret.list_scopes()
         if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
             self.secret.create_scope(secret_scope, initial_manage_principal="users", scope_backend_type=None,
@@ -71,8 +73,6 @@ class DatabricksClient:
         self.secret.put_secret(scope, key, value, None)
 
     def create_job(self, content: Dict[str, str]):
-        #  service doesn't provide way to create job from json.
-
         return self.job.create_job(content)
 
     def get_job(self, job_id: str):
@@ -89,10 +89,12 @@ class DatabricksClient:
         else:
             print(f"Job {job_id} is already paused.")
 
-    def reset_job(self, job_id: str, update_request: Dict[str, str]):
-        new_settings = {'job_id': job_id, 'new_settings': update_request}
+    def reset_job(self, scheduler_job_id: str, update_request: Dict[str, str]):
+        new_settings = {'job_id': scheduler_job_id, 'new_settings': update_request}
         try:
             self.job.reset_job(new_settings)
         except Exception as e:
-            print(f"Error while resetting job {job_id}. Error: {e}")
+            print(f"Error while resetting job {scheduler_job_id}. Error: {e}")
 
+    def patch_job_acl(self, scheduler_job_id:str, acl):
+        self.permission.patch_job(scheduler_job_id, acl)

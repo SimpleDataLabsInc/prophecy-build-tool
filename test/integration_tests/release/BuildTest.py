@@ -8,4 +8,4 @@ class TestBuild(unittest.TestCase):
     def test_build(self):
         project = ProjectParser("data/sample_project", "test")
         print(project.pipeline_headers())
-        build = Build(project).build()
+        build = Build(project).build_and_upload()
