@@ -33,16 +33,16 @@ def retry(exceptions, total_tries: int = 3, delay_in_seconds: int = 1, backoff: 
 
 
 def calculate_checksum(input_str, salt=None):
-    salt = salt or os.getenv('PROPHECY_EXECUTION_SALT') or "prophecy_execution"
+    salt = salt or "better_salt_than_never"
 
-    sha256 = hashlib.sha256()
+    md = hashlib.sha256()
     input_bytes = input_str.encode('utf-8')
     salt_bytes = salt.encode('utf-8')
 
-    sha256.update(input_bytes)
-    sha256.update(salt_bytes)
+    md.update(input_bytes)
+    md.update(salt_bytes)
 
-    digest_bytes = sha256.digest()
+    digest_bytes = md.digest()
 
     return ''.join(f'{byte:02x}' for byte in digest_bytes)
 

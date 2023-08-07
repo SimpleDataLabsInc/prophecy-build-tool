@@ -122,9 +122,9 @@ class MWAARestClient(AirflowRestClient, ABC):
         decoded_response = json.loads(response_body)
 
         if decoded_response.get('stdout', None) is not None:
-            raise Exception(base64.b64decode(decoded_response['stderr']).decode('utf-8'))
-        else:
             return base64.b64decode(decoded_response['stdout']).decode('utf-8')
+        else:
+            raise Exception(base64.b64decode(decoded_response['stderr']).decode('utf-8'))
 
     def _extract_bucket_name_from_arn(self) -> str:
         s3_arn_regex = r"arn:aws:s3:::(.+)"

@@ -10,7 +10,7 @@ from databricks_cli.sdk import ApiClient
 from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 
-from src.pbt.v2.state_config import ProjectConfig
+from src.pbt.v2.project_config import ProjectConfig
 from src.pbt.v2.client.databricks_client.permission_cpi import PermissionsApi
 from src.pbt.v2.utility import Either
 

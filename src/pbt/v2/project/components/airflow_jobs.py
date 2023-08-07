@@ -1,5 +1,6 @@
 import os
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Optional, List
 
 import yaml
@@ -8,8 +9,8 @@ from src.pbt.v2.client.airflow_client.airflow_utility import create_airflow_clie
 from src.pbt.v2.project.components.databricks_jobs import FABRIC_UID
 from src.pbt.v2.project.project_parser import ProjectParser
 from src.pbt.v2.project_models import StepMetadata
-from src.pbt.v2.state_config import JobInfo, ProjectConfig
-from src.pbt.v2.utility import Either, generate_secure_content
+from src.pbt.v2.project_config import JobInfo, ProjectConfig
+from src.pbt.v2.utility import Either, generate_secure_content, calculate_checksum
 
 
 def does_dag_file_exist(rdc: Dict[str, str]) -> bool:
@@ -56,13 +57,13 @@ class AirflowJobDataProcessor:
     def is_valid_job(self):
         prophecy_job_yaml_dict = self.prophecy_job_json_dict
         return self.job_pbt is not None and self.prophecy_job_yaml is not None and self.rdc is not None and \
-            prophecy_job_yaml_dict.get('fabricId', None) is not None
+            prophecy_job_yaml_dict.get('metainfo', {}).get('fabricId', None) is not None
 
-    @property
-    def validate_prophecy_managed_checksum(self):
+    def validate_prophecy_managed_checksum(self, salt: str):
         file_joiner: str = "$$$"
-        content = file_joiner.join(file_content for file_content in filter_job_files(self.rdc).values())
-        return self.sha == content
+        checksum = calculate_checksum(
+            file_joiner.join(file_content for file_content in filter_job_files(self.rdc).values()), salt)
+        return self.sha == checksum
 
     @property
     def job_files(self):
@@ -183,7 +184,8 @@ class AirflowJobs:
 
         for job_id, job_data in self._airflow_jobs.items():
             if job_data.is_valid_job:
-                if self._validate_airflow_job(job_id, job_data).is_right:
+                response = self._validate_airflow_job(job_id, job_data)
+                if response.is_right:
                     self.valid_airflow_jobs[job_id] = job_data
 
                 else:
@@ -202,7 +204,7 @@ class AirflowJobs:
                 left=Exception(f"Please open the Job `{job_id}` in editor, check diagnostic errors and release again."))
 
         elif is_prophecy_managed_fabric:
-            if job_data.validate_prophecy_managed_checksum:
+            if job_data.validate_prophecy_managed_checksum(self._project_config.system_config.prophecy_salt):
                 return Either(right=job_data.job_files)
 
             else:
@@ -217,7 +219,8 @@ class AirflowJobs:
         for job_id, job_data in self.valid_airflow_jobs.items():
 
             is_job_enabled = job_data.is_enabled
-            is_prophecy_managed_fabric = self._project_config.state_config.is_fabric_prophecy_managed(job_data.fabric_id)
+            is_prophecy_managed_fabric = self._project_config.state_config.is_fabric_prophecy_managed(
+                job_data.fabric_id)
 
             if is_job_enabled and is_prophecy_managed_fabric and job_data.has_dbt_component:
                 self.prophecy_managed_dbt_jobs[job_id] = job_data
@@ -226,14 +229,22 @@ class AirflowJobs:
         return self._jobs_to_be_deleted() + self._jobs_with_fabric_changed()
 
     def _deploy_remove_jobs(self):
-        for job_info in self._remove_jobs():
-            client = self.get_airflow_client(job_info.fabric_id)
-            try:
-                client.delete_dag_file(job_info.scheduler_job_id)
-                print(f"Successfully deleted job {job_info.scheduler_job_id} from job_id {job_info.id}")
-            except Exception as e:
-                print(f"Error while deleting job {job_info.scheduler_job_id} from job_id {job_info.id}", e)
-                # do not throw error.
+        futures = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for job_info in self._remove_jobs():
+                futures.append(executor.submit(self._remove_job, job_info))
+
+            for future in as_completed(futures):
+                print(future.result())
+
+    def _remove_job(self, job_info: JobInfo):
+        client = self.get_airflow_client(job_info.fabric_id)
+        try:
+            client.delete_dag_file(job_info.scheduler_job_id)
+            print(f"Successfully deleted job {job_info.scheduler_job_id} from job_id {job_info.id}")
+        except Exception as e:
+            print(f"Error while deleting job {job_info.scheduler_job_id} from job_id {job_info.id}", e)
+            # do not throw error.
 
     '''
         Compare what exists in state config to what exists in code.
@@ -244,7 +255,7 @@ class AirflowJobs:
         return [
             airflow_job for airflow_job in self._project_config.state_config.get_airflow_jobs
             if all(
-                airflow_job.job_id == job_id
+                airflow_job.id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
             ) is False
         ]
@@ -259,7 +270,7 @@ class AirflowJobs:
         return [
             airflow_job for airflow_job in self._project_config.state_config.get_airflow_jobs
             if any(
-                airflow_job.job_id == job_id and airflow_job.fabric_id != job_data.fabric_id
+                airflow_job.id == job_id and airflow_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_airflow_jobs.items()  # Check only from valid airflow jobs.
             )
         ]
@@ -313,21 +324,28 @@ class AirflowJobs:
         }
 
     def _deploy_add_jobs(self):
+        futures = []
 
-        for job_id, job_data in self._add_jobs().items():
-            dag_name = job_data.dag_name
-            zipped_dag_name = get_zipped_dag_name(dag_name)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for job_id, job_data in self._add_jobs().items():
+                futures.append(executor.submit(self._add_job, job_id, job_data))
 
-            zip_folder(self._project_parser.load_airflow_base_folder_path(job_id), zipped_dag_name)
+            for future in as_completed(futures):
+                print(future.result())
 
-            client = self.get_airflow_client(fabric_id=job_data.fabric_id)
+    def _add_job(self, job_id, job_data):
+        dag_name = job_data.dag_name
+        zipped_dag_name = get_zipped_dag_name(dag_name)
+        zip_folder(self._project_parser.load_airflow_base_folder_path(job_id), zipped_dag_name)
 
-            try:
-                client.upload_dag(dag_name, zipped_dag_name)
-                client.unpause_dag(dag_name)
-                print(f"Successfully added job {dag_name} for job_id {job_id}")
-            except Exception as e:
-                print(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e)
+        client = self.get_airflow_client(fabric_id=job_data.fabric_id)
+        try:
+            client.upload_dag(dag_name, zipped_dag_name)
+            client.unpause_dag(dag_name)
+            print(f"Successfully added job {dag_name} for job_id {job_id}")
+        except Exception as e:
+            print(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e)
+
 
     def _deploy_skipped_jobs(self):
         for job_id, messages in self._skip_jobs().items():
@@ -346,31 +364,43 @@ class AirflowJobs:
         return jobs_to_be_skipped
 
     def _deploy_delete_jobs(self):
-        for jobs_info in self._rename_jobs():
-            sanitized_job_name = sanitize_job(jobs_info.scheduler_job_id)
+        futures = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for jobs_info in self._rename_jobs():
+                futures.append(executor.submit(self._delete_job, jobs_info))
 
-            try:
-                client = create_airflow_client(jobs_info.fabric_id, self._project_config)
-                client.delete_dag_file(sanitized_job_name)
-            except Exception as e:
-                print("Failed to delete dag file for job_id: ", jobs_info.id, e)
+            for future in as_completed(futures):
+                print(future.result())
 
+    def _delete_job(self, jobs_info: JobInfo):
+        try:
+            client = create_airflow_client(jobs_info.fabric_id, self._project_config)
+            client.delete_dag(sanitize_job(jobs_info.scheduler_job_id))
+        except Exception as e:
+            print("Failed to delete dag for job_id: ", jobs_info.id, e)
 
     def _deploy_pause_jobs(self):
-        for job_id, job_data in self._pause_jobs().items():
-            client = self.get_airflow_client(job_data.fabric_id)
+        futures = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for job_id, job_data in self._pause_jobs().items():
+                futures.append(executor.submit(self._pause_job, job_id, job_data))
 
-            if len(job_data.dag_name) > 0:
-                dag_name = job_data.dag_name
-            else:
-                dag_name = sanitize_job(job_id)
+            for future in as_completed(futures):
+                print(future.result())
 
-            try:
-                client.pause_dag(dag_name)
-            except Exception as e:
-                print(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", e)
-                # don't throw exception as we want to continue with other jobs
+    def _pause_job(self, job_id: str, job_data: AirflowJobDataProcessor):
+        client = self.get_airflow_client(job_data.fabric_id)
 
+        if len(job_data.dag_name) > 0:
+            dag_name = job_data.dag_name
+        else:
+            dag_name = sanitize_job(job_id)
+
+        try:
+            client.pause_dag(dag_name)
+        except Exception as e:
+            print(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", e)
+            # don't throw exception as we want to continue with other jobs
 
 class AirflowGitSecrets:
 

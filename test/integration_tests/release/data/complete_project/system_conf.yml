@@ -1,0 +1,9 @@
+customer_name: 'dev'
+control_plane_name: 'execution'
+runtime_mode: 'test'
+prophecy_salt: 'needs_a_better_secret_than_this'
+nexus_config:
+  url: 'https://execution.dev.cloud.prophecy.io/artifactory'
+  username: 'admin'
+  password: 'admin123'
+  repository: 'raw_host'

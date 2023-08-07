@@ -8,6 +8,21 @@
       "language" : "scala",
       "pipelineId" : "pipelines/OnlyOne"
     }
+  }, {
+    "DBTComponent" : {
+      "profilePath" : "dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/__PROJECT_ID_PLACEHOLDER__/SQL_ChildDatabricksShared/v3.1.3.0-1/RegularDatabricks/DBT_1-64849352/profiles.yml",
+      "path" : "dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/__PROJECT_ID_PLACEHOLDER__/SQL_ChildDatabricksShared/v3.1.3.0-1/RegularDatabricks/DBT_1-64849352/dbt_script.py",
+      "nodeName" : "DBT_1",
+      "projectId" : "24117",
+      "id" : "O28cHSBs7VbefZWrlsEVr$$0hBCJkYo-mK-KvC7UHzZJ",
+      "language" : "sql",
+      "componentFilesDirectory" : "dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/__PROJECT_ID_PLACEHOLDER__/SQL_ChildDatabricksShared/v3.1.3.0-1/RegularDatabricks/DBT_1-64849352",
+      "sqlFabricId" : "5286",
+      "releaseVersion" : "SQL_ChildDatabricksShared/v3.1.3.0-1",
+      "content" : "\nimport subprocess\nimport sys\nimport os\nimport tempfile\nimport shlex\nimport re\n\ngit_clone_command = \"git clone https://github.com/abhisheks-prophecy/sql_databricks_public_child_1 --branch dev --single-branch /tmp/DBT_1/3a4b1014-4ed1-4444-b723-8020d8d8307f\"\ndbt_working_dir = \"/tmp/DBT_1/3a4b1014-4ed1-4444-b723-8020d8d8307f\"\ndbt_commands = ['''dbt  deps --profile run_profile''','''dbt  seed --profile run_profile''','''dbt  run --profile run_profile''']\ngit_update_cmds = ['add-apt-repository -y ppa:git-core/ppa', 'apt update', 'apt install -y git']\n\ndef run_dbt():\n\n    def run_cmd(cmd, cwd, env, shell = False, split=True):\n        try:\n            cmds = shlex.split(cmd) if split else cmd\n            result = subprocess.run(cmds, capture_output=True, cwd=cwd, env=env, check=True, text=True, shell=shell)\n            print(result.stdout)\n            return result.stdout\n        except subprocess.CalledProcessError as error:\n            print(error.output)\n            print(f\"The command failed with exit status {error.returncode}\")\n            error_stderr = error.stderr\n            if len(error_stderr) != 0 and not error_stderr.isspace():\n                print(f\"Error message: {error_stderr}\")\n            sys.exit(1)\n\n\n    def update_git():\n        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:\n            f.write('''\n#!/bin/bash\n\ntarget_version=\"2.33.1\"\n\n# Get the Git version\ngit_version=$(git --version | awk '{print $3}')\n\n# Compare versions using 'sort' command\nif [[ \"$(echo -e \"$git_version\\n$target_version\" | sort -V | head -n1)\" == \"$target_version\" ]]; then\n  echo \"Git version is $git_version\"\nelse\n  echo \"Git version is $git_version, needs an upgrade\"\n  add-apt-repository -y ppa:git-core/ppa\n  apt update\n  apt install -y git\n  echo \"Git version upgraded to $(git --version | awk '{print $3}')\"\nfi\n\n''')\n            os.chmod(f.name, 0o700)\n\n        cmd = f'bash {f.name}'\n        run_cmd(cmd, \".\", os.environ)\n\n        os.unlink(f.name)\n\n\n    def get_secret():\n        try:\n            return dbutils.secrets.get(\"prophecy_jobs_778\", \"RegularDatabricks-31368-DBT_1-64849352\")\n        except Exception as e:\n            print(\"Couldn't get secret\")\n            return \"\"\n\n\n    secret = get_secret()\n    db_token = \"\"\n    git_token = \"\"\n    semi_colon_hit = False\n\n\n    for ch in secret:\n        if (ch == ';'):\n            semi_colon_hit = True\n        elif (semi_colon_hit):\n            git_token = git_token + ch\n        else:\n            db_token = db_token + ch\n\n    secret = \"\"\n\n    def move_profiles_to_current_dir():\n        dbutils.fs.cp(\"dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/__PROJECT_ID_PLACEHOLDER__/SQL_ChildDatabricksShared/v3.1.3.0-1/RegularDatabricks/DBT_1-64849352/profiles.yml\", \"file:/tmp/DBT_1/3a4b1014-4ed1-4444-b723-8020d8d8307f/profiles.yml\")\n\n    def add_token_to_profile():\n        with open(\"/tmp/DBT_1/3a4b1014-4ed1-4444-b723-8020d8d8307f/profiles.yml\", \"r+\") as f:\n            data = f.read()\n            data = data.replace(f'{{{{ TOKEN }}}}', db_token)\n            f.seek(0)\n            f.write(data)\n            f.truncate()\n\n\n    def remove_profile():\n        try:\n            os.remove(\"/tmp/DBT_1/3a4b1014-4ed1-4444-b723-8020d8d8307f/profiles.yml\")\n            print(f'Successfully deleted generated profile')\n        except OSError as e:\n            print(f'Could not delete generated profile {e}')\n\n\n    def prophecy_exec():\n        # Update git to latest version, 2.25.1 in Databricks doesn't support sparse clone\n        update_git()\n\n        # Create a temporary script to output the token\n        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:\n            f.write(f'#!/bin/sh\\necho {git_token}\\n')\n            os.chmod(f.name, 0o700)\n\n        # Set the GIT_ASKPASS environment variable to the path of the script\n        env = os.environ.copy()\n        env['GIT_ASKPASS'] = f.name\n\n        # Clone the repository\n        run_cmd(git_clone_command, cwd=\".\", env=env)\n        print(\"Repository clone complete\")\n\n        move_profiles_to_current_dir()\n        add_token_to_profile()\n\n        print(\"Running dbt commands\")\n\n        for cmd in dbt_commands:\n            run_cmd(cmd, cwd=dbt_working_dir, env=env)\n\n        # Clean up the temporary script\n        os.unlink(f.name)\n\n    prophecy_exec()\n    git_token = \"\"\n    db_token = \"\"\n\nrun_dbt()\n",
+      "profileContent" : "run_profile:\n  target: profile_target\n  outputs:\n    profile_target:\n      type: databricks\n      schema: qa_database\n      host: dbc-147abc45-b6c7.cloud.databricks.com\n      http_path: /sql/1.0/warehouses/2a749dbcfe3681e6\n      token: {{ TOKEN }}\n",
+      "secretKey" : "RegularDatabricks-31368-DBT_1-64849352"
+    }
   } ],
   "request" : {
     "format" : "MULTI_TASK",
@@ -30,7 +45,7 @@
           "spark.prophecy.metadata.job.branch" : "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
           "spark.prophecy.metadata.url" : "__PROPHECY_URL_PLACEHOLDER__",
           "spark.databricks.isv.product" : "prophecy",
-          "spark.prophecy.execution.metrics.disabled" : true,
+          "spark.prophecy.execution.metrics.disabled" : false,
           "spark.prophecy.execution.metrics.component-metrics.table" : "prophecy.component_runs_manual",
           "spark.prophecy.execution.metrics.pipeline-metrics.table" : "prophecy.pipeline_runs_manual",
           "spark.prophecy.execution.metrics.interims.table" : "prophecy.interims_manual"
@@ -58,17 +73,38 @@
       } ],
       "email_notifications" : { },
       "max_retries" : 0
+    }, {
+      "task_key" : "DBT_1",
+      "depends_on" : [ {
+        "task_key" : "Pipeline_0"
+      } ],
+      "job_cluster_key" : "RegularDatabricks_default_small",
+      "spark_python_task" : {
+        "python_file" : "dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/__PROJECT_ID_PLACEHOLDER__/SQL_ChildDatabricksShared/v3.1.3.0-1/RegularDatabricks/DBT_1-64849352/dbt_script.py"
+      },
+      "libraries" : [ {
+        "pypi" : {
+          "package" : "dbt-databricks>=1.0.0,<1.5.0"
+        }
+      } ],
+      "email_notifications" : { },
+      "max_retries" : 0
     } ],
     "max_concurrent_runs" : 1,
     "schedule" : {
       "quartz_cron_expression" : "0 0 0 1/1 * ? *",
       "timezone_id" : "UTC",
-      "pause_status" : "PAUSED"
+      "pause_status" : "UNPAUSED"
+    },
+    "git_source" : {
+      "git_url" : "https://github.com/abhisheks-prophecy/sql_databricks_public_child_1",
+      "git_provider" : "gitHub",
+      "git_branch" : "dev"
     }
   },
   "cluster_mode" : {
     "clusterMode" : "Single"
   },
   "secret_scope" : "prophecy_jobs_778",
-  "sorted_processes" : [ "h1gE8FnZNnJSE6-039kY_$$acDLc7R8cxY1i3zSx_Zmr" ]
+  "sorted_processes" : [ "h1gE8FnZNnJSE6-039kY_$$acDLc7R8cxY1i3zSx_Zmr", "O28cHSBs7VbefZWrlsEVr$$0hBCJkYo-mK-KvC7UHzZJ" ]
 }

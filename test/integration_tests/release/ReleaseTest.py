@@ -3,9 +3,10 @@ import unittest
 from pydantic_yaml import to_yaml_str, parse_yaml_raw_as
 
 from src.pbt.v2.client.databricks_client.databricks_client import DatabricksClient
+from src.pbt.v2.client.nexus import NexusClient
 from src.pbt.v2.project.components.project import Project
 from src.pbt.v2.project.project_parser import ProjectParser
-from src.pbt.v2.state_config import StateConfig, ProjectConfig
+from src.pbt.v2.project_config import StateConfig, ProjectConfig
 
 
 class TestRelease(unittest.TestCase):
@@ -19,34 +20,27 @@ class TestRelease(unittest.TestCase):
     #     release.deploy()
     #     # print(project.release_headers())
 
-    def test_project(self):
-        project_parser = ProjectParser("data/new_project", "100", "0.5")
-        project_config = ProjectConfig("data/new_project/state_conf.yml",)
+    def test_subscribed_project(self):
+        project_parser = ProjectParser("data/subscribed_project", "1", "0.5")
+        project_config = ProjectConfig("data/subscribed_project/state_conf.yml")
+        project = Project(project_parser, project_config)
+        project.headers()
+        project.deploy()
+
+    def test_complete_project(self):
+        project_parser = ProjectParser("data/complete_project", "1", "0.1.2.3.4")
+        project_config = ProjectConfig("data/complete_project/state_conf.yml",
+                                       "data/complete_project/system_conf.yml")
         project = Project(project_parser, project_config)
 
         project.headers()
 
         project.deploy()
 
-    def test_subscribed_project(self):
-        project_parser = ProjectParser("data/subscribed_project", "1", "0.5")
-        state_config_and_db_tokens = ProjectConfig("data/subscribed_project/state_conf.yml")
-        project = Project(project_parser, state_config_and_db_tokens)
-        project.headers()
-        project.deploy()
-
-    def test_complete_project(self):
-        project_parser = ProjectParser("data/complete_project", "1", "0.1.2.3.4")
-        state_config_and_db_tokens = ProjectConfig("data/complete_project/state_conf.yml",)
-        project = Project(project_parser, state_config_and_db_tokens)
-
-        project.headers()
-
-        project.deploy()
 
     def test_sample_project(self):
         project_parser = ProjectParser("data/sample_project", "1", "0.7")
-        project_config = ProjectConfig("data/sample_project/state_conf.yml",)
+        project_config = ProjectConfig("data/sample_project/state_conf.yml", )
         project = Project(project_parser, project_config)
 
         project.headers()

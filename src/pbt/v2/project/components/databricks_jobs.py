@@ -1,12 +1,13 @@
 import json
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List
 
 from src.pbt.v2.client.databricks_client.databricks_client import DatabricksClient
 from src.pbt.v2.constants import COMPONENTS_LITERAL, SCALA_LANGUAGE
 from src.pbt.v2.project.project_parser import ProjectParser
 from src.pbt.v2.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata
-from src.pbt.v2.state_config import JobInfo, ProjectConfig
+from src.pbt.v2.project_config import JobInfo, ProjectConfig
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
@@ -73,31 +74,50 @@ class DatabricksJobs:
         self._initialize_db_jobs()
         self._initialize_valid_databricks_jobs()
 
-    def headers(self) -> List[StepMetadata]:
-        job_actions = {
-            "add-job": {"jobs": self._add_jobs(), "message": "Adding job {} for fabric {}"},
-            "refresh-job": {"jobs": self._refresh_jobs(), "message": "Refreshing job {} for fabric {}"},
-            "delete-job": {"jobs": self._delete_jobs(),
-                           "message": "Deleting job {} for fabric {} deployed with id {}"}
+    '''
+    job_types = {
+            "Remove": self._remove_jobs(),
+            "Add": self._add_jobs(),
+            "Pause": self._pause_jobs(),
+            "Delete": self._rename_jobs(),
+            "Skipped": self._skip_jobs()
         }
 
-        headers = []
+        all_headers = []
 
-        for action, data in job_actions.items():
-            for job_id, job_info in data["jobs"].items():
-
-                if action == "delete-job":
-                    message = data["message"].format(job_id, job_info.fabric_id, job_info.scheduler_job_id)
-                else:
-                    message = data["message"].format(job_id, job_info.get_fabric_id)
-
-                headers.append(
-                    StepMetadata(job_id, message, action, "job")
+        for job_action, jobs in job_types.items():
+            if jobs:
+                len_jobs = len(jobs)
+                job_header_suffix = f'{len_jobs} Airflow job' if len_jobs == 1 else f'{len_jobs} Airflow jobs'
+                all_headers.append(
+                    StepMetadata(f"{job_action}AirflowJobs", f"{job_action} {job_header_suffix}",
+                                 f"{job_action}-jobs", "Jobs")
                 )
 
-        return headers
+        return all_headers'''
+
+    def headers(self) -> List[StepMetadata]:
+        job_types = {
+            "Add": self._add_jobs(),
+            "Refresh": self._refresh_jobs(),
+            "Delete": self._delete_jobs()
+        }
+
+        all_headers = []
+
+        for job_action, jobs in job_types.items():
+            if jobs:
+                len_jobs = len(jobs)
+                job_header_suffix = f'{len_jobs} Databricks job' if len_jobs == 1 else f'{len_jobs} Databricks jobs'
+                all_headers.append(
+                    StepMetadata(f"{job_action}DatabricksJobs", f"{job_action} {job_header_suffix}",
+                                 f"{job_action}-jobs", "Jobs")
+                )
+
+        return all_headers
 
     def deploy(self):
+
         self._deploy_add_jobs()
         self._deploy_refresh_jobs()
         self._deploy_delete_jobs()
@@ -178,52 +198,80 @@ class DatabricksJobs:
     ############ Deploy Jobs ############
 
     def _deploy_add_jobs(self):
-        for job_id, job_data in self._add_jobs().items():
-            fabric_id = job_data.get_fabric_id
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = []
 
-            if fabric_id is not None:
-                response = self.get_databricks_client(fabric_id).create_job(job_data.databricks_json)
-                print(response)
-            else:
-                print(f"In valid fabric {fabric_id}, skipping job creation for job_id {job_id}")
+            for job_id, job_data in self._add_jobs().items():
+                fabric_id = job_data.get_fabric_id
+
+                if fabric_id is not None:
+                    futures.append(executor.submit(
+                        lambda: self.get_databricks_client(fabric_id).create_job(job_data.databricks_json))),
+                    # response = self.get_databricks_client(fabric_id).create_job(job_data.databricks_json)
+                    # print(response)
+                else:
+                    print(f"In valid fabric {fabric_id}, skipping job creation for job_id {job_id}")
+
+            for future in as_completed(futures):
+                print(future.result())
 
     def _deploy_refresh_jobs(self):
-        for (job_id, job_info) in self._refresh_jobs().items():
-            fabric_id = job_info.fabric_id
+        futures = []
 
-            if fabric_id is not None:
-                client = self.get_databricks_client(fabric_id)
-                response = client.reset_job(job_info.scheduler_job_id,
-                                            self.valid_databricks_jobs.get(
-                                                job_id).databricks_json())
-                try:
-                    client.patch_job(job_info.scheduler_job_id,
-                                     self.valid_databricks_jobs.get(job_id).acl())
-                except Exception as e:
-                    print('Error while patching job: ', e)
-            else:
-                print(f"In valid fabric {fabric_id}, skipping job refresh for job_id {job_id}")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+
+            for (job_id, job_info) in self._refresh_jobs().items():
+                fabric_id = job_info.fabric_id
+
+                if fabric_id is not None:
+                    futures.append(executor.submit(lambda: self._reset_and_patch_jobs(job_id, job_info, fabric_id)))
+                else:
+                    print(f"In valid fabric {fabric_id}, skipping job refresh for job_id {job_id}")
+
+            for future in as_completed(futures):
+                print(future.result())
+
+    def _reset_and_patch_jobs(self, job_id, job_info, fabric_id):
+        client = self.get_databricks_client(fabric_id)
+        response = client.reset_job(job_info.scheduler_job_id,
+                                    self.valid_databricks_jobs.get(
+                                        job_id).databricks_json())
+        client.patch_job(job_info.scheduler_job_id,
+                         self.valid_databricks_jobs.get(job_id).acl())
 
     def _deploy_delete_jobs(self):
-        for (job_id, jobs_info) in self._delete_jobs():
-            fabric = jobs_info.fabric_id
+        futures = []
 
-            if fabric is not None:
-                response = self.get_databricks_client(jobs_info.fabric_id).delete_job(jobs_info.scheduler_job_id)
-                print(response)
-            else:
-                print(
-                    f"In valid fabric {fabric} not deleting job {jobs_info.id} and databricks id {jobs_info.scheduler_job_id}")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for (job_id, jobs_info) in self._delete_jobs():
+                fabric = jobs_info.fabric_id
+
+                if fabric is not None:
+                    futures.append(executor.submit(
+                        lambda: self.get_databricks_client(jobs_info.fabric_id).delete_job(jobs_info.scheduler_job_id)))
+                else:
+                    print(
+                        f"In valid fabric {fabric} not deleting job {jobs_info.id} and databricks id {jobs_info.scheduler_job_id}")
+
+            for future in as_completed(futures):
+                print(future.result())
 
     def _deploy_pause_jobs(self):
-        for jobs_info in self._pause_jobs():
-            fabric = jobs_info.fabric_id
+        futures = []
 
-            if fabric is not None:
-                response = self.get_databricks_client(jobs_info.fabric_id).pause_job(jobs_info.scheduler_job_id)
-                print(response)
-            else:
-                print(f"In valid fabric {fabric} for job_id {jobs_info.id} ")
+        with ThreadPoolExecutor(max_workers=3) as executor:
+
+            for jobs_info in self._pause_jobs():
+                fabric = jobs_info.fabric_id
+
+                if fabric is not None:
+                    futures.append(executor.submit(
+                        lambda: self.get_databricks_client(jobs_info.fabric_id).pause_job(jobs_info.scheduler_job_id)))
+                else:
+                    print(f"In valid fabric {fabric} for job_id {jobs_info.id} ")
+
+            for future in as_completed(futures):
+                print(future.result())
 
 
 class DBTComponents:
@@ -339,12 +387,20 @@ class ScriptComponents:
             return []
 
     def deploy(self):
+        futures = []
 
-        for job_id, script_components in self._script_components_from_jobs().items():
-            for script in script_components.scripts:
-                client = self.databricks_jobs.get_databricks_client(str(script_components.fabric_id))
-                response = client.upload_content(content=script.get('content', None), path=script.get('path', None))
-                print(response)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for job_id, script_components in self._script_components_from_jobs().items():
+                for script in script_components.scripts:
+                    futures.append(executor.submit(self._upload_content, script, script_components.fabric_id))
+
+            for future in as_completed(futures):
+                print(future.result())
+
+    def _upload_content(self, script: dict, fabric_id: str):
+        client = self.databricks_jobs.get_databricks_client(str(fabric_id))
+        response = client.upload_content(content=script.get('content', None), path=script.get('path', None))
+        print(response)
 
     def _script_components_from_jobs(self):
         job_id_to_script_components = {}
@@ -378,14 +434,22 @@ class PipelineConfigurations:
             return []
 
     def deploy(self):
-        for pipeline_id, configurations in self.pipeline_configurations.items():
 
-            path = self.project_config.get_base_path()
-            pipeline_path = f'{path}/{pipeline_id}'
+        futures = []
 
-            for configuration_name, configuration_content in configurations.items():
-                configuration_path = f'{pipeline_path}/{configuration_name}.json'
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for pipeline_id, configurations in self.pipeline_configurations.items():
 
-                for fabric_id in self.project_config.state_config.db_fabrics():
-                    client = self.databricks_jobs.get_databricks_client(str(fabric_id))
-                    client.upload_content(configuration_content, configuration_path)
+                path = self.project_config.system_config.get_base_path()
+                pipeline_path = f'{path}/{pipeline_id}'
+
+                for configuration_name, configuration_content in configurations.items():
+                    configuration_path = f'{pipeline_path}/{configuration_name}.json'
+
+                    for fabric_id in self.project_config.state_config.db_fabrics():
+                        client = self.databricks_jobs.get_databricks_client(str(fabric_id))
+                        futures.append(
+                            executor.submit(lambda: client.upload_content(configuration_content, configuration_path)))
+
+            for future in as_completed(futures):
+                print(future.result())

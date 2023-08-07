@@ -1,6 +1,6 @@
 name: complete_project
 description: ''
-version: 0.0.1
+version: '1.0'
 author: abhisheks+e2etests@prophecy.io
 language: scala
 buildSystem: ''
@@ -62,7 +62,7 @@ jobs:
       clusterMode:
         Single: {}
       clusterId: null
-    enabled: null
+    enabled: true
     createdAt: '2023-07-31 13:07:40'
     author: abhisheks+e2etests@prophecy.io
   jobs/JobMWAA:
@@ -134,7 +134,7 @@ jobs:
       clusterMode:
         Single: {}
       clusterId: null
-    enabled: null
+    enabled: true
     createdAt: '2023-07-31 13:30:25'
     author: abhisheks+e2etests@prophecy.io
 functions:

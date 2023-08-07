@@ -1,6 +1,6 @@
 from src.pbt.v2.project.components.project import Project
 from src.pbt.v2.project.project_parser import ProjectParser
-from src.pbt.v2.state_config import ProjectConfig
+from src.pbt.v2.project_config import ProjectConfig
 
 
 class PBTCli(object):

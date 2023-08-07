@@ -3,7 +3,7 @@ from typing import List, Optional, Dict
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
-from src.pbt.v2.constants import BASE_PATH
+from src.pbt.v2.constants import DBFS_BASE_PATH
 
 
 # explore https://docs.pydantic.dev/latest/usage/models/#generic-models
@@ -66,8 +66,6 @@ class StateConfig(BaseModel):
     language: str
     description: str
     version: str
-    customer_name: Optional[str] = 'dev'
-    control_plane_name: Optional[str] = 'execution'
     fabrics: List[FabricInfo] = []
     jobs: List[JobInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
@@ -82,11 +80,11 @@ class StateConfig(BaseModel):
         return next((job for job in self.jobs if job.id == job_id and job.fabric_id == fabric_id), None)
 
     def get_databricks_jobs(self) -> List[JobInfo]:
-        return [job for job in self.jobs if job.type is 'Databricks']
+        return [job for job in self.jobs if job.type is 'databricks']
 
     @property
     def get_airflow_jobs(self) -> List[JobInfo]:
-        return [job for job in self.jobs if job.type is not 'Databricks']
+        return [job for job in self.jobs if job.type is not 'databricks']
 
     def contains_fabric(self, fabric_id: str) -> bool:
         return any(fabric.id == fabric_id for fabric in self.fabrics)
@@ -113,20 +111,50 @@ class StateConfig(BaseModel):
         return cls(name="", language="", description="", version="")
 
 
+class NexusConfig(BaseModel):
+    url: str
+    username: str
+    password: str
+    repository:str
+
+
+class SystemConfig(BaseModel):
+    customer_name: Optional[str] = 'dev'
+    control_plane_name: Optional[str] = 'execution'
+    runtime_mode: Optional[str] = 'test'  # maybe an enum.
+    prophecy_salt: Optional[str] = 'execution'
+    nexus_config: Optional[NexusConfig]
+
+    def get_base_path(self):
+        return f'{DBFS_BASE_PATH}/{self.customer_name}/{self.control_plane_name}'
+
+    @staticmethod
+    def empty_system_config():
+        return SystemConfig()
+
+
 # maybe this can grow to read env. variables as well.
 class ProjectConfig:
-    def __init__(self, path: str):
-        self.path = path
-        self.state_config = None
-        self._load_state_config()
+    def __init__(self, state_config_path: str, system_config_path: str):
+        self.state_config_path = state_config_path
+        self.system_config_path = system_config_path
 
-    def _load_state_config(self):
-        if self.path is not None:
-            with open(self.path, "r") as state_config:
+        self.state_config = None
+        self.system_config = None
+
+        self._load_project_config()
+
+    def _load_project_config(self):
+        if self.state_config_path is not None and len(self.state_config_path) > 0:
+            with open(self.state_config_path, "r") as state_config:
                 data = state_config.read()
                 self.state_config = parse_yaml_raw_as(StateConfig, data)
         else:
             self.state_config = StateConfig.empty_state_config()
 
-    def get_base_path(self):
-        return f'{BASE_PATH}/{self.state_config.customer_name}/{self.state_config.control_plane_name}'
+        if self.system_config_path is not None and len(self.system_config_path) > 0:
+            with open(self.system_config_path, "r") as system_config:
+                data = system_config.read()
+                self.system_config = parse_yaml_raw_as(SystemConfig, data)
+        else:
+            self.system_config = SystemConfig.empty_system_config()

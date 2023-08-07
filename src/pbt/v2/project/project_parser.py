@@ -107,6 +107,22 @@ class ProjectParser:
                 if full_path.endswith(".whl") or full_path.endswith(".jar"):
                     return full_path
 
+    def get_pipeline_name(self, pipeline_id):
+        subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
+
+        # pipeline belongs to same project.
+        if subscribed_project_id is None:
+            pipeline_name = self.pipelines.get(pipeline_id, {}).get('name', pipeline_id.split('/')[
+                -1])  # if it doesn't exist then return only the last name.
+        else:
+            subscribed_project = yaml.safe_load(
+                os.path.join(self.project_path, ".prophecy", subscribed_project_id, pipeline_path))
+            pipeline_name = subscribed_project.get('pipelines', {}).get(pipeline_path, {}).get('name',
+                                                                                               pipeline_path.split('/')[
+                                                                                                   -1])
+
+        return pipeline_name
+
     def _verify_project(self):
         if not os.path.exists(self.project_path):
             raise ProjectPathNotFoundException(f"Project path does not exist {self.project_path}")

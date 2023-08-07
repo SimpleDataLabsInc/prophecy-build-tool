@@ -2,7 +2,7 @@
 from src.pbt.v2.client.airflow_client.composer_client import ComposerRestClient
 from src.pbt.v2.client.airflow_client.mwaa_client import MWAARestClient
 from src.pbt.v2.exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
-from src.pbt.v2.state_config import ProjectConfig
+from src.pbt.v2.project_config import ProjectConfig
 
 
 def create_airflow_client(fabric_id: str, project_config: ProjectConfig):

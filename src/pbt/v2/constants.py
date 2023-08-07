@@ -30,4 +30,4 @@ COMPONENTS_LITERAL = "components"
 FABRIC_ID = "fabric_id"
 SECRET_SCOPE = "secret_scope"
 
-BASE_PATH = "dbfs:/FileStore/prophecy/artifacts/"
+DBFS_BASE_PATH = "dbfs:/FileStore/prophecy/artifacts/"
