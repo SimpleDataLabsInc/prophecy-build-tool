@@ -28,6 +28,7 @@ class ProphecyBuildTool:
         release_version: str = "",
         project_id: str = "",
         prophecy_url: str = "",
+        ignore_parse_errors: bool = False
     ):
         if not path_root:
             self._error("Path of project not passed as argument using --path.")
@@ -36,7 +37,7 @@ class ProphecyBuildTool:
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
         self._verify_project()
-        self._parse_project()
+        self._parse_project(ignore_parse_errors)
         self.dependent_projects = {}
         if dependent_projects_path:
             print("\nParsing dependent projects")
@@ -716,7 +717,7 @@ class ProphecyBuildTool:
             os.environ["FABRIC_NAME"] = self.fabric
         return True
 
-    def _parse_project(self):
+    def _parse_project(self, ignore_parse_errors=False):
         self.pipelines: Dict = {}
         self.jobs: Dict = {}
         with open(self.path_project, "r") as _in:
@@ -751,16 +752,20 @@ class ProphecyBuildTool:
             )
         )
         print("Found %s pipelines: %s" % (self.pipelines_count, pipelines_str))
-        self._verify_project_structure()
+        self._verify_project_structure(ignore_parse_errors)
 
-    def _verify_project_structure(self):
+    def _verify_project_structure(self, ignore_parse_errors=False):
         for path_pipeline, pipeline in self.pipelines.items():
             path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), "code")
             pipeline_dependencies_file = "setup.py" if self.project_language == "python" else "pom.xml"
 
             if not os.path.isfile(os.path.join(path_pipeline_absolute, pipeline_dependencies_file)):
                 print(f"\n[bold red]Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]")
-                sys.exit(1)
+                if not ignore_parse_errors:
+                    sys.exit(1)
+                else:
+                    print(f"\n[bold red] Ignoring Parse Error for {path_pipeline}, --ignore-parse-errors is passed ["
+                          f"/bold red]")
 
         for path_job, job in self.jobs.items():
             path_job_definition = os.path.join(
@@ -770,7 +775,10 @@ class ProphecyBuildTool:
 
             if not os.path.isfile(path_job_definition):
                 print(f"\n[bold red]Job {path_job} does not exist or is corrupted. [/bold red]")
-                sys.exit(1)
+                if not ignore_parse_errors:
+                    sys.exit(1)
+                    print(f"\n[bold red] Ignoring Parse Error for {path_job}, --ignore-parse-errors is passed ["
+                          f"/bold red]")
 
     def _get_spark_parameter_files(self, tasks_list, file_extension):
         result = []
