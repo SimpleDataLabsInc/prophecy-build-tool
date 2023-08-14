@@ -247,6 +247,7 @@ class ProphecyBuildTool:
         if not overall_build_status and exit_on_build_failure:
             sys.exit(1)
         else:
+            print(f"\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
     def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
@@ -764,8 +765,8 @@ class ProphecyBuildTool:
                 if not ignore_parse_errors:
                     sys.exit(1)
                 else:
-                    print(f"\n[bold red] Ignoring Parse Error for {path_pipeline}, --ignore-parse-errors is passed ["
-                          f"/bold red]")
+                    print(f"\n[bold yellow] Ignoring Parse Error for {path_pipeline} as --ignore-parse-errors is passed ["
+                          f"/bold yellow]")
 
         for path_job, job in self.jobs.items():
             path_job_definition = os.path.join(
@@ -777,8 +778,8 @@ class ProphecyBuildTool:
                 print(f"\n[bold red]Job {path_job} does not exist or is corrupted. [/bold red]")
                 if not ignore_parse_errors:
                     sys.exit(1)
-                    print(f"\n[bold red] Ignoring Parse Error for {path_job}, --ignore-parse-errors is passed ["
-                          f"/bold red]")
+                    print(f"\n[bold yellow] Ignoring Parse Error for {path_job} as --ignore-parse-errors is passed ["
+                          f"/bold yellow]")
 
     def _get_spark_parameter_files(self, tasks_list, file_extension):
         result = []
