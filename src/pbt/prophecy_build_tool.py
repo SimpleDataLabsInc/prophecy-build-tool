@@ -28,7 +28,7 @@ class ProphecyBuildTool:
         release_version: str = "",
         project_id: str = "",
         prophecy_url: str = "",
-        ignore_parse_errors: bool = False
+        ignore_parse_errors: bool = False,
     ):
         if not path_root:
             self._error("Path of project not passed as argument using --path.")
@@ -155,12 +155,11 @@ class ProphecyBuildTool:
                 if "diagnostics" in workflow:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
-                        if diagnostic.get('severity') == 1:
+                        if diagnostic.get("severity") == 1:
                             print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
                             num_errors += 1
-                        elif diagnostic.get('severity') == 2:
-                            print(
-                                f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                        elif diagnostic.get("severity") == 2:
+                            print(f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
                             num_warnings += 1
                     print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
@@ -247,7 +246,7 @@ class ProphecyBuildTool:
         if not overall_build_status and exit_on_build_failure:
             sys.exit(1)
         else:
-            print(f"\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
+            print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
     def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
@@ -343,7 +342,7 @@ class ProphecyBuildTool:
                     content = script_component["content"]
                     path = script_component["path"]
                     temp_file = tempfile.NamedTemporaryFile(delete=False)
-                    temp_file.write(content.encode('ascii'))
+                    temp_file.write(content.encode("ascii"))
                     temp_file.close()
                     print(f"Uploading script to path: {path}")
                     self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
@@ -443,7 +442,10 @@ class ProphecyBuildTool:
                         )
                         source_path = pipelines_build_path[pipeline_id]["source_absolute"]
                         target_path = component["PipelineComponent"]["path"]
-                        if not pipelines_build_path[pipeline_id]["uploaded"] or target_path not in self.uploaded_target_paths:
+                        if (
+                            not pipelines_build_path[pipeline_id]["uploaded"]
+                            or target_path not in self.uploaded_target_paths
+                        ):
                             print(
                                 "    Uploading %s to %s"
                                 % (
@@ -765,8 +767,10 @@ class ProphecyBuildTool:
                 if not ignore_parse_errors:
                     sys.exit(1)
                 else:
-                    print(f"\n[bold yellow] Ignoring Parse Error for {path_pipeline} as --ignore-parse-errors is passed ["
-                          f"/bold yellow]")
+                    print(
+                        f"\n[bold yellow] Ignoring Parse Error for {path_pipeline} as --ignore-parse-errors is passed ["
+                        f"/bold yellow]"
+                    )
 
         for path_job, job in self.jobs.items():
             path_job_definition = os.path.join(
@@ -778,8 +782,10 @@ class ProphecyBuildTool:
                 print(f"\n[bold red]Job {path_job} does not exist or is corrupted. [/bold red]")
                 if not ignore_parse_errors:
                     sys.exit(1)
-                    print(f"\n[bold yellow] Ignoring Parse Error for {path_job} as --ignore-parse-errors is passed ["
-                          f"/bold yellow]")
+                    print(
+                        f"\n[bold yellow] Ignoring Parse Error for {path_job} as --ignore-parse-errors is passed ["
+                        f"/bold yellow]"
+                    )
 
     def _get_spark_parameter_files(self, tasks_list, file_extension):
         result = []

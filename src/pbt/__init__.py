@@ -27,18 +27,18 @@ def cli():
 @click.option(
     "--ignore-build-errors",
     help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
-         "errors.",
+    "errors.",
     default=False,
     is_flag=True,
-    required=False
+    required=False,
 )
 @click.option(
     "--ignore-parse-errors",
     help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
-         "any errors.",
+    "any errors.",
     default=False,
     is_flag=True,
-    required=False
+    required=False,
 )
 def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     pbt = ProphecyBuildTool(path, ignore_parse_errors=ignore_parse_errors)
@@ -56,7 +56,7 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     help="Specifies whether to treat warnings as errors.",
     is_flag=True,
     required=False,
-    default=False
+    default=False,
 )
 def validate(path, treat_warnings_as_errors):
     pbt = ProphecyBuildTool(path)
