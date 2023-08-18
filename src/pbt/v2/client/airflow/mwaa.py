@@ -42,10 +42,8 @@ class MWAARestClient(AirflowRestClient, ABC):
                 response = self._get_response(f"dags delete {dag_id} --yes")
                 return True
             except Exception as e:
-                print("Dag deletion failed, This step was optional", e)
                 return False
         except Exception as e:
-            print(f"Error deleting file {relative_path} from bucket {self._source_bucket}", e)
             raise DagFileDeletionFailedException(
                 f"Error deleting file {relative_path} from bucket {self._source_bucket}", e)
 

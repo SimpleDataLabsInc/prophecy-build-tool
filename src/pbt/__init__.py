@@ -77,7 +77,7 @@ def validate(path, treat_warnings_as_errors):
     default="",
 )
 @click.option(
-    "--deployment-id",
+    "--project-id",
     help="Project Id placeholder to be used during deployments",
     default="",
 )
@@ -109,37 +109,6 @@ def deploy(
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
-
-
-@cli.command()
-@click.option(
-    "--path",
-    help="Path to the directory containing the pbt_project.yml file",
-    required=True,
-)
-@click.option(
-    "--state-config-path",
-    help="Path to the yaml file containing the state configuration",
-    required=True,
-)
-@click.option(
-    "--deployment-id",
-    help="Prophecy deployment id to deploy",
-    required=True,
-)
-@click.option(
-    "--release-version",
-    help="Release version to be used during deployments",
-    required=True,
-)
-@click.option(
-    "--pipeline-ids",
-    help="pipeline-ids to be build and upload",
-    required=False,
-)
-def build_v2(path, state_config_path, project_id, release_version, pipeline_ids):
-    pbt = PBTCli(path, state_config_path, project_id, release_version)
-    pbt.build(pipeline_ids)
 
 
 @cli.command()

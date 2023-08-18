@@ -1,13 +1,13 @@
 from .composer import ComposerRestClient
 from .mwaa import MWAARestClient
 from ...exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
-from ...project_config import ProjectConfig
+from ...project_config import ProjectConfig, FabricType
 
 
 def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
     fabric_info = project_config.state_config.get_fabric(fabric_id)
 
-    if fabric_info is not None and fabric_info.type == "airflow":
+    if fabric_info is not None and fabric_info.type == FabricType.Airflow:
 
         composer = fabric_info.composer
         mwaa = fabric_info.mwaa
