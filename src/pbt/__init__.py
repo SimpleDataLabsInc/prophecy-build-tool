@@ -25,9 +25,25 @@ def cli():
     help="Pipeline names(comma separated) which can be used to filter pipelines to be build",
     default="",
 )
-def build(path, pipelines):
-    pbt = ProphecyBuildTool(path)
-    pbt.build(pipelines)
+@click.option(
+    "--ignore-build-errors",
+    help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
+    "errors.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+@click.option(
+    "--ignore-parse-errors",
+    help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
+    "any errors.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
+    pbt = ProphecyBuildTool(path, ignore_parse_errors=ignore_parse_errors)
+    pbt.build(pipelines, exit_on_build_failure=(not ignore_build_errors))
 
 
 @cli.command()
@@ -41,7 +57,7 @@ def build(path, pipelines):
     help="Specifies whether to treat warnings as errors.",
     is_flag=True,
     required=False,
-    default=False
+    default=False,
 )
 def validate(path, treat_warnings_as_errors):
     pbt = ProphecyBuildTool(path)

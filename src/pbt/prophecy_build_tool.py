@@ -28,15 +28,16 @@ class ProphecyBuildTool:
         release_version: str = "",
         project_id: str = "",
         prophecy_url: str = "",
+        ignore_parse_errors: bool = False,
     ):
         if not path_root:
-            self._error("Path of deployment not passed as argument using --path.")
+            self._error("Path of project not passed as argument using --path.")
         self.operating_system = sys.platform
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
 
         self._verify_project()
-        self._parse_project()
+        self._parse_project(ignore_parse_errors)
         self.dependent_projects = {}
         if dependent_projects_path:
             print("\nParsing dependent projects")
@@ -154,12 +155,11 @@ class ProphecyBuildTool:
                 if "diagnostics" in workflow:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
-                        if diagnostic.get('severity') == 1:
+                        if diagnostic.get("severity") == 1:
                             print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
                             num_errors += 1
-                        elif diagnostic.get('severity') == 2:
-                            print(
-                                f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                        elif diagnostic.get("severity") == 2:
+                            print(f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
                             num_warnings += 1
                     print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
@@ -246,6 +246,7 @@ class ProphecyBuildTool:
         if not overall_build_status and exit_on_build_failure:
             sys.exit(1)
         else:
+            print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
     def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
@@ -341,7 +342,7 @@ class ProphecyBuildTool:
                     content = script_component["content"]
                     path = script_component["path"]
                     temp_file = tempfile.NamedTemporaryFile(delete=False)
-                    temp_file.write(content.encode('ascii'))
+                    temp_file.write(content.encode("ascii"))
                     temp_file.close()
                     print(f"Uploading script to path: {path}")
                     self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
@@ -402,14 +403,14 @@ class ProphecyBuildTool:
                                 # and try to build it ourselves
                                 print(
                                     f"    Pipeline {pipeline_id} not found in DFBS, "
-                                    f"searching in dependent deployment directory"
+                                    f"searching in dependent project directory"
                                 )
                                 for project in self.dependent_projects.values():
                                     if (
                                         pipeline_id in project.pipelines
                                         and self.project_language == project.project_language
                                     ):
-                                        print("    Building dependent deployment's pipeline:")
+                                        print("    Building dependent project's pipeline:")
                                         (
                                             dependent_build_status,
                                             dependent_build_paths,
@@ -441,7 +442,10 @@ class ProphecyBuildTool:
                         )
                         source_path = pipelines_build_path[pipeline_id]["source_absolute"]
                         target_path = component["PipelineComponent"]["path"]
-                        if not pipelines_build_path[pipeline_id]["uploaded"] or target_path not in self.uploaded_target_paths:
+                        if (
+                            not pipelines_build_path[pipeline_id]["uploaded"]
+                            or target_path not in self.uploaded_target_paths
+                        ):
                             print(
                                 "    Uploading %s to %s"
                                 % (
@@ -716,7 +720,7 @@ class ProphecyBuildTool:
             os.environ["FABRIC_NAME"] = self.fabric
         return True
 
-    def _parse_project(self):
+    def _parse_project(self, ignore_parse_errors=False):
         self.pipelines: Dict = {}
         self.jobs: Dict = {}
         with open(self.path_project, "r") as _in:
@@ -751,16 +755,22 @@ class ProphecyBuildTool:
             )
         )
         print("Found %s pipelines: %s" % (self.pipelines_count, pipelines_str))
-        self._verify_project_structure()
+        self._verify_project_structure(ignore_parse_errors)
 
-    def _verify_project_structure(self):
+    def _verify_project_structure(self, ignore_parse_errors=False):
         for path_pipeline, pipeline in self.pipelines.items():
             path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), "code")
             pipeline_dependencies_file = "setup.py" if self.project_language == "python" else "pom.xml"
 
             if not os.path.isfile(os.path.join(path_pipeline_absolute, pipeline_dependencies_file)):
                 print(f"\n[bold red]Pipeline {path_pipeline} does not exist or is corrupted. [/bold red]")
-                sys.exit(1)
+                if not ignore_parse_errors:
+                    sys.exit(1)
+                else:
+                    print(
+                        f"\n[bold yellow] Ignoring Parse Error for {path_pipeline} as --ignore-parse-errors is passed ["
+                        f"/bold yellow]"
+                    )
 
         for path_job, job in self.jobs.items():
             path_job_definition = os.path.join(
@@ -770,7 +780,12 @@ class ProphecyBuildTool:
 
             if not os.path.isfile(path_job_definition):
                 print(f"\n[bold red]Job {path_job} does not exist or is corrupted. [/bold red]")
-                sys.exit(1)
+                if not ignore_parse_errors:
+                    sys.exit(1)
+                    print(
+                        f"\n[bold yellow] Ignoring Parse Error for {path_job} as --ignore-parse-errors is passed ["
+                        f"/bold yellow]"
+                    )
 
     def _get_spark_parameter_files(self, tasks_list, file_extension):
         result = []
@@ -815,7 +830,7 @@ class ProphecyBuildTool:
     def _verify_project(self):
         if not os.path.isfile(self.path_project):
             self._error(
-                "Missing [i]pbt_project.yml[/i] file. Are you sure you pointed pbt into a Prophecy deployment? "
+                "Missing [i]pbt_project.yml[/i] file. Are you sure you pointed pbt into a Prophecy project? "
                 "Current path [u]%s[/u]" % self.path_root
             )
 
