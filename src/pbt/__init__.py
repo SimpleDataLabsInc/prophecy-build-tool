@@ -61,7 +61,7 @@ def validate(path, treat_warnings_as_errors):
     default="",
 )
 @click.option(
-    "--project-id",
+    "--deployment-id",
     help="Project Id placeholder to be used during deployments",
     default="",
 )
@@ -107,8 +107,8 @@ def deploy(
     required=True,
 )
 @click.option(
-    "--project-id",
-    help="Prophecy project id to deploy",
+    "--deployment-id",
+    help="Prophecy deployment id to deploy",
     required=True,
 )
 @click.option(
@@ -116,7 +116,6 @@ def deploy(
     help="Release version to be used during deployments",
     required=True,
 )
-
 @click.option(
     "--pipeline-ids",
     help="pipeline-ids to be build and upload",
@@ -134,28 +133,7 @@ def build_v2(path, state_config_path, project_id, release_version, pipeline_ids)
     required=True,
 )
 @click.option(
-    "--state-config-path",
-    help="Path to the yaml file containing the state configuration",
-    required=True,
-)
-@click.option(
     "--project-id",
-    help="Prophecy project id to deploy",
-    required=True,
-)
-@click.option(
-    "--release-version",
-    help="Release version to be used during deployments",
-    required=True,
-)
-def headers_v2(path, project_id: str, release_version: str, state_config_path: str,):
-    pbt = PBTCli(path, state_config_path, project_id, release_version)
-    pbt.headers()
-
-
-@cli.command()
-@click.option(
-    "--path",
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
@@ -165,23 +143,21 @@ def headers_v2(path, project_id: str, release_version: str, state_config_path: s
     required=True,
 )
 @click.option(
-    "--project-id",
-    help="Prophecy project id to deploy",
+    "--system-config-path",
+    help="Path to the yaml file containing the system configuration",
     required=True,
 )
 @click.option(
     "--release-version",
-    help="Release version to be used during deployments",
+    help="Release version to be used",
     required=True,
 )
-@click.option(
-    "--job-ids",
-    help="jobs to be deployed",
-    required=False,
-)
-def deploy_v2(path, state_config_path, project_id, release_version, jobs_ids):
-    pbt = PBTCli(path, state_config_path, project_id, release_version)
-    pbt.deploy(jobs_ids.split(","))
+def deploy_v2(path, project_id: str, state_config_path: str, system_config_path: str, release_version: str):
+    pbt = PBTCli(path, state_config_path, system_config_path, project_id, release_version)
+    pbt.headers()
+    pbt.deploy([])
+
+
 
 
 @cli.command()

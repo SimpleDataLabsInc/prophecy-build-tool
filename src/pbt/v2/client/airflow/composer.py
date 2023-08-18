@@ -10,25 +10,41 @@ from google.cloud.storage import Blob
 from google.oauth2 import service_account
 from google.oauth2.gdch_credentials import ServiceAccountCredentials
 from requests import HTTPError
-
-from src.pbt.v2.client.airflow_client.mwaa_client import retry
-from src.pbt.v2.exceptions import DagUploadFailedException, DagFileDeletionFailedException
-from src.pbt.v2.project_models import DAG
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+from . import AirflowRestClient
+from ...exceptions import DagUploadFailedException, DagFileDeletionFailedException
+from ...project_models import DAG
 from google.auth.transport.requests import AuthorizedSession
 import requests
 import json
-from src.pbt.v2.client.airflow_client.airflow_rest_client import AirflowRestClient
+
+pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
 
 
 class GCSPathInfo:
+
     def __init__(self, bucket: str, path: Optional[str]):
         self.bucket = bucket
         self.path = path
+
+    @staticmethod
+    def get_gcs_path_info(dag_location: str):
+        match = pattern.match(dag_location)
+
+        if match:
+            bucket, path = match.groups()
+            gcs_path_info = GCSPathInfo(bucket, "/".join(path.split("/")))
+        else:
+            gcs_path_info = None
+
+        return gcs_path_info
 
 
 class ComposerRestClient(AirflowRestClient, ABC):
     _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
     _CONNECTIONS_SECRET_PREFIX = "airflow-connections-"
+    _pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
+    _headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
     def __init__(self, airflow_url: str, project_id: str, client_id: Optional[str], key_json: str, dag_location: str):
         self.airflow_url = airflow_url
@@ -42,7 +58,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         self.storage_handler = storage.Client.from_service_account_info(json.loads(key_json), project=project_id)
 
     def delete_dag_file(self, dag_id: str):
-        gcs_path_info = self._get_gcs_path_info()
+        gcs_path_info = GCSPathInfo.get_gcs_path_info(self.dag_location)
         blob: Blob = Blob(gcs_path_info.bucket, self._get_dag_location(gcs_path_info, dag_id))
         try:
             self.storage_handler.bucket(gcs_path_info.bucket).delete_blob(blob.name)
@@ -53,7 +69,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         return self._set_pause_state(dag_id, True)
 
     def upload_dag(self, dag_id: str, file_path: str):
-        gcs_path_info = self._get_gcs_path_info()
+        gcs_path_info = GCSPathInfo.get_gcs_path_info(self.dag_location)
         bucket = self.storage_handler.get_bucket(gcs_path_info.bucket)
         dag_location = self._get_dag_location(gcs_path_info, dag_id)
 
@@ -111,7 +127,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
     def get_dag(self, dag_id: str) -> DAG:
         response = requests.request('GET', f"{self.airflow_url}/api/v1/dags/{dag_id}",
-                                    headers={'Content-Type': 'application/json', 'Accept': 'application/json'})
+                                    headers=self._headers)
         response.raise_for_status()
         response_data = response.json()
 
@@ -145,18 +161,6 @@ class ComposerRestClient(AirflowRestClient, ABC):
         client = secretmanager.SecretManagerServiceClient(credentials=credentials)
         return client
 
-    def _get_gcs_path_info(self) -> GCSPathInfo:
-        pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
-        match = pattern.match(self.dag_location)
-
-        if match:
-            bucket, path = match.groups()
-            gcs_path_info = GCSPathInfo(bucket, "/".join(path.split("/")))
-        else:
-            gcs_path_info = None
-
-        return gcs_path_info
-
     def _get_authenticated_session(self):
 
         if self.client_id is not None and len(self.client_id) > 0:
@@ -166,18 +170,17 @@ class ComposerRestClient(AirflowRestClient, ABC):
                 .with_target_audience(self.client_id) \
                 .with_scopes(self._SCOPES)
 
-
         else:
             credentials = service_account.Credentials.from_service_account_info(json.loads(self.key_json_file)) \
                 .with_scopes(self._SCOPES)
         return AuthorizedSession(credentials)
 
-    @retry((HTTPError,), total_tries=5, delay_in_seconds=10, backoff=0)
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5), wait=wait_fixed(10))
     def _set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
         session = self._get_authenticated_session()
         response = session.request(method='PATCH', url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
                                    data=json.dumps({"is_paused": is_paused}),
-                                   headers={'Content-Type': 'application/json', 'Accept': 'application/json'})
+                                   headers=self._headers)
         response.raise_for_status()
         response_data = response.json()
         return DAG.create(response_data)

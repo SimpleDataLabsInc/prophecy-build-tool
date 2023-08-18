@@ -1,40 +1,49 @@
-class DagNotAvailableException(ValueError):
+class PBTException(ValueError):
     def __init__(self, message):
         self.message = message
 
 
-class DagFileDeletionFailedException(ValueError):
+class DagNotAvailableException(PBTException):
+    def __init__(self, message):
+        self.message = message
+
+
+class DagFileDeletionFailedException(PBTException):
     def __init__(self, message, e):
         self.message = message
         self.e = e
 
 
-class DagUploadFailedException(ValueError):
+class DagUploadFailedException(PBTException):
     def __init__(self, message, e):
         self.message = message
         self.e = e
 
 
-class ProjectPathNotFoundException(ValueError):
+class ProjectPathNotFoundException(PBTException):
     def __init__(self, message):
         self.message = message
 
 
-class ProjectFileNotFoundException(ValueError):
+class ProjectFileNotFoundException(PBTException):
     def __init__(self, message):
         self.message = message
 
 
-class UnknownAirflowProviderException(ValueError):
+class UnknownAirflowProviderException(PBTException):
     def __init__(self, message):
         self.message = message
 
 
-class FabricNotConfiguredException(ValueError):
+class FabricNotConfiguredException(PBTException):
     def __init__(self, message):
         self.message = message
 
 
-class ArtifactDownloadFailedException(ValueError):
+class ArtifactDownloadFailedException(PBTException):
     def __init__(self, response):
         self.message = f"Artifact download failed with status code {response.status_code} and reason {response.text}"
+
+class InvalidFabricException(PBTException):
+    def __init__(self, message):
+        self.message = message

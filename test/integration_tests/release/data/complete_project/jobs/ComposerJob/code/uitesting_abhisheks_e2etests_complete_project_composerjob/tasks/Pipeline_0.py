@@ -20,7 +20,7 @@ def Pipeline_0():
               "spark.prophecy.metadata.url": "__PROPHECY_URL_PLACEHOLDER__", 
               "spark.prophecy.execution.metrics.pipeline-metrics.table": "prophecy.pipeline_runs_manual", 
               "spark.prophecy.packages.path": "{\"pipelines/OnlyOne\":\"dbfs:/FileStore/prophecy/artifacts/prophecy/uitesting/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/OnlyOne.jar\"}", 
-              "spark.prophecy.project.id": "__PROJECT_ID_PLACEHOLDER__", 
+              "spark.prophecy.deployment.id": "__PROJECT_ID_PLACEHOLDER__",
               "spark.prophecy.execution.metrics.disabled": False, 
               "spark.databricks.isv.product": "prophecy", 
               "spark.prophecy.metadata.job.branch": "__PROJECT_RELEASE_VERSION_PLACEHOLDER__", 

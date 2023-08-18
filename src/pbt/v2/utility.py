@@ -4,32 +4,7 @@ import binascii
 import hashlib
 import os
 
-
-def retry(exceptions, total_tries: int = 3, delay_in_seconds: int = 1, backoff: int = 2):
-    def decorator(func):
-        import time
-        from functools import wraps
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            retries = total_tries
-            while retries > 1:
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    if retries < 1:
-                        raise e
-                    print(f"Retrying in {delay_in_seconds} seconds...", e)
-                    time.sleep(delay_in_seconds)
-                    retries -= 1
-                    if backoff != 0:
-                        delay_in_seconds = delay_in_seconds * backoff
-
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
+from .project_models import LogEntry
 
 
 def calculate_checksum(input_str, salt=None):
@@ -74,3 +49,12 @@ class Either:
     @property
     def is_right(self):
         return self.right is not None
+
+
+def custom_print(message, exceptions=None, step_name=None):
+    if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM':
+        # Custom print: Print all variables.
+        print((LogEntry.from_log(step_name, message, exceptions).to_json()))
+    else:
+        # Regular print: Skip stepName.
+        print(message, exceptions)

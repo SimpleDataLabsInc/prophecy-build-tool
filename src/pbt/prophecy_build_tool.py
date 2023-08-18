@@ -30,7 +30,7 @@ class ProphecyBuildTool:
         prophecy_url: str = "",
     ):
         if not path_root:
-            self._error("Path of project not passed as argument using --path.")
+            self._error("Path of deployment not passed as argument using --path.")
         self.operating_system = sys.platform
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
@@ -402,14 +402,14 @@ class ProphecyBuildTool:
                                 # and try to build it ourselves
                                 print(
                                     f"    Pipeline {pipeline_id} not found in DFBS, "
-                                    f"searching in dependent project directory"
+                                    f"searching in dependent deployment directory"
                                 )
                                 for project in self.dependent_projects.values():
                                     if (
                                         pipeline_id in project.pipelines
                                         and self.project_language == project.project_language
                                     ):
-                                        print("    Building dependent project's pipeline:")
+                                        print("    Building dependent deployment's pipeline:")
                                         (
                                             dependent_build_status,
                                             dependent_build_paths,
@@ -815,7 +815,7 @@ class ProphecyBuildTool:
     def _verify_project(self):
         if not os.path.isfile(self.path_project):
             self._error(
-                "Missing [i]pbt_project.yml[/i] file. Are you sure you pointed pbt into a Prophecy project? "
+                "Missing [i]pbt_project.yml[/i] file. Are you sure you pointed pbt into a Prophecy deployment? "
                 "Current path [u]%s[/u]" % self.path_root
             )
 

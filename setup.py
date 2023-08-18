@@ -30,7 +30,13 @@ setuptools.setup(
         "rich>=12.5.1",
         "wheel",
         "build",
-        "pyspark==3.3.0"
+        "pyspark==3.3.0",
+        "google-cloud-secret-manager==2.16.2",
+        "google-cloud-storage==2.10.0",
+        "pydantic==2.1.1",
+        "pydantic-yaml==1.1.1",
+        "boto3==1.28.12",
+        "tenacity==8.2.3",
     ],
     python_requires=">=3.7",
     entry_points="""

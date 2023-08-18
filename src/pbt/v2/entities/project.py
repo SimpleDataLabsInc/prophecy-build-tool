@@ -3,13 +3,13 @@ from typing import Optional
 
 import yaml
 
-from src.pbt.v2.constants import *
+from ..constants import *
 import re
 
-from src.pbt.v2.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
+from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
 
-class ProjectParser:
+class Project:
     _DATABRICKS_JOB_JSON = "databricks-job.json"
 
     def __init__(self, project_path: str, project_id: Optional[str] = None, release_version: Optional[str] = None):
@@ -32,8 +32,11 @@ class ProjectParser:
 
     def load_databricks_job(self, job_id: str) -> Optional[str]:
         content = None
-        with open(os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON), "r") as file:
-            content = self._replace_placeholders(self._DATABRICKS_JOB_JSON, file.read())
+        try:
+            with open(os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON), "r") as file:
+                content = self._replace_placeholders(self._DATABRICKS_JOB_JSON, file.read())
+        except FileNotFoundError:
+            content = None
 
         return content
 
@@ -107,16 +110,19 @@ class ProjectParser:
                 if full_path.endswith(".whl") or full_path.endswith(".jar"):
                     return full_path
 
+    def _load_subscribed_project_yml(self, subscribed_project_id: str):
+        with open(os.path.join(self.project_path, ".prophecy", subscribed_project_id, "pbt_project.yml"), "r") as file:
+            return yaml.safe_load(file.read())
+
     def get_pipeline_name(self, pipeline_id):
         subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
 
-        # pipeline belongs to same project.
+        # pipeline belongs to same deployment.
         if subscribed_project_id is None:
             pipeline_name = self.pipelines.get(pipeline_id, {}).get('name', pipeline_id.split('/')[
                 -1])  # if it doesn't exist then return only the last name.
         else:
-            subscribed_project = yaml.safe_load(
-                os.path.join(self.project_path, ".prophecy", subscribed_project_id, pipeline_path))
+            subscribed_project = self._load_subscribed_project_yml(subscribed_project_id)
             pipeline_name = subscribed_project.get('pipelines', {}).get(pipeline_path, {}).get('name',
                                                                                                pipeline_path.split('/')[
                                                                                                    -1])

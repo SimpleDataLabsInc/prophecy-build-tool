@@ -28,6 +28,7 @@ SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS_LITERAL = "components"
 
 FABRIC_ID = "fabric_id"
+FABRIC_UID = "fabricUID"
 SECRET_SCOPE = "secret_scope"
 
 DBFS_BASE_PATH = "dbfs:/FileStore/prophecy/artifacts/"

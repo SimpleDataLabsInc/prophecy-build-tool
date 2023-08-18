@@ -4,21 +4,20 @@ from abc import ABC
 import datetime
 
 import boto3
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
 
-from src.pbt.v2.client.airflow_client.airflow_rest_client import AirflowRestClient
-from src.pbt.v2.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
-from src.pbt.v2.project_models import DAG
+from . import AirflowRestClient
+from ...exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
+from ...project_models import DAG
 import requests
 import json
-
-from src.pbt.v2.utility import retry
 
 
 class MWAARestClient(AirflowRestClient, ABC):
 
     def __init__(self, environment_name: str, region: str, access_key: str, secret_key: str):
         self.environment_name = environment_name
-        self.s3_aws_client = boto3.client(
+        self.aws_s3_client = boto3.client(
             "s3",
             region_name=region,
             aws_access_key_id=access_key,
@@ -38,7 +37,7 @@ class MWAARestClient(AirflowRestClient, ABC):
     def delete_dag_file(self, dag_id: str) -> bool:
         relative_path = f"{self.dag_s3_path}/{dag_id}.zip"
         try:
-            self.s3_aws_client.delete_object(Bucket=self._source_bucket, Key=relative_path)
+            self.aws_s3_client.delete_object(Bucket=self._source_bucket, Key=relative_path)
             try:
                 response = self._get_response(f"dags delete {dag_id} --yes")
                 return True
@@ -66,12 +65,12 @@ class MWAARestClient(AirflowRestClient, ABC):
     def upload_dag(self, dag_id: str, file_path: str):
         relative_path = f"{self.dag_s3_path}/{dag_id}.zip"
         try:
-            self.s3_aws_client.upload_file(file_path, self._source_bucket, relative_path)
+            self.aws_s3_client.upload_file(file_path, self._source_bucket, relative_path)
         except Exception as e:
             print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
             raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    @retry((DagNotAvailableException,), total_tries=50, delay_in_seconds=10, backoff=0)
+    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(5), wait=wait_fixed(10))
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response(f"dags list -o json")
         dag_list = json.loads(response)

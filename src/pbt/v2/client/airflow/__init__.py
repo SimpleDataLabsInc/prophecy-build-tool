@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.pbt.v2.project_models import DAG
+from ...project_models import DAG
 
 
 class AirflowRestClient(ABC):

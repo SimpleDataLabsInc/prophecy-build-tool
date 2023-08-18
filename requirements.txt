@@ -15,5 +15,5 @@ pydantic==2.1.1
 pydantic-yaml==1.1.1
 google-cloud-secret-manager==2.16.2 # similiar to what we have in execution service.
 boto3==1.28.12
-cryptography==35.0.0 # latest version conflicts with dbt
 requests~=2.31.0
+tenacity==8.2.3

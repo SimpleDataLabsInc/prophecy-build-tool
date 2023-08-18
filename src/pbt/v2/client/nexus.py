@@ -1,14 +1,11 @@
-import json
 import os
 import tempfile
-from pathlib import Path
 
 import requests
-from urllib.parse import unquote
 
 from requests.auth import HTTPBasicAuth
 
-from src.pbt.v2.exceptions import ArtifactDownloadFailedException
+from ..exceptions import ArtifactDownloadFailedException
 
 
 class NexusClient:
@@ -22,7 +19,7 @@ class NexusClient:
 
     @classmethod
     def initialize_nexus_client(cls, project_config):
-        nexus_config = project_config.system_config.nexus_config
+        nexus_config = project_config.system_config.nexus
 
         if nexus_config is not None:
             return NexusClient(nexus_config.url,
@@ -30,7 +27,7 @@ class NexusClient:
                                nexus_config.password,
                                nexus_config.repository)
         else:
-            raise Exception("Nexus config not found in project config, fallbacking to default settings.")
+            raise Exception("Nexus config not found in deployment config, fallbacking to default settings.")
 
     def upload_file(self, file_path: str, project_id: str, pipeline_id: str, release_version: str, file_name:str):
         headers = {
@@ -78,4 +75,4 @@ class NexusClient:
 
     def _create_file_path(self, project_id: str, release_version: str, pipeline_name: str):
         # todo cleanup.
-        return f'project_{project_id}/release_version_{release_version}/pipelines_{pipeline_name}'.replace('.', '_')
+        return f'project_{project_id}/release_version_{release_version}/pipelines_{pipeline_name}'.replace('\\W', '_')

@@ -1,12 +1,33 @@
+import enum
 import os
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
-from src.pbt.v2.constants import DBFS_BASE_PATH
+from .constants import DBFS_BASE_PATH
+from .deployment import OperationType
+from .utility import Either
 
 
-# explore https://docs.pydantic.dev/latest/usage/models/#generic-models
+class SchedulerType(enum.Enum):
+    Databricks = "Databricks"
+    Airflow = "Airflow"
+    Prophecy = "Prophecy"
+
+
+class FabricType(enum.Enum):
+    Spark = "spark"
+    Sql = "sql"
+    Airflow = "airflow"
+
+
+class FabricProviderType(enum.Enum):
+    Composer = "composer"
+    Mwaa = "mwaa"
+    Databricks = "databricks"
+    Prophecy = "prophecy"
+
+
 class ComposerInfo(BaseModel):
     key_json: str
     version: str
@@ -27,38 +48,49 @@ class MwaaInfo(BaseModel):
     environment_name: str
 
 
-class DBFabricInfo(BaseModel):
+class DatabricksInfo(BaseModel):
     url: str
     token: str
-
-
-class Content(BaseModel):
-    provider_type: Optional[str]  # composer/mwaa/Prophecy
-    composer_info: Optional[ComposerInfo] = None
-    mwaa_info: Optional[MwaaInfo] = None
 
 
 class FabricInfo(BaseModel):
     id: str
     name: str
-    type: str  # databricks/airflow/livy/emr.
-    content: Optional[Content] = None
-    db_info: Optional[DBFabricInfo] = None
+    type: Optional[str]  # sql/ databricks/ airflow
+    provider: Optional[str]  # composer/mwaa/prophecy/databricks
+    composer: Optional[ComposerInfo] = None
+    mwaa: Optional[MwaaInfo] = None
+    databricks: Optional[DatabricksInfo] = None
 
 
 class JobInfo(BaseModel):
     name: str
     type: str
-    scheduler_job_id: str
+    external_job_id: str
     fabric_id: str
     id: str
     is_paused: Optional[bool] = False
+    skip_processing: Optional[bool] = False  # this is useful in case when we deploy from older release tags.
+    release_tag: Optional[str] = None
+
+    @staticmethod
+    def create_db_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
+                      is_paused: bool = False):
+        return JobInfo(name=name, type=SchedulerType.Airflow, id=id, fabric_id=fabric_id,
+                       external_job_id=external_job_id,
+                       release_tag=release_tag, is_paused=is_paused)
+
+    @staticmethod
+    def create_airflow_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
+                           is_paused: bool = False):
+        return JobInfo(name=name, type=SchedulerType.Airflow, id=id, fabric_id=fabric_id,
+                       external_job_id=external_job_id,
+                       release_tag=release_tag, is_paused=is_paused)
 
 
 class ProjectAndGitTokens(BaseModel):
     project_id: str
     git_token: str = ""
-    language: str = ""
 
 
 class StateConfig(BaseModel):
@@ -66,25 +98,31 @@ class StateConfig(BaseModel):
     language: str
     description: str
     version: str
+    release_tag: str  # current release tag.
     fabrics: List[FabricInfo] = []
     jobs: List[JobInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
 
     def contains_jobs(self, job_id: str, fabric_uid: str) -> bool:
-        return any(job.id == job_id and job.fabric_id == fabric_uid for job in self.jobs)
+        return any(
+            job.id == job_id and job.fabric_id == fabric_uid and job.skip_processing is False for job in self.jobs)
 
     def get_jobs(self, job_id: str) -> List[JobInfo]:
-        return [job for job in self.jobs if job.id == job_id]
+        return [job for job in self.jobs if job.id == job_id and job.skip_processing is False]
 
     def get_job(self, job_id: str, fabric_id: str) -> Optional[JobInfo]:
-        return next((job for job in self.jobs if job.id == job_id and job.fabric_id == fabric_id), None)
+        return next(
+            (job for job in self.jobs if
+             job.id == job_id and job.fabric_id == fabric_id and job.skip_processing is False),
+            None)
 
+    @property
     def get_databricks_jobs(self) -> List[JobInfo]:
-        return [job for job in self.jobs if job.type is 'databricks']
+        return [job for job in self.jobs if job.type == SchedulerType.Databricks and job.skip_processing is False]
 
     @property
     def get_airflow_jobs(self) -> List[JobInfo]:
-        return [job for job in self.jobs if job.type is not 'databricks']
+        return [job for job in self.jobs if job.type != SchedulerType.Databricks and job.skip_processing is False]
 
     def contains_fabric(self, fabric_id: str) -> bool:
         return any(fabric.id == fabric_id for fabric in self.fabrics)
@@ -99,23 +137,35 @@ class StateConfig(BaseModel):
     def is_fabric_prophecy_managed(self, fabric_id: str) -> bool:
         if fabric_id is not None and self.get_fabric(fabric_id) is not None:
             fabric_info = self.get_fabric(fabric_id)
-            return fabric_info.type == 'airflow' and fabric_info.content.provider_type == 'prophecy'
+            return fabric_info.type == FabricType.Airflow and fabric_info.provider == FabricProviderType.Databricks
 
         return False
 
     def db_fabrics(self):
-        return [fabric.id for fabric in self.fabrics if fabric.type == 'databricks']
+        return [fabric.id for fabric in self.fabrics if
+                (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Databricks) or
+                (fabric.type == FabricType.Sql and fabric.provider == FabricProviderType.Databricks)]
 
-    @classmethod
-    def empty_state_config(cls):
-        return cls(name="", language="", description="", version="")
+    def update_state(self, jobs_and_operation_types: List[Either]):
+        for jobsAndOperationType in jobs_and_operation_types:
+            if jobsAndOperationType.is_right:
+                job = jobsAndOperationType.right.job
+
+                if jobsAndOperationType.right.operation_type == OperationType.CREATED:
+                    self.jobs.append(job)
+
+                if jobsAndOperationType.right.operation_type == OperationType.DELETED:
+                    self.jobs = [job if job.id == job.id and job.fabric_id == job.fabric_id else job for job in
+                                 self.jobs]
+
+                ### for others we don't care.
 
 
 class NexusConfig(BaseModel):
     url: str
     username: str
     password: str
-    repository:str
+    repository: str
 
 
 class SystemConfig(BaseModel):
@@ -123,38 +173,38 @@ class SystemConfig(BaseModel):
     control_plane_name: Optional[str] = 'execution'
     runtime_mode: Optional[str] = 'test'  # maybe an enum.
     prophecy_salt: Optional[str] = 'execution'
-    nexus_config: Optional[NexusConfig]
+    nexus: Optional[NexusConfig] = None
 
     def get_base_path(self):
         return f'{DBFS_BASE_PATH}/{self.customer_name}/{self.control_plane_name}'
 
     @staticmethod
-    def empty_system_config():
+    def empty():
         return SystemConfig()
 
 
-# maybe this can grow to read env. variables as well.
 class ProjectConfig:
-    def __init__(self, state_config_path: str, system_config_path: str):
-        self.state_config_path = state_config_path
-        self.system_config_path = system_config_path
+    def __init__(self, state_config: StateConfig, system_config: SystemConfig):
 
-        self.state_config = None
-        self.system_config = None
+        self.state_config = state_config
+        self.system_config = system_config
 
-        self._load_project_config()
+    @staticmethod
+    def from_path(state_config_path: str, system_config_path: str):
+        def load_state_config():
+            if state_config_path is not None and len(state_config_path) > 0:
+                with open(state_config_path, "r") as state_config:
+                    data = state_config.read()
+                    return parse_yaml_raw_as(StateConfig, data)
+            else:
+                raise Exception("State config path is not provided")
 
-    def _load_project_config(self):
-        if self.state_config_path is not None and len(self.state_config_path) > 0:
-            with open(self.state_config_path, "r") as state_config:
-                data = state_config.read()
-                self.state_config = parse_yaml_raw_as(StateConfig, data)
-        else:
-            self.state_config = StateConfig.empty_state_config()
+        def load_system_config():
+            if system_config_path is not None and len(system_config_path) > 0:
+                with open(system_config_path, "r") as system_config:
+                    data = system_config.read()
+                    return parse_yaml_raw_as(SystemConfig, data)
+            else:
+                raise Exception("System config path is not provided")
 
-        if self.system_config_path is not None and len(self.system_config_path) > 0:
-            with open(self.system_config_path, "r") as system_config:
-                data = system_config.read()
-                self.system_config = parse_yaml_raw_as(SystemConfig, data)
-        else:
-            self.system_config = SystemConfig.empty_system_config()
+        return ProjectConfig(load_state_config(), load_system_config())

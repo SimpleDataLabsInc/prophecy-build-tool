@@ -1,3 +1,5 @@
+import enum
+import json
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -6,10 +8,60 @@ from pydantic import BaseModel
 class StepMetadata:
 
     def __init__(self, step_id: str, header: str, operation: str, step_type: str):
-        self.step_id = step_id
+        self.step_id = step_id.replace("\\W", "_")
         self.header = header
         self.operation = operation
         self.step_type = step_type
+
+
+class LogType(enum.Enum):
+    header = "header"
+    log = "log"
+    config = "config"
+
+
+def to_dict_recursive(obj):
+    if isinstance(obj, enum.Enum):
+        return obj.name
+
+    if isinstance(obj, (list, tuple)):
+        return [to_dict_recursive(item) for item in obj]
+    elif isinstance(obj, dict):
+        # Skip keys with None values
+        return {key: to_dict_recursive(value) for key, value in obj.items() if value is not None}
+    elif hasattr(obj, '__dict__'):
+        return to_dict_recursive(
+            {key: value for key, value in obj.__dict__.items() if not isinstance(value, type) and value is not None})
+    elif hasattr(obj, '__slots__'):
+        return to_dict_recursive(
+            {slot: getattr(obj, slot) for slot in obj.__slots__ if getattr(obj, slot) is not None})
+    else:
+        return obj
+
+
+class LogEntry:
+    def __init__(self, step_id: str, mode: LogType, step_metadata: Optional[StepMetadata] = None,
+                 log: Optional[str] = None):
+        self.step_metadata = step_metadata
+        self.step_id = step_id
+        self.mode = mode
+        self.log = log
+
+    def to_json(self):
+        # we want json to be in single line
+        return json.dumps(self, default=to_dict_recursive)
+
+    @staticmethod
+    def from_step_metadata(step_metadata: StepMetadata):
+        return LogEntry(step_metadata.step_id, LogType.header, step_metadata)
+
+    @staticmethod
+    def from_log(step_id: str, log: str, ex: Optional[Exception] = None):
+        return LogEntry(step_id, LogType.log, None, log)
+
+    @staticmethod
+    def from_config(config: str, step_id: str):
+        return LogEntry(step_id, LogType.config, None, config)
 
 
 class Component(BaseModel):
@@ -87,4 +139,3 @@ class DAG:
         is_paused = response.get('paused', None)
         owners = response.get('owners', None)
         return DAG(dag_id, fileloc=fileloc, is_paused=is_paused, owners=owners)
-
