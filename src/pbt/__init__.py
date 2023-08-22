@@ -28,7 +28,7 @@ def cli():
 @click.option(
     "--ignore-build-errors",
     help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
-         "errors.",
+    "errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -36,7 +36,7 @@ def cli():
 @click.option(
     "--ignore-parse-errors",
     help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
-         "any errors.",
+    "any errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -98,14 +98,14 @@ def validate(path, treat_warnings_as_errors):
 )
 @click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
 def deploy(
-        path,
-        dependent_projects_path,
-        release_version,
-        project_id,
-        prophecy_url,
-        fabric_ids,
-        job_ids,
-        skip_builds,
+    path,
+    dependent_projects_path,
+    release_version,
+    project_id,
+    prophecy_url,
+    fabric_ids,
+    job_ids,
+    skip_builds,
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)

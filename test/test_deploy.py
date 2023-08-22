@@ -26,7 +26,7 @@ def test_deploy_path_default():
 
 def test_deploy_path_default_new_project():
     runner = CliRunner()
-    result = runner.invoke(deploy, ["--path", PROJECT_PATH_NEW, "--release-version", "1.0", "--deployment-id", "1"])
+    result = runner.invoke(deploy, ["--path", PROJECT_PATH_NEW, "--release-version", "1.0", "--project-id", "1"])
     assert "Found 2 jobs: AutomatedPBT-truescala, AutomatedPBTNo-truescala" in result.output
     assert "Found 2 pipelines: AutomatedPBT-truescala (scala), AutomatedPBTNo-truescala \n(scala)" in result.output
     assert "Building pipeline pipelines/AutomatedPBT-truescala" in result.output
