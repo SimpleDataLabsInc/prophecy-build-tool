@@ -6,6 +6,7 @@ import pkg_resources
 from rich import print
 
 from .prophecy_build_tool import ProphecyBuildTool
+from .v2.pbt_cli import PBTCli
 
 
 @click.group()
@@ -108,6 +109,38 @@ def deploy(
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--project-id",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--state-config-path",
+    help="Path to the yaml file containing the state configuration",
+    required=True,
+)
+@click.option(
+    "--system-config-path",
+    help="Path to the yaml file containing the system configuration",
+    required=True,
+)
+@click.option(
+    "--release-version",
+    help="Release version to be used",
+    required=True,
+)
+def deploy_v2(path, project_id: str, state_config_path: str, system_config_path: str, release_version: str):
+    pbt = PBTCli(path, state_config_path, system_config_path, project_id, release_version)
+    pbt.headers()
+    pbt.deploy([])
 
 
 @cli.command()
