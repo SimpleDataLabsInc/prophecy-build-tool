@@ -12,7 +12,7 @@ from ..constants import FABRIC_UID
 from ..project_models import StepMetadata
 from ..project_config import JobInfo, ProjectConfig
 from ..utility import Either, generate_secure_content, calculate_checksum
-from ..utility import custom_print as print
+from ..utility import custom_print as log
 
 
 def does_dag_file_exist(rdc: Dict[str, str]) -> bool:
@@ -103,7 +103,7 @@ class AirflowJob:
         try:
             return yaml.unsafe_load(self.prophecy_job_yaml)
         except Exception as e:
-            print(f"Error while loading prophecy job yaml", e)
+            log("Error while loading prophecy job yaml", e)
             return {}
 
 
@@ -184,7 +184,7 @@ class AirflowJobDeployment:
                     try:
                         sha = yaml.safe_load(aspects).get('sha', None)
                     except Exception as e:
-                        print(f"Error while loading prophecy job yaml", e)
+                        log("Error while loading prophecy job yaml", e)
 
                 jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, sha)
 
@@ -263,13 +263,13 @@ class AirflowJobDeployment:
 
         try:
             client.delete_dag_file(job_info.external_job_id)
-            print(f"Successfully deleted job {job_info.external_job_id} from job_id {job_info.id}",
-                  step_name=self._REMOVE_JOBS_STEP_ID)
+            log(f"Successfully deleted job {job_info.external_job_id} from job_id {job_info.id}",
+                step_name=self._REMOVE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
 
         except Exception as e:
-            print(f"Error while deleting job {job_info.external_job_id} from job_id {job_info.id}", e,
-                  step_name=self._REMOVE_JOBS_STEP_ID)
+            log(f"Error while deleting job {job_info.external_job_id} from job_id {job_info.id}", e,
+                step_name=self._REMOVE_JOBS_STEP_ID)
             return Either(left=e)
 
     '''
@@ -371,20 +371,20 @@ class AirflowJobDeployment:
         try:
             client.upload_dag(dag_name, zipped_dag_name)
             client.unpause_dag(dag_name)
-            print(f"Successfully added job {dag_name} for job_id {job_id}", step_name=self._ADD_JOBS_STEP_ID)
+            log(f"Successfully added job {dag_name} for job_id {job_id}", step_name=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, job_data.dag_name,
                                                   self._project_config.state_config.release_tag, job_data.is_disabled)
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
-            print(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e,
-                  step_name=self._ADD_JOBS_STEP_ID)
+            log(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e,
+                step_name=self._ADD_JOBS_STEP_ID)
 
     def _deploy_skipped_jobs(self):
         for job_id, messages in self._skip_jobs().items():
-            print(f"Skipping job_id: {job_id} encountered some error ", exceptions=messages,
-                  step_name=self._SKIP_JOBS_STEP_ID)
+            log(f"Skipping job_id: {job_id} encountered some error ", exceptions=messages,
+                step_name=self._SKIP_JOBS_STEP_ID)
 
     def _skip_jobs(self):
         jobs_to_be_skipped = {}
@@ -414,10 +414,10 @@ class AirflowJobDeployment:
         try:
             client = create_airflow_client(jobs_info.fabric_id, self._project_config)
             client.delete_dag(sanitize_job(jobs_info.external_job_id))
-            print(f"Successfully deleted dag for job_id: {jobs_info.id}", step_name=self._DELETE_JOBS_STEP_ID)
+            log(f"Successfully deleted dag for job_id: {jobs_info.id}", step_name=self._DELETE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(jobs_info, OperationType.DELETED))
         except Exception as e:
-            print(f"Failed to delete dag for job_id: {jobs_info.id}", e, step_name=self._DELETE_JOBS_STEP_ID)
+            log(f"Failed to delete dag for job_id: {jobs_info.id}", e, step_name=self._DELETE_JOBS_STEP_ID)
             return Either(left=e)
 
     def _deploy_pause_jobs(self):
@@ -442,12 +442,12 @@ class AirflowJobDeployment:
 
         try:
             client.pause_dag(dag_name)
-            print(f"Successfully paused job {dag_name} for job_id {job_id}", step_name=self._PAUSE_JOBS_STEP_ID)
+            log(f"Successfully paused job {dag_name} for job_id {job_id}", step_name=self._PAUSE_JOBS_STEP_ID)
             job_info = self._project_config.state_config.get_job(job_id, job_data.fabric_id)
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
         except Exception as e:
-            print(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", e,
-                  step_name=self._PAUSE_JOBS_STEP_ID)
+            log(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", e,
+                step_name=self._PAUSE_JOBS_STEP_ID)
             return Either(left=e)
 
 
@@ -482,8 +482,8 @@ class AirflowGitSecrets:
                     project_id = project_git_tokens.project_id
 
                     if len(git_tokens) == 0:
-                        print(f"No git tokens found for project_id: {project_id}, Ignoring",
-                              step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+                        log(f"No git tokens found for project_id: {project_id}, Ignoring",
+                            step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
                     else:
                         futures.append(
@@ -495,7 +495,7 @@ class AirflowGitSecrets:
 
             return responses
         else:
-            print(f"No dbt jobs found, Ignoring", step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+            log("No dbt jobs found, Ignoring", step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
             return []
 
     def _create_git_secrets(self, project_id, job_data, git_tokens):
@@ -504,9 +504,9 @@ class AirflowGitSecrets:
         try:
             client.create_secret(
                 generate_secure_content(f'{execution_db_suffix}_{project_id}', 'gitSecretSalt'), git_tokens)
-            print(f'Successfully created git secrets for project {project_id}',
-                  step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+            log(f'Successfully created git secrets for project {project_id}',
+                step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
         except Exception as e:
-            print(f'Failed in creating git secrets for project {project_id}', e,
-                  step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+            log(f'Failed in creating git secrets for project {project_id}', e,
+                step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)

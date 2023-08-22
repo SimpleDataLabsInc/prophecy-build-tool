@@ -52,7 +52,7 @@ class Either:
 
 
 def custom_print(message, exceptions=None, step_name=None):
-    if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM':
+    if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM' and step_name is not None:
         # Custom print: Print all variables.
         print((LogEntry.from_log(step_name, message, exceptions).to_json()))
     else:

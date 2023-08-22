@@ -1,6 +1,5 @@
 import enum
-import os
-from typing import List, Optional, Dict
+from typing import List, Optional
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
@@ -158,7 +157,7 @@ class StateConfig(BaseModel):
                     self.jobs = [job if job.id == job.id and job.fabric_id == job.fabric_id else job for job in
                                  self.jobs]
 
-                ### for others we don't care.
+                # for others we don't care.
 
 
 class NexusConfig(BaseModel):

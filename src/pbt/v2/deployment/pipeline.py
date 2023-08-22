@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 import tempfile
-from ..utility import custom_print as print
+from ..utility import custom_print as log, Either
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List
 
@@ -13,7 +13,6 @@ from ..deployment.databricks_jobs import DatabricksJobsDeployment
 from ..entities.project import Project
 from ..project_models import StepMetadata
 from ..project_config import ProjectConfig
-from ..utility import Either
 
 
 class PipelineDeployment:
@@ -42,13 +41,11 @@ class PipelineDeployment:
         return headers
 
     def build_and_upload(self, pipeline_ids: str):
-        log_lines = []
-
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
 
             for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
-                print(f"Building pipeline {pipeline_id}", step_name=pipeline_id)
+                log(f"Building pipeline {pipeline_id}", step_name=pipeline_id)
 
                 pipeline_builder = PackageBuilder(self.project, pipeline_id, pipeline_name, self.project_config)
                 futures.append(executor.submit(lambda: pipeline_builder.build_and_get_pipeline()))
@@ -58,7 +55,7 @@ class PipelineDeployment:
                 self.pipeline_id_to_local_path[pipeline_id] = pipeline_path
 
             self.has_pipelines = True
-            print(f"Finished building pipelines {self.pipeline_id_to_local_path}")
+            log(f"Finished building pipelines {self.pipeline_id_to_local_path}")
 
     def deploy(self):
         if not self.has_pipelines:
@@ -102,12 +99,12 @@ class PipelineDeployment:
 
             client = self.databricks_jobs.get_databricks_client(fabric_id)
             client.upload_src_path(from_path, final_path)
-            print(f"Uploading pipeline to databricks from-path {from_path} to to-path {final_path}",
-                  step_name=pipeline_id)
+            log(f"Uploading pipeline to databricks from-path {from_path} to to-path {final_path}",
+                step_name=pipeline_id)
             return Either(right=True)
         except Exception as e:
-            print(f"Error while uploading pipeline {pipeline_id} to fabric {fabric_id}", step_name=pipeline_id,
-                  exceptions=e)
+            log(f"Error while uploading pipeline {pipeline_id} to fabric {fabric_id}", step_name=pipeline_id,
+                exceptions=e)
             return Either(left=e)
 
     def _pipeline_components_from_jobs(self):
@@ -156,16 +153,16 @@ class PackageBuilder:
         self._base_path = None
         self._project_config = project_config
 
-    ## todo - @pankaj  optimization can we use decorators for printing logs rather then printing in each function?
-    ## printing is a cross-cutting concern, but that is the one preferred way to communicate with the scala process.
+    # todo - @pankaj  optimization can we use decorators for printing logs rather then printing in each function?
+    # printing is a cross-cutting concern, but that is the one preferred way to communicate with the scala process.
     def print_decorator(self, generator_func):
         def wrapper(*args, **kwargs):
             gen = generator_func(*args, **kwargs)
             for value in gen:
                 if self._project_config.system_config.runtime_mode == "all":
-                    print(value.to_json())
+                    log(value.to_json())
                 else:
-                    print(value.to_text())
+                    log(value.to_text())
                 yield value
 
         return wrapper
@@ -183,22 +180,22 @@ class PackageBuilder:
 
     def build_and_get_pipeline(self):
         if self._project_config.system_config.nexus is not None:
-            print("Project has nexus configured, trying to download the pipeline package.", step_name=self._pipeline_id)
+            log("Project has nexus configured, trying to download the pipeline package.", step_name=self._pipeline_id)
             response = self._download_from_nexus()
         else:
-            print("Project does not have nexus configured, building the pipeline package.", step_name=self._pipeline_id)
+            log("Project does not have nexus configured, building the pipeline package.", step_name=self._pipeline_id)
             response = Either(left=f"Project {self._project.project_id} does not have nexus configured")
 
         if response.is_right:
-            print("Pipeline found in nexus and successfully downloaded it.", step_name=self._pipeline_id)
+            log("Pipeline found in nexus and successfully downloaded it.", step_name=self._pipeline_id)
             return self._pipeline_id, response.right
         else:
-            print(f"Pipeline not found in nexus, building the pipeline package. {response.left}", response.left,
-                  self._pipeline_id)
+            log(f"Pipeline not found in nexus, building the pipeline package. {response.left}", response.left,
+                self._pipeline_id)
 
             self._initialize_temp_folder()
 
-            print("Initialized temp folder for building the pipeline package.", step_name=self._pipeline_id)
+            log("Initialized temp folder for building the pipeline package.", step_name=self._pipeline_id)
 
             if self._project_langauge == SCALA_LANGUAGE:
                 self.mvn_build()
@@ -208,7 +205,7 @@ class PackageBuilder:
             path = Project.get_pipeline_whl_or_jar(self._base_path)
 
             if self._project_config.system_config.nexus is not None:
-                print("Trying to upload pipeline package to nexus.", self._pipeline_id)
+                log("Trying to upload pipeline package to nexus.", self._pipeline_id)
                 self._uploading_to_nexus(path)
 
             return self._pipeline_id, path
@@ -216,12 +213,12 @@ class PackageBuilder:
     def _uploading_to_nexus(self, upload_path):
         try:
             client = NexusClient.initialize_nexus_client(self._project_config)
-            response = client.upload_file(upload_path, self._project.project_id,
-                                          self._pipeline_id, self._project.release_version,
-                                          self._get_package_name())
-            print("Pipeline uploaded to nexus.", step_name=self._pipeline_id)
+            client.upload_file(upload_path, self._project.project_id,
+                               self._pipeline_id, self._project.release_version,
+                               self._get_package_name())
+            log("Pipeline uploaded to nexus.", step_name=self._pipeline_id)
         except Exception as e:
-            print("Failed to upload pipeline to nexus", e, self._pipeline_id)
+            log("Failed to upload pipeline to nexus", e, self._pipeline_id)
 
     def _download_from_nexus(self):
         try:
@@ -231,10 +228,10 @@ class PackageBuilder:
                                             self._project.project_id,
                                             self._project.release_version,
                                             self._pipeline_id)
-            print("Pipeline downloaded from nexus.", step_name=self._pipeline_id)
+            log("Pipeline downloaded from nexus.", step_name=self._pipeline_id)
             return Either(right=response)
         except Exception as e:
-            print("Failed to download pipeline from nexus", e, self._pipeline_id)
+            log("Failed to download pipeline from nexus", e, self._pipeline_id)
             return Either(left=e)
 
     def _get_package_name(self):
@@ -252,14 +249,14 @@ class PackageBuilder:
         mvn = os.environ.get('MAVEN_HOME', 'mvn')
         command = [mvn, "package", "-DskipTests"] if not self._is_tests_enabled else [mvn, "package"]
 
-        print(f"Running mvn command {command}", step_name=self._pipeline_id)
+        log(f"Running mvn command {command}", step_name=self._pipeline_id)
 
         self._build(command)
 
     def wheel_build(self):
         command = ["python3", "setup.py", "bdist_wheel"]
 
-        print(f"Running python command {command}", step_name=self._pipeline_id)
+        log(f"Running python command {command}", step_name=self._pipeline_id)
 
         self._build(command)
 
@@ -279,12 +276,12 @@ class PackageBuilder:
 
             # stripping unnecessary logs
             if not re.search(r'Progress \(\d+\):', response):
-                print(response, step_name=self._pipeline_id)
+                log(response, step_name=self._pipeline_id)
 
         # Wait for the process to finish and get the exit code
         return_code = process.wait()
 
         if return_code == 0:
-            print("Build was successful.", step_name=self._pipeline_id)
+            log("Build was successful.", step_name=self._pipeline_id)
         else:
-            print("Build failed.", step_name=self._pipeline_id)
+            log("Build failed.", step_name=self._pipeline_id)

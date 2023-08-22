@@ -29,7 +29,7 @@ class NexusClient:
         else:
             raise Exception("Nexus config not found in deployment config, fallbacking to default settings.")
 
-    def upload_file(self, file_path: str, project_id: str, pipeline_id: str, release_version: str, file_name:str):
+    def upload_file(self, file_path: str, project_id: str, pipeline_id: str, release_version: str, file_name: str):
         headers = {
             'accept': 'application/json'
         }
@@ -44,13 +44,14 @@ class NexusClient:
         }
 
         print('Uploading file to: ', data)
-        response = requests.post(url, headers=headers, data=data, auth=HTTPBasicAuth(self._username, self._password), files=files)
+        response = requests.post(url, headers=headers, data=data, auth=HTTPBasicAuth(self._username, self._password),
+                                 files=files)
         return response
 
     '''
             for now this we will create on our own, but ideally this should be created with the help of pom.xml and setup.py.
             jar - pipeline_name-1.0.jar
-            wheel - pipeline_name-1.0-py3-none-any.whl 
+            wheel - pipeline_name-1.0-py3-none-any.whl
     '''
 
     def download_file(self, file_name: str, project_id: str, release_version: str, pipeline_name: str):
@@ -69,7 +70,7 @@ class NexusClient:
             print(f"File downloaded at: {file_path}")
             return file_path
         except Exception as e:
-            print(f"Unable to download file. HTTP response code: ", e)
+            print("Unable to download file. HTTP response code: ", e)
 
             raise ArtifactDownloadFailedException(e)
 

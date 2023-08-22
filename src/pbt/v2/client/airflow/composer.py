@@ -43,7 +43,7 @@ class GCSPathInfo:
 class ComposerRestClient(AirflowRestClient, ABC):
     _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
     _CONNECTIONS_SECRET_PREFIX = "airflow-connections-"
-    _pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
+    _pattern = re.compile(pattern)
     _headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
     def __init__(self, airflow_url: str, project_id: str, client_id: Optional[str], key_json: str, dag_location: str):

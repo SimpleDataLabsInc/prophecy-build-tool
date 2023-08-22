@@ -3,7 +3,9 @@ from typing import Optional
 
 import yaml
 
-from ..constants import *
+from ..constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
+    PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
+    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX
 import re
 
 from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException

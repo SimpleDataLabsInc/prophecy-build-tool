@@ -9,7 +9,7 @@ from databricks_cli.sdk import ApiClient
 from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
-from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_fixed, wait_exponential
+from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
 
 from ..project_config import ProjectConfig, FabricInfo
 from ..utility import Either

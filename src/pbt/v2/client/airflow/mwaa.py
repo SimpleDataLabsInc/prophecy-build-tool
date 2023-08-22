@@ -39,9 +39,9 @@ class MWAARestClient(AirflowRestClient, ABC):
         try:
             self.aws_s3_client.delete_object(Bucket=self._source_bucket, Key=relative_path)
             try:
-                response = self._get_response(f"dags delete {dag_id} --yes")
+                self._get_response("dags delete {dag_id} --yes")
                 return True
-            except Exception as e:
+            except Exception:
                 return False
         except Exception as e:
             raise DagFileDeletionFailedException(
@@ -70,7 +70,7 @@ class MWAARestClient(AirflowRestClient, ABC):
 
     @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(5), wait=wait_fixed(10))
     def get_dag(self, dag_id: str) -> DAG:
-        response = self._get_response(f"dags list -o json")
+        response = self._get_response("dags list -o json")
         dag_list = json.loads(response)
         dag = next((dag for dag in dag_list if dag['dag_id'] == dag_id and dag['paused'] is not None), None)
 

@@ -44,6 +44,7 @@ class ArtifactDownloadFailedException(PBTException):
     def __init__(self, response):
         self.message = f"Artifact download failed with status code {response.status_code} and reason {response.text}"
 
+
 class InvalidFabricException(PBTException):
     def __init__(self, message):
         self.message = message

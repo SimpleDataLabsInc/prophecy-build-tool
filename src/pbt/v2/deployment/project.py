@@ -2,7 +2,7 @@ import os
 from typing import List
 import copy
 
-from pydantic_yaml import to_yaml_str, to_yaml_file
+from pydantic_yaml import to_yaml_file
 
 from ..deployment.airflow_jobs import AirflowJobDeployment, AirflowGitSecrets
 from ..deployment.databricks_jobs import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
@@ -13,7 +13,7 @@ from ..project_config import ProjectConfig
 
 
 def should_include(key):
-    ## these are in config objects but we need to remove them.
+    # these are in config objects but we need to remove them.
     return key not in ['spark', 'prophecy_spark']
 
 
@@ -101,7 +101,7 @@ class ProjectDeployment:
 
         new_state_config = copy.deepcopy(self.project_config.state_config)
 
-        ## only jobs changes state_config.
+        # only jobs changes state_config.
 
         databricks_jobs_responses = self._databricks_jobs.deploy()
         airflow_jobs_responses = self._airflow_jobs.deploy()

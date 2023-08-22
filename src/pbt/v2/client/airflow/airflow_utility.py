@@ -22,7 +22,7 @@ def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
                                   mwaa.secret_key)
 
         else:
-            raise UnknownAirflowProviderException(f"unknown provider")
+            raise UnknownAirflowProviderException("unknown provider")
 
     else:
         raise FabricNotConfiguredException(f"Fabric {fabric_id} is not configured in state config")
