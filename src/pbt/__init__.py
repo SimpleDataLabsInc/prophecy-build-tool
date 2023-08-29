@@ -28,7 +28,7 @@ def cli():
 @click.option(
     "--ignore-build-errors",
     help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
-         "errors.",
+    "errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -36,7 +36,7 @@ def cli():
 @click.option(
     "--ignore-parse-errors",
     help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
-         "any errors.",
+    "any errors.",
     default=False,
     is_flag=True,
     required=False,

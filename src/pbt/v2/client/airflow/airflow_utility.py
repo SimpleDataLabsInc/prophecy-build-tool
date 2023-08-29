@@ -1,7 +1,7 @@
 from .composer import ComposerRestClient
 from .mwaa import MWAARestClient
 from ...exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
-from ...project_config import ProjectConfig, FabricType
+from ...project_config import ProjectConfig, FabricType, FabricProviderType
 
 
 def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
@@ -33,4 +33,4 @@ def get_fabric_type(fabric_id: str, project_config: ProjectConfig):
     if fabric_info is not None:
         return fabric_info.provider
     else:
-        "Databricks"
+        return FabricProviderType.Databricks
