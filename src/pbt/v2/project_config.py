@@ -10,21 +10,39 @@ from .utility import Either
 
 class SchedulerType(enum.Enum):
     Databricks = "Databricks"
-    Airflow = "Airflow"
     Prophecy = "Prophecy"
+    MWAA = "MWAA"
+    Composer = "Composer"
+
+    @staticmethod
+    def from_fabric_provider(provider_type: str):
+        # Convert the provider_type to its equivalent Enum if exists, otherwise None
+        try:
+            return SchedulerType[provider_type]
+            # If it doesn't exist, return the default
+        except KeyError:
+            return SchedulerType.Databricks
 
 
 class FabricType(enum.Enum):
-    Spark = "spark"
-    Sql = "sql"
-    Airflow = "airflow"
+    Spark = "Spark"
+    Sql = "Sql"
+    Airflow = "Airflow"
 
 
 class FabricProviderType(enum.Enum):
-    Composer = "composer"
-    Mwaa = "mwaa"
-    Databricks = "databricks"
-    Prophecy = "prophecy"
+    Composer = "Composer"
+    Mwaa = "MWAA"
+    Databricks = "Databricks"
+    Prophecy = "Prophecy"
+
+
+class RuntimeMode(enum.Enum):
+    Regular = "Regular"
+    Partial = "Partial"
+    RegularWithTests = "RegularWithTests"
+    PartialWithTests = "PartialWithTests"
+    Test = "Test"
 
 
 class ComposerInfo(BaseModel):
@@ -55,8 +73,8 @@ class DatabricksInfo(BaseModel):
 class FabricInfo(BaseModel):
     id: str
     name: str
-    type: Optional[str]  # sql/ databricks/ airflow
-    provider: Optional[str]  # composer/mwaa/prophecy/databricks
+    type: Optional[FabricType]  # sql/ databricks/ airflow
+    provider: Optional[FabricProviderType]  # composer/mwaa/prophecy/databricks
     composer: Optional[ComposerInfo] = None
     mwaa: Optional[MwaaInfo] = None
     databricks: Optional[DatabricksInfo] = None
@@ -64,7 +82,7 @@ class FabricInfo(BaseModel):
 
 class JobInfo(BaseModel):
     name: str
-    type: str
+    type: SchedulerType
     external_job_id: str
     fabric_id: str
     id: str
@@ -75,14 +93,15 @@ class JobInfo(BaseModel):
     @staticmethod
     def create_db_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
                       is_paused: bool = False):
-        return JobInfo(name=name, type=SchedulerType.Airflow, id=id, fabric_id=fabric_id,
+        return JobInfo(name=name, type=SchedulerType.Databricks, id=id, fabric_id=fabric_id,
                        external_job_id=external_job_id,
                        release_tag=release_tag, is_paused=is_paused)
 
     @staticmethod
     def create_airflow_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
-                           is_paused: bool = False):
-        return JobInfo(name=name, type=SchedulerType.Airflow, id=id, fabric_id=fabric_id,
+                           is_paused: bool = False, fabric_provider_type: str = ""):
+        return JobInfo(name=name, type=SchedulerType.from_fabric_provider(fabric_provider_type), id=id,
+                       fabric_id=fabric_id,
                        external_job_id=external_job_id,
                        release_tag=release_tag, is_paused=is_paused)
 
@@ -148,7 +167,7 @@ class StateConfig(BaseModel):
     def update_state(self, jobs_and_operation_types: List[Either]):
         for jobsAndOperationType in jobs_and_operation_types:
             if jobsAndOperationType.is_right:
-                job = jobsAndOperationType.right.job
+                job = jobsAndOperationType.right.job_info
 
                 if jobsAndOperationType.right.operation_type == OperationType.CREATED:
                     self.jobs.append(job)
@@ -170,7 +189,7 @@ class NexusConfig(BaseModel):
 class SystemConfig(BaseModel):
     customer_name: Optional[str] = 'dev'
     control_plane_name: Optional[str] = 'execution'
-    runtime_mode: Optional[str] = 'test'  # maybe an enum.
+    runtime_mode: Optional[RuntimeMode] = RuntimeMode.Regular  # maybe an enum.
     prophecy_salt: Optional[str] = 'execution'
     nexus: Optional[NexusConfig] = None
 

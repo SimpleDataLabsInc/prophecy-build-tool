@@ -2,6 +2,9 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
+
+from ..exceptions import InvalidFabricException
 from ..utility import custom_print as log, Either
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List
@@ -11,7 +14,7 @@ from ..constants import SCALA_LANGUAGE
 from ..deployment.airflow_jobs import AirflowJobDeployment
 from ..deployment.databricks_jobs import DatabricksJobsDeployment
 from ..entities.project import Project
-from ..project_models import StepMetadata
+from ..project_models import StepMetadata, Operation, StepType, Status
 from ..project_config import ProjectConfig
 
 
@@ -33,52 +36,86 @@ class PipelineDeployment:
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case deployment doesn't have any pipelines.
 
+    @property
+    def _all_jobs(self):
+        return {
+            **self.databricks_jobs.valid_databricks_jobs,
+            **self.airflow_jobs.valid_airflow_jobs
+        }
+
+    def summary(self):
+
+        summary = []
+        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+            summary.append(f"Pipeline {pipeline_id} will be build and uploaded.")
+        return summary
+
     def headers(self):
         headers = []
         for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
             headers.append(StepMetadata(pipeline_id, f"Build {pipeline_name} pipeline",
-                                        "Build", "Pipeline"))
+                                        Operation.Build, StepType.Pipeline))
         return headers
 
     def build_and_upload(self, pipeline_ids: str):
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             futures = []
 
             for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
-                log(f"Building pipeline {pipeline_id}", step_name=pipeline_id)
+                log(f"Building pipeline {pipeline_id}", step_id=pipeline_id)
+                log(step_id=pipeline_id, step_status=Status.RUNNING)
 
                 pipeline_builder = PackageBuilder(self.project, pipeline_id, pipeline_name, self.project_config)
-                futures.append(executor.submit(lambda: pipeline_builder.build_and_get_pipeline()))
+                futures.append(executor.submit(lambda p=pipeline_builder: p.build_and_get_pipeline()))
 
             for future in as_completed(futures):
-                pipeline_id, pipeline_path = future.result()
-                self.pipeline_id_to_local_path[pipeline_id] = pipeline_path
+                response = future.result()
+                if response.is_right:
+                    (pipeline_id, pipeline_path) = response.right
+
+                    self.pipeline_id_to_local_path[pipeline_id] = pipeline_path
+
+                else:
+
+                    log(step_id=pipeline_id, step_status=Status.FAILED)
+                    log(f"Error building pipeline: {response.left()}", step_id=pipeline_id)
 
             self.has_pipelines = True
-            log(f"Finished building pipelines {self.pipeline_id_to_local_path}")
 
     def deploy(self):
         if not self.has_pipelines:
             self.build_and_upload([])
 
         futures = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            all_jobs = {
-                **self.databricks_jobs.valid_databricks_jobs,
-                **self.airflow_jobs.valid_airflow_jobs
-            }
-
-            for job_id, job_data in all_jobs.items():
-                for pipeline_id in job_data.pipelines:
-                    if self._is_job_or_pipeline_in_positive_list(job_id, pipeline_id):
-                        futures.append(
-                            executor.submit(lambda: self._upload_pipeline_package(pipeline_id, job_data.fabric_id)))
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            for pipeline_id, jobs in self._list_all_valid_pipeline_job_id.items():
+                futures.append(
+                    executor.submit(
+                        lambda pid=pipeline_id, jids=jobs: self._deploy_pipeline(pid, jids)
+                    ))
 
         responses = []
         for future in as_completed(futures):
             responses.append(future.result())
 
         return responses
+
+    def _deploy_pipeline(self, pipeline_id: str, jobs: List):
+        responses = []
+
+        for job_id in jobs:
+            job_data = self._all_jobs[job_id]
+            responses.append(self._upload_pipeline_package(pipeline_id, job_data.fabric_id))
+
+        if responses is not None:
+            if any(response.is_left for response in responses):
+                log(step_status=Status.FAILED, step_id=pipeline_id)
+            else:
+                log(step_status=Status.SUCCEEDED, step_id=pipeline_id)
+
+            return responses[0]
+        else:
+            []
 
     def _upload_pipeline_package(self, pipeline_id: str, fabric_id: str):
         try:
@@ -99,37 +136,44 @@ class PipelineDeployment:
 
             client = self.databricks_jobs.get_databricks_client(fabric_id)
             client.upload_src_path(from_path, final_path)
-            log(f"Uploading pipeline to databricks from-path {from_path} to to-path {final_path}",
-                step_name=pipeline_id)
+
+            log(f"Uploading pipeline to databricks from-path {from_path} to to-path {final_path} for fabric {fabric_id}",
+                step_id=pipeline_id)
+            return Either(right=True)
+        except InvalidFabricException as e:
+            log(f"Wrong fabric {fabric_id} to upload pipeline {pipeline_id}", step_id=pipeline_id,
+                exceptions=e)
             return Either(right=True)
         except Exception as e:
-            log(f"Error while uploading pipeline {pipeline_id} to fabric {fabric_id}", step_name=pipeline_id,
+            log(f"Error while uploading pipeline {pipeline_id} to fabric {fabric_id}", step_id=pipeline_id,
                 exceptions=e)
             return Either(left=e)
+
+    @property
+    def _list_all_valid_pipeline_job_id(self):
+        pipeline_id_to_job_list = {}
+
+        for job_id, job_data in self._all_jobs.items():
+            for pipeline_id in job_data.pipelines:
+                if self._is_job_or_pipeline_in_positive_list(job_id, pipeline_id):
+                    if pipeline_id not in pipeline_id_to_job_list:
+                        pipeline_id_to_job_list[pipeline_id] = []
+                    pipeline_id_to_job_list[pipeline_id].append(job_id)
+
+        return pipeline_id_to_job_list
 
     def _pipeline_components_from_jobs(self):
         pipeline_components = {}
 
-        all_jobs = {
-            **self.databricks_jobs.valid_databricks_jobs,
-            **self.airflow_jobs.valid_airflow_jobs
-        }
+        for pipeline_id, jobs in self._list_all_valid_pipeline_job_id.items():
+            pipeline_name = self.project.get_pipeline_name(pipeline_id)
+            pipeline_components[pipeline_id] = pipeline_name
 
-        for job_id, job_data in all_jobs.items():
-            for pipeline_id in job_data.pipelines:
-                if self._is_job_or_pipeline_in_positive_list(job_id, pipeline_id):
-                    pipeline_name = self.project.get_pipeline_name(pipeline_id)
-                    pipeline_components[pipeline_id] = pipeline_name
-
-        all_project_pipelines = {
-            pipeline_id: self.project.get_pipeline_name(pipeline_id) for pipeline_id in
-            self.project.pipelines.keys()
-        }
-
-        if self.project_config.system_config.runtime_mode == "all":
-            return all_project_pipelines
-        else:
-            return pipeline_components
+        return pipeline_components
+        # if self.project_config.system_config.runtime_mode == RuntimeMode.Regular:
+        #     return all_project_pipelines
+        # else:
+        #     return pipeline_components
 
     def _is_job_or_pipeline_in_positive_list(self, job_id, pipeline_id):
         return (
@@ -153,20 +197,6 @@ class PackageBuilder:
         self._base_path = None
         self._project_config = project_config
 
-    # todo - @pankaj  optimization can we use decorators for printing logs rather then printing in each function?
-    # printing is a cross-cutting concern, but that is the one preferred way to communicate with the scala process.
-    def print_decorator(self, generator_func):
-        def wrapper(*args, **kwargs):
-            gen = generator_func(*args, **kwargs)
-            for value in gen:
-                if self._project_config.system_config.runtime_mode == "all":
-                    log(value.to_json())
-                else:
-                    log(value.to_text())
-                yield value
-
-        return wrapper
-
     def _initialize_temp_folder(self):
         rdc = self._project.load_pipeline_folder(self._pipeline_id)
 
@@ -179,36 +209,41 @@ class PackageBuilder:
         self._base_path = temp_dir
 
     def build_and_get_pipeline(self):
+        log(step_id=self._pipeline_id, step_status=Status.RUNNING)
+
         if self._project_config.system_config.nexus is not None:
-            log("Project has nexus configured, trying to download the pipeline package.", step_name=self._pipeline_id)
+            log("Project has nexus configured, trying to download the pipeline package.", step_id=self._pipeline_id)
             response = self._download_from_nexus()
         else:
-            log("Project does not have nexus configured, building the pipeline package.", step_name=self._pipeline_id)
+            log("Project does not have nexus configured, building the pipeline package.", step_id=self._pipeline_id)
             response = Either(left=f"Project {self._project.project_id} does not have nexus configured")
 
         if response.is_right:
-            log("Pipeline found in nexus and successfully downloaded it.", step_name=self._pipeline_id)
-            return self._pipeline_id, response.right
+            log("Pipeline found in nexus and successfully downloaded it.", step_id=self._pipeline_id)
+            return Either(right=(self._pipeline_id, response.right))
         else:
             log(f"Pipeline not found in nexus, building the pipeline package. {response.left}", response.left,
                 self._pipeline_id)
+            try:
+                self._initialize_temp_folder()
 
-            self._initialize_temp_folder()
+                log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id)
 
-            log("Initialized temp folder for building the pipeline package.", step_name=self._pipeline_id)
+                if self._project_langauge == SCALA_LANGUAGE:
+                    self.mvn_build()
+                else:
+                    self.wheel_build()
 
-            if self._project_langauge == SCALA_LANGUAGE:
-                self.mvn_build()
-            else:
-                self.wheel_build()
+                path = Project.get_pipeline_whl_or_jar(self._base_path)
 
-            path = Project.get_pipeline_whl_or_jar(self._base_path)
+                if self._project_config.system_config.nexus is not None:
+                    log("Trying to upload pipeline package to nexus.", self._pipeline_id)
+                    self._uploading_to_nexus(path)
 
-            if self._project_config.system_config.nexus is not None:
-                log("Trying to upload pipeline package to nexus.", self._pipeline_id)
-                self._uploading_to_nexus(path)
-
-            return self._pipeline_id, path
+                return Either(right=(self._pipeline_id, path))
+            except Exception as e:
+                log(message="Failed to build the pipeline package.", exceptions=e, step_id=self._pipeline_id)
+                return Either(left=e)
 
     def _uploading_to_nexus(self, upload_path):
         try:
@@ -216,7 +251,7 @@ class PackageBuilder:
             client.upload_file(upload_path, self._project.project_id,
                                self._pipeline_id, self._project.release_version,
                                self._get_package_name())
-            log("Pipeline uploaded to nexus.", step_name=self._pipeline_id)
+            log("Pipeline uploaded to nexus.", step_id=self._pipeline_id)
         except Exception as e:
             log("Failed to upload pipeline to nexus", e, self._pipeline_id)
 
@@ -228,7 +263,7 @@ class PackageBuilder:
                                             self._project.project_id,
                                             self._project.release_version,
                                             self._pipeline_id)
-            log("Pipeline downloaded from nexus.", step_name=self._pipeline_id)
+            log("Pipeline downloaded from nexus.", step_id=self._pipeline_id)
             return Either(right=response)
         except Exception as e:
             log("Failed to download pipeline from nexus", e, self._pipeline_id)
@@ -249,39 +284,58 @@ class PackageBuilder:
         mvn = os.environ.get('MAVEN_HOME', 'mvn')
         command = [mvn, "package", "-DskipTests"] if not self._is_tests_enabled else [mvn, "package"]
 
-        log(f"Running mvn command {command}", step_name=self._pipeline_id)
+        log(f"Running mvn command {command}", step_id=self._pipeline_id)
 
         self._build(command)
 
     def wheel_build(self):
         command = ["python3", "setup.py", "bdist_wheel"]
 
-        log(f"Running python command {command}", step_name=self._pipeline_id)
+        log(f"Running python command {command}", step_id=self._pipeline_id)
 
         self._build(command)
 
     # maybe we can try another iteration with yield ?
     def _build(self, command: list):
-        process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        env = dict(os.environ)
+
+        # Set the MAVEN_OPTS variable
+        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
+
+        process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self._base_path)
 
-        # Loop over stdout line by line
-        while True:
-            # Read line from stdout, break if EOF
-            output = process.stdout.readline()
-            if process.poll() is not None and not output:
-                break
-            # Decode line and print it
-            response = output.decode().strip()
+        def log_output(pipe, log_function):
+            while True:
+                # Read line from stdout or stderr, break if EOF
+                output = pipe.readline()
+                if process.poll() is not None and not output:
+                    break
+                # Decode line and print it
+                response = output.decode().strip()
 
-            # stripping unnecessary logs
-            if not re.search(r'Progress \(\d+\):', response):
-                log(response, step_name=self._pipeline_id)
+                # stripping unnecessary logs
+                if not re.search(r'Progress \(\d+\):', response):
+                    log_function(response)
 
-        # Wait for the process to finish and get the exit code
+        # Create threads to read and log stdout and stderr simultaneously
+        stdout_thread = threading.Thread(target=log_output,
+                                         args=(process.stdout, lambda msg: log(msg, step_id=self._pipeline_id)))
+        stderr_thread = threading.Thread(target=log_output,
+                                         args=(process.stderr, lambda msg: log(msg, step_id=self._pipeline_id)))
+
+        # Start threads
+        stdout_thread.start()
+        stderr_thread.start()
+
+        # Wait for both threads to finish
+        stdout_thread.join()
+        stderr_thread.join()
+
+        # Get the exit code
         return_code = process.wait()
 
         if return_code == 0:
-            log("Build was successful.", step_name=self._pipeline_id)
+            log("Build was successful.", step_id=self._pipeline_id)
         else:
-            log("Build failed.", step_name=self._pipeline_id)
+            log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)

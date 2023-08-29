@@ -11,6 +11,7 @@ from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
 from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
 
+from ..exceptions import InvalidFabricException
 from ..project_config import ProjectConfig, FabricInfo
 from ..utility import Either
 
@@ -32,8 +33,11 @@ class DatabricksClient:
         fabric_info: Optional[FabricInfo] = state_config.get_fabric(str(fabric_id))
 
         if fabric_id is None or fabric_id == "" or state_config.contains_fabric(
-                str(fabric_id)) is False or fabric_info is None and fabric_info.databricks is None:
-            # todo improve the error messages.
+                str(fabric_id)) is False or fabric_info is None:
+            if fabric_info.databricks is None:
+                # todo improve the error messages.
+                raise InvalidFabricException("Fabric must be databricks")
+
             raise ValueError("fabric_id must be provided")
 
         return cls(fabric_info.databricks.url, fabric_info.databricks.token)
@@ -54,8 +58,8 @@ class DatabricksClient:
             temp_file.write(content.encode())
             self.upload_src_path(src_path=temp_file.name, destination_path=path)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(10),
-           wait=wait_exponential(multiplier=2, max=60))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30))
     def upload_src_path(self, src_path: str, destination_path: str):
         self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
 
@@ -65,8 +69,8 @@ class DatabricksClient:
     def delete(self, path: str):
         self.dbfs.delete(path, recursive=True)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(10),
-           wait=wait_exponential(multiplier=2, max=60))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30))
     def check_and_create_secret_scope(self, secret_scope: str):
         response = self.secret.list_scopes()
         if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
@@ -78,21 +82,21 @@ class DatabricksClient:
     def create_secret(self, scope: str, key: str, value: str):
         self.secret.put_secret(scope, key, value, None)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(10),
-           wait=wait_exponential(multiplier=2, max=60))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30))
     def create_job(self, content: Dict[str, str]):
         return self.job.create_job(content)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(10),
-           wait=wait_exponential(multiplier=2, max=60))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30))
     def get_job(self, scheduler_job_id: str):
         return self.job.get_job(scheduler_job_id)
 
     def delete_job(self, job_id: str):
         self.job.delete_job(job_id)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(10),
-           wait=wait_exponential(multiplier=2, max=60))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30))
     def pause_job(self, scheduler_job_id: str) -> Either:
         response = self.job.get_job(scheduler_job_id)
 
@@ -112,8 +116,8 @@ class DatabricksClient:
             print(f"Job {scheduler_job_id} is already paused.")
             return Either(right=False)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(10),
-           wait=wait_exponential(multiplier=2, max=60))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30))
     def reset_job(self, scheduler_job_id: str, update_request: Dict[str, str]):
         new_settings = {'job_id': scheduler_job_id, 'new_settings': update_request}
 

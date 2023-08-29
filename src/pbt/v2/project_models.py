@@ -5,19 +5,38 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
-class StepMetadata:
+class Operation(enum.Enum):
+    Build = "Build"
+    Add = "Add"
+    Delete = "Delete"
+    Remove = "Remove"
+    Refresh = "Refresh"
+    Skipped = "Skipped"
+    Pause = "Pause"
+    Rename = "Rename"
+    Upload = "Upload"
 
-    def __init__(self, step_id: str, header: str, operation: str, step_type: str):
-        self.step_id = step_id.replace("\\W", "_")
-        self.header = header
-        self.operation = operation
-        self.step_type = step_type
+
+class StepType(enum.Enum):
+    Pipeline = "Pipeline"
+    PipelineConfiguration = "PipelineConfiguration"
+    Job = "Job"
+    Script = "Script"
+    DbtProfile = "DbtProfile"
+    DbtSecret = "DbtSecret"
+    AirflowGitSecrets = "AirflowGitSecrets"
+    Summary = "Summary"
+    Subgraph = "Subgraph"  # why this?
+    Project = "Project"
 
 
-class LogType(enum.Enum):
-    header = "header"
-    log = "log"
-    config = "config"
+class LogLevel(enum.Enum):
+    INFO = "INFO"
+    DEBUG = "DEBUG"
+    WARN = "WARN"
+    ERROR = "ERROR"
+    SUCCESS = "SUCCESS"
+    TRACE = "TRACE"
 
 
 def to_dict_recursive(obj):
@@ -39,12 +58,55 @@ def to_dict_recursive(obj):
         return obj
 
 
-class LogEntry:
-    def __init__(self, step_id: str, mode: LogType, step_metadata: Optional[StepMetadata] = None,
-                 log: Optional[str] = None):
-        self.step_metadata = step_metadata
+class StepMetadata:
+
+    def __init__(self, id: str, heading: str, operation: Operation, type: StepType):
+        self.id = id.replace("\\W", "_")
+        self.heading = heading
+        self.operation = operation
+        self.type = type
+
+    def to_json(self):
+        return json.dumps(self, default=to_dict_recursive)
+
+
+class LogType(enum.Enum):
+    Header = "Header"
+    LogLine = "LogLine"
+    Status = "Status"
+
+
+class Status(enum.Enum):
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+
+class StepStatus:
+    def __init__(self, step_id: str, status: Status):
         self.step_id = step_id
-        self.mode = mode
+        self.status = status
+
+    def to_json(self):
+        # we want json to be in single line
+        return json.dumps(self, default=to_dict_recursive)
+
+
+class LogLine:
+    def __init__(self, uid: str, log: str):
+        self.uid = uid
+        self.log = log
+        self.level = LogLevel.INFO
+
+    def to_json(self):
+        # we want json to be in single line
+        return json.dumps(self, default=to_dict_recursive)
+
+
+class LogEvent:
+    def __init__(self, step_id: str, type: LogType, log: Optional[str] = None):
+        self.step_id = step_id
+        self.type = type
         self.log = log
 
     def to_json(self):
@@ -53,15 +115,17 @@ class LogEntry:
 
     @staticmethod
     def from_step_metadata(step_metadata: StepMetadata):
-        return LogEntry(step_metadata.step_id, LogType.header, step_metadata)
+        return LogEvent(step_metadata.id, LogType.Header, step_metadata.to_json())
 
     @staticmethod
     def from_log(step_id: str, log: str, ex: Optional[Exception] = None):
-        return LogEntry(step_id, LogType.log, None, log)
+        if ex is not None:
+            log = f"{log} exception: {ex}"
+        return LogEvent(step_id, LogType.LogLine, LogLine(step_id, log).to_json())
 
     @staticmethod
-    def from_config(config: str, step_id: str):
-        return LogEntry(step_id, LogType.config, None, config)
+    def from_status(status: Status, step_id: str):
+        return LogEvent(step_id, LogType.Status, StepStatus(step_id, status).to_json())
 
 
 class Component(BaseModel):

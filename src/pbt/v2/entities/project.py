@@ -14,9 +14,11 @@ from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundExcept
 class Project:
     _DATABRICKS_JOB_JSON = "databricks-job.json"
 
-    def __init__(self, project_path: str, project_id: Optional[str] = None, release_version: Optional[str] = None):
+    def __init__(self, project_path: str, project_id: Optional[str] = None, release_tag: Optional[str] = None,
+                 release_version: Optional[str] = None):
 
         self.project_id = project_id
+        self.release_tag = release_tag
         self.release_version = release_version
         self.project_path = project_path
 
