@@ -6,10 +6,10 @@ from typing import Dict, Optional, List
 import yaml
 
 from . import JobInfoAndOperation, OperationType
-from ..client.airflow.airflow_utility import create_airflow_client
+from ..client.airflow.airflow_utility import create_airflow_client, get_fabric_type
 from ..entities.project import Project
 from ..constants import FABRIC_UID
-from ..project_models import StepMetadata
+from ..project_models import StepMetadata, Operation, StepType, Status
 from ..project_config import JobInfo, ProjectConfig
 from ..utility import Either, generate_secure_content, calculate_checksum
 from ..utility import custom_print as log
@@ -129,16 +129,42 @@ class AirflowJobDeployment:
 
     def get_airflow_client(self, fabric_id):
         if fabric_id not in self._airflow_clients:
-            self._airflow_clients[fabric_id] = create_airflow_client(fabric_id, self._project_config)
+            self._airflow_clients[fabric_id] = create_airflow_client(str(fabric_id), self._project_config)
         return self._airflow_clients[fabric_id]
+
+    def summary(self):
+        summary = []
+
+        for job in self._remove_jobs():
+            summary.append(f"Remove job: {job.id}")
+        for job in self._add_jobs().keys():
+            summary.append(f"Add job: {job}")
+        for job in self._pause_jobs().keys():
+            summary.append(f"Pause job: {job}")
+        for job in self._rename_jobs():
+            summary.append(f"Rename job: {job.id}")
+        for job in self._skip_jobs().keys():
+            summary.append(f"Skip job: {job}")
+
+        return summary
+
+    @property
+    def _operation_to_step_id(self):
+        return {
+            Operation.Remove: self._DELETE_JOBS_STEP_ID,
+            Operation.Add: self._ADD_JOBS_STEP_ID,
+            Operation.Pause: self._PAUSE_JOBS_STEP_ID,
+            Operation.Rename: self._ADD_JOBS_STEP_ID,
+            Operation.Skipped: self._SKIP_JOBS_STEP_ID
+        }
 
     def headers(self):
         job_types = {
-            "remove": self._remove_jobs(),
-            "add": self._add_jobs(),
-            "pause": self._pause_jobs(),
-            "delete": self._rename_jobs(),
-            "skip": self._skip_jobs()
+            Operation.Remove: self._remove_jobs(),
+            Operation.Add: self._add_jobs(),
+            Operation.Pause: self._pause_jobs(),
+            Operation.Rename: self._rename_jobs(),
+            Operation.Skipped: self._skip_jobs()
         }
 
         all_headers = []
@@ -147,18 +173,19 @@ class AirflowJobDeployment:
             if jobs:
                 len_jobs = len(jobs)
                 job_header_suffix = f'{len_jobs} Airflow job' if len_jobs == 1 else f'{len_jobs} Airflow jobs'
+                step_id = self._operation_to_step_id[job_action]
                 all_headers.append(
-                    StepMetadata(f"{job_action}-airflow-jobs", f"{job_action} {job_header_suffix}",
-                                 f"{job_action}-jobs", "Jobs")
+                    StepMetadata(step_id, f"{job_action.value} {job_header_suffix}",
+                                 job_action, StepType.Job)
                 )
 
         return all_headers
 
     def deploy(self):
         responses = self._deploy_remove_jobs() + \
-                    self._deploy_delete_jobs() + \
+                    self._deploy_add_jobs() + \
                     self._deploy_pause_jobs() + \
-                    self._deploy_add_jobs()
+                    self._deploy_delete_jobs()
 
         self._deploy_skipped_jobs()
 
@@ -256,6 +283,7 @@ class AirflowJobDeployment:
         for future in as_completed(futures):
             responses.append(future.result())
 
+        self._update_state(responses, self._operation_to_step_id[Operation.Remove])
         return responses
 
     def _remove_job(self, job_info: JobInfo):
@@ -264,12 +292,12 @@ class AirflowJobDeployment:
         try:
             client.delete_dag_file(job_info.external_job_id)
             log(f"Successfully deleted job {job_info.external_job_id} from job_id {job_info.id}",
-                step_name=self._REMOVE_JOBS_STEP_ID)
+                step_id=self._REMOVE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
 
         except Exception as e:
             log(f"Error while deleting job {job_info.external_job_id} from job_id {job_info.id}", e,
-                step_name=self._REMOVE_JOBS_STEP_ID)
+                step_id=self._REMOVE_JOBS_STEP_ID)
             return Either(left=e)
 
     '''
@@ -360,6 +388,7 @@ class AirflowJobDeployment:
         for future in as_completed(futures):
             responses.append(future.result())
 
+        self._update_state(responses, self._operation_to_step_id[Operation.Add])
         return responses
 
     def _add_job(self, job_id, job_data):
@@ -371,20 +400,23 @@ class AirflowJobDeployment:
         try:
             client.upload_dag(dag_name, zipped_dag_name)
             client.unpause_dag(dag_name)
-            log(f"Successfully added job {dag_name} for job_id {job_id}", step_name=self._ADD_JOBS_STEP_ID)
+            log(f"Successfully added job {dag_name} for job_id {job_id}", step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, job_data.dag_name,
-                                                  self._project_config.state_config.release_tag, job_data.is_disabled)
+                                                  self._project_config.state_config.release_tag, job_data.is_disabled,
+                                                  get_fabric_type(job_data.fabric_id, self._project_config))
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
             log(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e,
-                step_name=self._ADD_JOBS_STEP_ID)
+                step_id=self._ADD_JOBS_STEP_ID)
 
     def _deploy_skipped_jobs(self):
         for job_id, messages in self._skip_jobs().items():
             log(f"Skipping job_id: {job_id} encountered some error ", exceptions=messages,
-                step_name=self._SKIP_JOBS_STEP_ID)
+                step_id=self._SKIP_JOBS_STEP_ID)
+        if len(self._skip_jobs()) > 0:
+            self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
 
     def _skip_jobs(self):
         jobs_to_be_skipped = {}
@@ -407,17 +439,17 @@ class AirflowJobDeployment:
         responses = []
         for future in as_completed(futures):
             responses.append(future.result())
-
+        self._update_state(responses, self._operation_to_step_id[Operation.Rename])
         return responses
 
     def _delete_job(self, jobs_info: JobInfo):
         try:
             client = create_airflow_client(jobs_info.fabric_id, self._project_config)
             client.delete_dag(sanitize_job(jobs_info.external_job_id))
-            log(f"Successfully deleted dag for job_id: {jobs_info.id}", step_name=self._DELETE_JOBS_STEP_ID)
+            log(f"Successfully deleted dag for job_id: {jobs_info.id}", step_id=self._DELETE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(jobs_info, OperationType.DELETED))
         except Exception as e:
-            log(f"Failed to delete dag for job_id: {jobs_info.id}", e, step_name=self._DELETE_JOBS_STEP_ID)
+            log(f"Failed to delete dag for job_id: {jobs_info.id}", e, step_id=self._DELETE_JOBS_STEP_ID)
             return Either(left=e)
 
     def _deploy_pause_jobs(self):
@@ -429,7 +461,7 @@ class AirflowJobDeployment:
         responses = []
         for future in as_completed(futures):
             responses.append(future.result())
-
+        self._update_state(responses, self._operation_to_step_id[Operation.Pause])
         return responses
 
     def _pause_job(self, job_id: str, job_data: AirflowJob):
@@ -442,13 +474,20 @@ class AirflowJobDeployment:
 
         try:
             client.pause_dag(dag_name)
-            log(f"Successfully paused job {dag_name} for job_id {job_id}", step_name=self._PAUSE_JOBS_STEP_ID)
+            log(f"Successfully paused job {dag_name} for job_id {job_id}", step_id=self._PAUSE_JOBS_STEP_ID)
             job_info = self._project_config.state_config.get_job(job_id, job_data.fabric_id)
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
         except Exception as e:
             log(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", e,
-                step_name=self._PAUSE_JOBS_STEP_ID)
+                step_id=self._PAUSE_JOBS_STEP_ID)
             return Either(left=e)
+
+    def _update_state(self, responses: List, step_id: str):
+        if responses is not None and len(responses) > 0:
+            if any(response.is_left for response in responses):
+                log(step_status=Status.FAILED, step_id=step_id)
+            else:
+                log(step_status=Status.SUCCEEDED, step_id=step_id)
 
 
 class AirflowGitSecrets:
@@ -461,10 +500,25 @@ class AirflowGitSecrets:
         self.state_config_and_db_tokens = state_config_and_db_tokens
         self.state_config = state_config_and_db_tokens.state_config
 
+    def summary(self) -> List[str]:
+        summary = []
+
+        if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
+
+            for project_git_tokens in self.state_config.project_git_tokens:
+                git_tokens = project_git_tokens.git_token
+                project_id = project_git_tokens.project_id
+
+                if len(git_tokens) > 0:
+                    summary.append(f"Creating git secrets for project {project_id} ")
+
+        return summary
+
     def headers(self) -> List[StepMetadata]:
         if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
-            return [StepMetadata(self._AIRFLOW_GIT_SECRETS_STEP_ID, "Create git secrets for airflow jobs", "build",
-                                 "airflow-git-secrets")]
+            return [
+                StepMetadata(self._AIRFLOW_GIT_SECRETS_STEP_ID, "Create git secrets for airflow jobs", Operation.Build,
+                             StepType.AirflowGitSecrets)]
         else:
             return []
 
@@ -478,12 +532,12 @@ class AirflowGitSecrets:
 
             with ThreadPoolExecutor(max_workers=10) as executor:
                 for project_git_tokens in self.state_config.project_git_tokens:
-                    git_tokens = project_git_tokens.git_tokens
+                    git_tokens = project_git_tokens.git_token
                     project_id = project_git_tokens.project_id
 
                     if len(git_tokens) == 0:
                         log(f"No git tokens found for project_id: {project_id}, Ignoring",
-                            step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+                            step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
                     else:
                         futures.append(
@@ -493,9 +547,10 @@ class AirflowGitSecrets:
             for future in as_completed(futures):
                 responses.append(future.result())
 
+            self._update_state(responses, self._AIRFLOW_GIT_SECRETS_STEP_ID)
             return responses
         else:
-            log("No dbt jobs found, Ignoring", step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+            log("No dbt jobs found, Ignoring", step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
             return []
 
     def _create_git_secrets(self, project_id, job_data, git_tokens):
@@ -505,8 +560,15 @@ class AirflowGitSecrets:
             client.create_secret(
                 generate_secure_content(f'{execution_db_suffix}_{project_id}', 'gitSecretSalt'), git_tokens)
             log(f'Successfully created git secrets for project {project_id}',
-                step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+                step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
         except Exception as e:
             log(f'Failed in creating git secrets for project {project_id}', e,
-                step_name=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+                step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
+
+    def _update_state(self, responses: List, step_id: str):
+        if responses is not None and len(responses) > 0:
+            if any(response.is_left for response in responses):
+                log(step_status=Status.FAILED, step_id=step_id)
+            else:
+                log(step_status=Status.SUCCEEDED, step_id=step_id)

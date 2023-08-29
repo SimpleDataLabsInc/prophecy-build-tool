@@ -98,14 +98,14 @@ def validate(path, treat_warnings_as_errors):
 )
 @click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
 def deploy(
-    path,
-    dependent_projects_path,
-    release_version,
-    project_id,
-    prophecy_url,
-    fabric_ids,
-    job_ids,
-    skip_builds,
+        path,
+        dependent_projects_path,
+        release_version,
+        project_id,
+        prophecy_url,
+        fabric_ids,
+        job_ids,
+        skip_builds,
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
@@ -133,12 +133,18 @@ def deploy(
     required=True,
 )
 @click.option(
+    "--release-tag",
+    help="Release tag to be used",
+    required=True,
+)
+@click.option(
     "--release-version",
     help="Release version to be used",
     required=True,
 )
-def deploy_v2(path, project_id: str, state_config_path: str, system_config_path: str, release_version: str):
-    pbt = PBTCli(path, state_config_path, system_config_path, project_id, release_version)
+def deploy_v2(path, project_id: str, state_config_path: str, system_config_path: str, release_tag: str,
+              release_version: str):
+    pbt = PBTCli(path, state_config_path, system_config_path, project_id, release_tag, release_version)
     pbt.headers()
     pbt.deploy([])
 

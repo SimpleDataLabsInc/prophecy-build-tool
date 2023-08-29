@@ -3,8 +3,10 @@ import base64
 import binascii
 import hashlib
 import os
+from enum import Enum
+from typing import Optional, Any
 
-from .project_models import LogEntry
+from .project_models import LogEvent, StepMetadata, Status
 
 
 def calculate_checksum(input_str, salt=None):
@@ -51,10 +53,42 @@ class Either:
         return self.right is not None
 
 
-def custom_print(message, exceptions=None, step_name=None):
-    if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM' and step_name is not None:
+def custom_print(message: Optional[Any] = None, exceptions=None, step_id=None,
+                 step_metadata: Optional[StepMetadata] = None,
+                 step_status: Optional[Status] = None):
+    if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM':
         # Custom print: Print all variables.
-        print((LogEntry.from_log(step_name, message, exceptions).to_json()))
+        if step_metadata is not None:
+            log_event = LogEvent.from_step_metadata(step_metadata)
+        elif step_status is not None:
+            log_event = LogEvent.from_status(step_status, step_id)
+        else:
+            log_event = LogEvent.from_log(step_id, message, exceptions)
+
+        print(log_event.to_json(), flush=True)
     else:
         # Regular print: Skip stepName.
         print(message, exceptions)
+
+    # If the item is a dictionary
+
+
+def remove_null_items_recursively(item):
+    # If the item is a dictionary
+    if isinstance(item, dict):
+        return {
+            k: remove_null_items_recursively(v)
+            for k, v in item.items() if v is not None
+        }
+
+    # If the item is a list
+    elif isinstance(item, list):
+        return [remove_null_items_recursively(v) for v in item if v is not None]
+
+    # If the item is an enum
+    elif isinstance(item, Enum):
+        return item.value
+
+    # If the item is neither a dictionary, a list, nor an enum
+    else:
+        return item

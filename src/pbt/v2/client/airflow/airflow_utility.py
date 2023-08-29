@@ -1,7 +1,7 @@
 from .composer import ComposerRestClient
 from .mwaa import MWAARestClient
 from ...exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
-from ...project_config import ProjectConfig, FabricType
+from ...project_config import ProjectConfig, FabricType, FabricProviderType
 
 
 def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
@@ -26,3 +26,11 @@ def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
 
     else:
         raise FabricNotConfiguredException(f"Fabric {fabric_id} is not configured in state config")
+
+
+def get_fabric_type(fabric_id: str, project_config: ProjectConfig):
+    fabric_info = project_config.state_config.get_fabric(fabric_id)
+    if fabric_info is not None:
+        return fabric_info.provider
+    else:
+        return FabricProviderType.Databricks
