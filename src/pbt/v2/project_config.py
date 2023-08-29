@@ -35,6 +35,7 @@ class FabricProviderType(enum.Enum):
     Mwaa = "MWAA"
     Databricks = "Databricks"
     Prophecy = "Prophecy"
+    EMR = "EMR"
 
 
 class RuntimeMode(enum.Enum):
@@ -43,6 +44,13 @@ class RuntimeMode(enum.Enum):
     RegularWithTests = "RegularWithTests"
     PartialWithTests = "PartialWithTests"
     Test = "Test"
+
+
+class EMRInfo(BaseModel):
+    region: str
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    aws_session_token: Optional[str] = None
 
 
 class ComposerInfo(BaseModel):
@@ -78,6 +86,7 @@ class FabricInfo(BaseModel):
     composer: Optional[ComposerInfo] = None
     mwaa: Optional[MwaaInfo] = None
     databricks: Optional[DatabricksInfo] = None
+    emr: Optional[EMRInfo] = None
 
 
 class JobInfo(BaseModel):

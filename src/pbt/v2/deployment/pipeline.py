@@ -339,3 +339,5 @@ class PackageBuilder:
             log("Build was successful.", step_id=self._pipeline_id)
         else:
             log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
+
+class PipelineUploader:

@@ -6,7 +6,7 @@ from requests import HTTPError
 from tenacity import RetryError
 
 from . import JobInfoAndOperation, OperationType
-from ..client.databricks_client import DatabricksClient
+from ..client.databricks import DatabricksClient
 from ..constants import COMPONENTS_LITERAL
 from ..entities.project import Project
 from ..exceptions import InvalidFabricException
