@@ -53,7 +53,8 @@ class Either:
         return self.right is not None
 
 
-def custom_print(message: Optional[Any] = None, exceptions=None, step_id=None,
+def custom_print(message: Optional[Any] = None, exception=None,
+                 step_id=None,
                  step_metadata: Optional[StepMetadata] = None,
                  step_status: Optional[Status] = None):
     if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM':
@@ -63,14 +64,15 @@ def custom_print(message: Optional[Any] = None, exceptions=None, step_id=None,
         elif step_status is not None:
             log_event = LogEvent.from_status(step_status, step_id)
         else:
-            log_event = LogEvent.from_log(step_id, message, exceptions)
+            log_event = LogEvent.from_log(step_id, message, exception)
 
         print(log_event.to_json(), flush=True)
     else:
         # Regular print: Skip stepName.
-        print(message, exceptions)
+        print(message, exception)
 
-    # If the item is a dictionary
+
+# If the item is a dictionary
 
 
 def remove_null_items_recursively(item):
