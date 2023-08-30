@@ -180,3 +180,14 @@ class Project:
             content = content.replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version)
 
         return content
+
+    def get_py_pipeline_main_file(self, pipeline_id):
+        subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
+
+        data = None
+        if subscribed_project_id is None:
+            main_file = os.path.join(self.project_path, pipeline_id, "code", "main.py")
+            with open(main_file, 'r') as file:
+                data = file.read()
+
+        return data

@@ -3,7 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
-from .constants import DBFS_BASE_PATH
+from .constants import PROPHECY_ARTIFACTS, DBFS_FILE_STORE
 from .deployment import OperationType
 from .utility import Either
 
@@ -48,9 +48,10 @@ class RuntimeMode(enum.Enum):
 
 class EMRInfo(BaseModel):
     region: str
-    aws_access_key_id: str
-    aws_secret_access_key: str
-    aws_session_token: Optional[str] = None
+    bucket: str
+    access_key_id: str
+    secret_access_key: str
+    session_token: Optional[str] = None
 
 
 class ComposerInfo(BaseModel):
@@ -143,6 +144,14 @@ class StateConfig(BaseModel):
              job.id == job_id and job.fabric_id == fabric_id and job.skip_processing is False),
             None)
 
+    def is_fabric_db_fabric(self, fabric_id: str) -> bool:
+        return any((fabric for fabric in self.fabrics if
+                    fabric.id == fabric_id and fabric.provider == FabricProviderType.Databricks))
+
+    def is_fabric_emr_fabric(self, fabric_id: str) -> bool:
+        return any((fabric for fabric in self.fabrics if
+                    fabric.id == fabric_id and fabric.provider == FabricProviderType.EMR))
+
     @property
     def get_databricks_jobs(self) -> List[JobInfo]:
         return [job for job in self.jobs if job.type == SchedulerType.Databricks and job.skip_processing is False]
@@ -202,8 +211,11 @@ class SystemConfig(BaseModel):
     prophecy_salt: Optional[str] = 'execution'
     nexus: Optional[NexusConfig] = None
 
-    def get_base_path(self):
-        return f'{DBFS_BASE_PATH}/{self.customer_name}/{self.control_plane_name}'
+    def get_dbfs_base_path(self):
+        return f'{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}'
+
+    def get_s3_base_path(self):
+        return f"{self.customer_name}/{self.control_plane_name}"
 
     @staticmethod
     def empty():

@@ -116,7 +116,7 @@ class ProjectDeployment:
         airflow_jobs_responses = self._airflow_jobs.deploy()
 
         new_state_config.update_state(databricks_jobs_responses + airflow_jobs_responses)
-        path = os.path.join(os.getcwd(), "new_state_config.yml")
+        path = os.path.join(os.getcwd(), "new_deployment_state.ym")
         yaml_str = yaml.dump(remove_null_items_recursively(new_state_config.dict()))
 
         with open(path, 'w') as file:

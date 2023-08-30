@@ -1,12 +1,14 @@
 import json
+import traceback
+from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List
 
 from requests import HTTPError
 from tenacity import RetryError
 
-from . import JobInfoAndOperation, OperationType
-from ..client.databricks import DatabricksClient
+from . import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
+from ..client.rest_client_factory import RestClientFactory
 from ..constants import COMPONENTS_LITERAL
 from ..entities.project import Project
 from ..exceptions import InvalidFabricException
@@ -20,7 +22,8 @@ FABRIC_ID = "fabric_id"
 DBT_COMPONENT = "DBTComponent"
 
 
-class DatabricksJobs:
+# todo add a new abstract class for DatabricksJobs and AirflowJobs
+class DatabricksJobs(JobData, ABC):
     def __init__(self, job_pbt: Dict[str, str], databricks_job: str):
         self.job_pbt = job_pbt
         self.databricks_job = databricks_job
@@ -42,6 +45,15 @@ class DatabricksJobs:
             return str(fabric_id)
 
         return fabric_id
+
+    @property
+    def pipeline_and_fabric_ids(self) -> List[EntityIdToFabricId]:
+        pipeline_and_fabric_ids = []
+
+        for pipeline in self.pipelines:
+            pipeline_and_fabric_ids.append(EntityIdToFabricId(pipeline, self.fabric_id))
+
+        return pipeline_and_fabric_ids
 
     @property
     def databricks_json(self):
@@ -80,7 +92,7 @@ class DatabricksJobsDeployment:
         self.project_config = project_config
 
         self._pipeline_configurations = self.project.pipeline_configurations
-        self._db_clients = {}
+        self._rest_client_factory = RestClientFactory(self.project_config.state_config)
 
         self.config = "1"
 
@@ -147,11 +159,7 @@ class DatabricksJobsDeployment:
         return responses
 
     def get_databricks_client(self, fabric_id):
-        if fabric_id not in self._db_clients:
-            self._db_clients[fabric_id] = DatabricksClient.from_state_config(self.project_config,
-                                                                             fabric_id)
-
-        return self._db_clients[fabric_id]
+        return self._rest_client_factory.databricks_client(fabric_id)
 
     @property
     def databricks_job_json_for_refresh_and_new_jobs(self) -> Dict[str, DatabricksJobs]:
@@ -236,7 +244,7 @@ class DatabricksJobsDeployment:
                                              self.project_config.state_config.release_tag, job_data.is_paused)
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
-            log(f"Error creating job {job_id} in fabric {fabric_id}", exceptions=e,
+            log(f"Error creating job {job_id} in fabric {fabric_id}", exception=e,
                 step_id=step_id)
             return Either(left=e)
 
@@ -317,7 +325,7 @@ class DatabricksJobsDeployment:
             else:
                 log(
                     f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                    e, step_id=self._DELETE_JOBS_STEP_ID)
+                    exception=e, captured_trace=traceback.format_exc(limit=200), step_id=self._DELETE_JOBS_STEP_ID)
                 return Either(left=e)
 
         except Exception as e:
@@ -361,12 +369,12 @@ class DatabricksJobsDeployment:
                 else:
                     log(
                         f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                        e, step_id=self._DELETE_JOBS_STEP_ID)
+                        exception=e, captured_trace=traceback.format_exc(limit=200), step_id=self._DELETE_JOBS_STEP_ID)
                     return Either(left=e)
             except Exception as e:
                 log(
                     f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                    e, step_id=self._DELETE_JOBS_STEP_ID)
+                    exception=e, captured_trace=traceback.format_exc(limit=200), step_id=self._DELETE_JOBS_STEP_ID)
                 return Either(left=e)
 
         else:
@@ -386,7 +394,8 @@ class DatabricksJobsDeployment:
                 log(f"Paused job {external_job_id} in fabric {fabric_id}", step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
             except Exception as e:
-                log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exceptions=e,
+                log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exception=e,
+                    captured_trace=traceback.format_exc(limit=200),
                     step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=True)
 
@@ -503,7 +512,8 @@ class DBTComponents:
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(right=True)
         except Exception as e:
-            log(f"Error while uploading dbt profile {components['profilePath']}", exceptions=e,
+            log(f"Error while uploading dbt profile {components['profilePath']}", exception=e,
+                captured_trace=traceback.format_exc(limit=200),
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(left=e)
 
@@ -549,7 +559,8 @@ class DBTComponents:
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
             return Either(right=True)
         except Exception as e:
-            log(f"Error while uploading dbt secret  for component {dbt_component['nodeName']}", exceptions=e,
+            log(f"Error while uploading dbt secret  for component {dbt_component['nodeName']}", exception=e,
+                captured_trace=traceback.format_exc(limit=200),
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
             return Either(left=e)
 
@@ -646,7 +657,7 @@ class ScriptComponents:
             return Either(right=True)
         except Exception as e:
             log(f"Error uploading script component {node_name} to fabric {fabric_id}", step_id=self._STEP_ID,
-                exceptions=e)
+                exception=e)
             return Either(left=e)
 
     def _script_components_from_jobs(self):
@@ -697,7 +708,7 @@ class PipelineConfigurations:
         with ThreadPoolExecutor(max_workers=10) as executor:
             for pipeline_id, configurations in self.pipeline_configurations.items():
 
-                path = self.project_config.system_config.get_base_path()
+                path = self.project_config.system_config.get_dbfs_base_path()
                 pipeline_path = f'{path}/{pipeline_id}'
 
                 for configuration_name, configuration_content in configurations.items():
@@ -730,6 +741,7 @@ class PipelineConfigurations:
                 step_id=self._STEP_ID)
             return Either(right=True)
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {configuration_path}", e,
-                self._STEP_ID)
+            log(f"Failed to upload pipeline configuration for path {configuration_path}", exception=e,
+                captured_trace=traceback.format_exc(limit=200),
+                step_id=self._STEP_ID)
             return Either(left=e)

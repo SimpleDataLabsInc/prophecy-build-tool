@@ -31,4 +31,6 @@ FABRIC_ID = "fabric_id"
 FABRIC_UID = "fabricUID"
 SECRET_SCOPE = "secret_scope"
 
-DBFS_BASE_PATH = "dbfs:/FileStore/prophecy/artifacts/"
+DBFS_FILE_STORE = "dbfs:/FileStore"
+S3_FILE_STORE = "s3://"
+PROPHECY_ARTIFACTS = "prophecy/artifacts"

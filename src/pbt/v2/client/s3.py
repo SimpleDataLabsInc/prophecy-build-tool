@@ -12,5 +12,8 @@ class S3Client:
             aws_session_token=aws_session_token
         )
 
-    def put_file(self, bucket, key, file_path):
+    def upload_file(self, bucket, key, file_path):
         self.s3.upload_file(file_path=file_path, bucket=bucket, key=key)
+
+    def upload_content(self, bucket, launcher_path, content):
+        self.s3.put_object(Bucket=bucket, Key=launcher_path, Body=content)

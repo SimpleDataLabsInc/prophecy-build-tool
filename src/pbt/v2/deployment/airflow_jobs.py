@@ -1,12 +1,15 @@
 import os
+import traceback
 import zipfile
+from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, Optional, List
 
 import yaml
 
-from . import JobInfoAndOperation, OperationType
+from . import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ..client.airflow.airflow_utility import create_airflow_client, get_fabric_type
+from ..client.rest_client_factory import RestClientFactory
 from ..entities.project import Project
 from ..constants import FABRIC_UID
 from ..project_models import StepMetadata, Operation, StepType, Status
@@ -44,7 +47,7 @@ def zip_folder(folder_path, output_path):
                 zipf.write(abs_file_path, abs_file_path[len(folder_path):])
 
 
-class AirflowJob:
+class AirflowJob(JobData, ABC):
 
     def __init__(self, job_pbt: dict, prophecy_job_yaml: str, rdc: Dict[str, str], sha: Optional[str]):
         self.job_pbt = job_pbt
@@ -63,6 +66,25 @@ class AirflowJob:
         prophecy_job_yaml_dict = self.prophecy_job_json_dict
         return self.job_pbt is not None and self.prophecy_job_yaml is not None and self.rdc is not None and \
             prophecy_job_yaml_dict.get('metainfo', {}).get('fabricId', None) is not None
+
+    # we can't use pbt file because it doesn't have fabric per pipeline which airflow jobs supports
+    @property
+    def pipeline_and_fabric_ids(self) -> List[EntityIdToFabricId]:
+        pipeline_and_fabric_ids = []
+        prophecy_job_yaml_dict = self.prophecy_job_json_dict
+
+        if self.job_pbt is not None and self.prophecy_job_yaml is not None and self.rdc is not None:
+            for process_id, process in prophecy_job_yaml_dict.get('processes', {}).items():
+                properties = process.get('properties', {})
+
+                cluster_size = properties.get('clusterSize', None)
+                pipeline_id = properties.get('pipelineId', {})
+
+                if cluster_size is not None:
+                    # shady stuff but can't help
+                    pipeline_and_fabric_ids.append(EntityIdToFabricId(pipeline_id, cluster_size.split('/')[0]))
+
+        return pipeline_and_fabric_ids
 
     def validate_prophecy_managed_checksum(self, salt: str):
         file_joiner: str = "$$$"
@@ -119,7 +141,7 @@ class AirflowJobDeployment:
         self._project_config = project_config
 
         self._airflow_clients = {}
-
+        self._rest_client_factory = RestClientFactory(project_config.state_config)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
@@ -128,9 +150,7 @@ class AirflowJobDeployment:
         self.prophecy_managed_dbt_jobs: Dict[str, AirflowJob] = self._initialize_prophecy_managed_dbt_jobs()
 
     def get_airflow_client(self, fabric_id):
-        if fabric_id not in self._airflow_clients:
-            self._airflow_clients[fabric_id] = create_airflow_client(str(fabric_id), self._project_config)
-        return self._airflow_clients[fabric_id]
+        return self._rest_client_factory.airflow_client(fabric_id)
 
     def summary(self):
         summary = []
@@ -296,7 +316,8 @@ class AirflowJobDeployment:
             return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
 
         except Exception as e:
-            log(f"Error while deleting job {job_info.external_job_id} from job_id {job_info.id}", e,
+            log(f"Error while deleting job {job_info.external_job_id} from job_id {job_info.id}", exception=e,
+                captured_trace=traceback.format_exc(limit=200),
                 step_id=self._REMOVE_JOBS_STEP_ID)
             return Either(left=e)
 
@@ -413,7 +434,7 @@ class AirflowJobDeployment:
 
     def _deploy_skipped_jobs(self):
         for job_id, messages in self._skip_jobs().items():
-            log(f"Skipping job_id: {job_id} encountered some error ", exceptions=messages,
+            log(f"Skipping job_id: {job_id} encountered some error ", exception=messages,
                 step_id=self._SKIP_JOBS_STEP_ID)
         if len(self._skip_jobs()) > 0:
             self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
@@ -449,7 +470,8 @@ class AirflowJobDeployment:
             log(f"Successfully deleted dag for job_id: {jobs_info.id}", step_id=self._DELETE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(jobs_info, OperationType.DELETED))
         except Exception as e:
-            log(f"Failed to delete dag for job_id: {jobs_info.id}", e, step_id=self._DELETE_JOBS_STEP_ID)
+            log(f"Failed to delete dag for job_id: {jobs_info.id}", exception=e,
+                captured_trace=traceback.format_exc(limit=200), step_id=self._DELETE_JOBS_STEP_ID)
             return Either(left=e)
 
     def _deploy_pause_jobs(self):
@@ -478,7 +500,8 @@ class AirflowJobDeployment:
             job_info = self._project_config.state_config.get_job(job_id, job_data.fabric_id)
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
         except Exception as e:
-            log(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", e,
+            log(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", exception=e,
+                captured_trace=traceback.format_exc(limit=200),
                 step_id=self._PAUSE_JOBS_STEP_ID)
             return Either(left=e)
 
@@ -563,7 +586,8 @@ class AirflowGitSecrets:
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
         except Exception as e:
-            log(f'Failed in creating git secrets for project {project_id}', e,
+            log(f'Failed in creating git secrets for project {project_id}', exception=e,
+                captured_trace=traceback.format_exc(limit=200),
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
     def _update_state(self, responses: List, step_id: str):
