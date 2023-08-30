@@ -1,5 +1,6 @@
 import enum
 import json
+import traceback
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -93,10 +94,10 @@ class StepStatus:
 
 
 class LogLine:
-    def __init__(self, uid: str, log: str):
+    def __init__(self, uid: str, log: str, level: LogLevel.INFO):
         self.uid = uid
         self.log = log
-        self.level = LogLevel.INFO
+        self.level = level
 
     def to_json(self):
         # we want json to be in single line
@@ -120,8 +121,13 @@ class LogEvent:
     @staticmethod
     def from_log(step_id: str, log: str, ex: Optional[Exception] = None):
         if ex is not None:
-            log = f"{log} exception: {ex}"
-        return LogEvent(step_id, LogType.LogLine, LogLine(step_id, log).to_json())
+            captured_trace = traceback.format_exc(limit=200)
+            log = f"{log} exception message: {str(ex)}: Stacktrace: {'  '.join(captured_trace.splitlines())}"
+            log_line = LogLine(step_id, log, level=LogLevel.ERROR).to_json()
+        else:
+            log_line = LogLine(step_id, log, level=LogLevel.INFO).to_json()
+
+        return LogEvent(step_id, LogType.LogLine, log_line)
 
     @staticmethod
     def from_status(status: Status, step_id: str):

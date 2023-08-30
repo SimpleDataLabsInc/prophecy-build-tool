@@ -29,7 +29,7 @@ class DatabricksClient:
 
     @classmethod
     def from_state_config(cls, project_config: ProjectConfig, fabric_id: str = None):
-        state_config = project_config.state_config
+        state_config = project_config.deployment_state
         fabric_info: Optional[FabricInfo] = state_config.get_fabric(str(fabric_id))
 
         if fabric_id is None or fabric_id == "" or state_config.contains_fabric(
@@ -71,8 +71,10 @@ class DatabricksClient:
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
            wait=wait_exponential(multiplier=2, max=30))
-    def check_and_create_secret_scope(self, secret_scope: str):
+    def create_secret_scope_if_not_exist(self, secret_scope: str):
+
         response = self.secret.list_scopes()
+
         if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
             self.secret.create_scope(secret_scope, initial_manage_principal="users", scope_backend_type=None,
                                      backend_azure_keyvault=None)

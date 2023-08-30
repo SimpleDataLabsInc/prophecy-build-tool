@@ -3,25 +3,22 @@ from typing import List, Optional
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
-from .constants import DBFS_BASE_PATH
+from .constants import PROPHECY_ARTIFACTS, DBFS_FILE_STORE
 from .deployment import OperationType
 from .utility import Either
 
 
 class SchedulerType(enum.Enum):
+    Composer = "Composer"
+    MWAA = "MWAA"
     Databricks = "Databricks"
     Prophecy = "Prophecy"
-    MWAA = "MWAA"
-    Composer = "Composer"
+    EMR = "EMR"
 
     @staticmethod
     def from_fabric_provider(provider_type: str):
         # Convert the provider_type to its equivalent Enum if exists, otherwise None
-        try:
-            return SchedulerType[provider_type]
-            # If it doesn't exist, return the default
-        except KeyError:
-            return SchedulerType.Databricks
+        return SchedulerType[provider_type]
 
 
 class FabricType(enum.Enum):
@@ -32,7 +29,7 @@ class FabricType(enum.Enum):
 
 class FabricProviderType(enum.Enum):
     Composer = "Composer"
-    Mwaa = "MWAA"
+    MWAA = "MWAA"
     Databricks = "Databricks"
     Prophecy = "Prophecy"
     EMR = "EMR"
@@ -48,9 +45,13 @@ class RuntimeMode(enum.Enum):
 
 class EMRInfo(BaseModel):
     region: str
-    aws_access_key_id: str
-    aws_secret_access_key: str
-    aws_session_token: Optional[str] = None
+    bucket: str
+    access_key_id: str
+    secret_access_key: str
+    session_token: Optional[str] = None
+
+    def bare_bucket(self):
+        return self.bucket.replace("s3://", "")
 
 
 class ComposerInfo(BaseModel):
@@ -99,6 +100,9 @@ class JobInfo(BaseModel):
     skip_processing: Optional[bool] = False  # this is useful in case when we deploy from older release tags.
     release_tag: Optional[str] = None
 
+    def with_release_tag(self, release_tag):
+        self.release_tag = release_tag
+
     @staticmethod
     def create_db_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
                       is_paused: bool = False):
@@ -120,7 +124,7 @@ class ProjectAndGitTokens(BaseModel):
     git_token: str = ""
 
 
-class StateConfig(BaseModel):
+class DeploymentState(BaseModel):
     name: str
     language: str
     description: str
@@ -143,6 +147,14 @@ class StateConfig(BaseModel):
              job.id == job_id and job.fabric_id == fabric_id and job.skip_processing is False),
             None)
 
+    def is_fabric_db_fabric(self, fabric_id: str) -> bool:
+        return any((fabric for fabric in self.fabrics if
+                    fabric.id == fabric_id and fabric.provider == FabricProviderType.Databricks))
+
+    def is_fabric_emr_fabric(self, fabric_id: str) -> bool:
+        return any((fabric for fabric in self.fabrics if
+                    fabric.id == fabric_id and fabric.provider == FabricProviderType.EMR))
+
     @property
     def get_databricks_jobs(self) -> List[JobInfo]:
         return [job for job in self.jobs if job.type == SchedulerType.Databricks and job.skip_processing is False]
@@ -164,7 +176,7 @@ class StateConfig(BaseModel):
     def is_fabric_prophecy_managed(self, fabric_id: str) -> bool:
         if fabric_id is not None and self.get_fabric(fabric_id) is not None:
             fabric_info = self.get_fabric(fabric_id)
-            return fabric_info.type == FabricType.Airflow and fabric_info.provider == FabricProviderType.Databricks
+            return fabric_info.type == FabricType.Airflow and fabric_info.provider == FabricProviderType.Prophecy
 
         return False
 
@@ -173,17 +185,27 @@ class StateConfig(BaseModel):
                 (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Databricks) or
                 (fabric.type == FabricType.Sql and fabric.provider == FabricProviderType.Databricks)]
 
+    def emr_fabrics(self) -> List[FabricInfo]:
+        return [fabric for fabric in self.fabrics if
+                (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.EMR)]
+
     def update_state(self, jobs_and_operation_types: List[Either]):
         for jobsAndOperationType in jobs_and_operation_types:
             if jobsAndOperationType.is_right:
-                job = jobsAndOperationType.right.job_info
+                job_response = jobsAndOperationType.right.job_info
 
                 if jobsAndOperationType.right.operation_type == OperationType.CREATED:
-                    self.jobs.append(job)
+                    matching_job = next((job for job in self.jobs if job.id == job_response.id), None)
+
+                    if matching_job is not None:
+                        ## preserve the release tag when the job was first added.
+                        job_response.with_release_tag(matching_job.release_tag)
+
+                    self.jobs.append(job_response)
 
                 if jobsAndOperationType.right.operation_type == OperationType.DELETED:
-                    self.jobs = [job if job.id == job.id and job.fabric_id == job.fabric_id else job for job in
-                                 self.jobs]
+                    self.jobs = [job for job in self.jobs if
+                                 job.id != job_response.id and job.fabric_id != job_response.fabric_id]
 
                 # for others we don't care.
 
@@ -202,8 +224,11 @@ class SystemConfig(BaseModel):
     prophecy_salt: Optional[str] = 'execution'
     nexus: Optional[NexusConfig] = None
 
-    def get_base_path(self):
-        return f'{DBFS_BASE_PATH}/{self.customer_name}/{self.control_plane_name}'
+    def get_dbfs_base_path(self):
+        return f'{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}'
+
+    def get_s3_base_path(self):
+        return f"{self.customer_name}/{self.control_plane_name}"
 
     @staticmethod
     def empty():
@@ -211,18 +236,18 @@ class SystemConfig(BaseModel):
 
 
 class ProjectConfig:
-    def __init__(self, state_config: StateConfig, system_config: SystemConfig):
+    def __init__(self, deployment_state: DeploymentState, system_config: SystemConfig):
 
-        self.state_config = state_config
+        self.deployment_state = deployment_state
         self.system_config = system_config
 
     @staticmethod
-    def from_path(state_config_path: str, system_config_path: str):
-        def load_state_config():
-            if state_config_path is not None and len(state_config_path) > 0:
-                with open(state_config_path, "r") as state_config:
-                    data = state_config.read()
-                    return parse_yaml_raw_as(StateConfig, data)
+    def from_path(deployment_state_path: str, system_config_path: str):
+        def load_deployment_state():
+            if deployment_state_path is not None and len(deployment_state_path) > 0:
+                with open(deployment_state_path, "r") as deployment_state:
+                    data = deployment_state.read()
+                    return parse_yaml_raw_as(DeploymentState, data)
             else:
                 raise Exception("State config path is not provided")
 
@@ -234,4 +259,4 @@ class ProjectConfig:
             else:
                 raise Exception("System config path is not provided")
 
-        return ProjectConfig(load_state_config(), load_system_config())
+        return ProjectConfig(load_deployment_state(), load_system_config())
