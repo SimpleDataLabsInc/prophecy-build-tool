@@ -28,9 +28,9 @@ def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
         raise FabricNotConfiguredException(f"Fabric {fabric_id} is not configured in state config")
 
 
-def get_fabric_type(fabric_id: str, project_config: ProjectConfig):
+def get_fabric_provider_type(fabric_id: str, project_config: ProjectConfig) -> str:
     fabric_info = project_config.deployment_state.get_fabric(fabric_id)
     if fabric_info is not None:
-        return fabric_info.provider.value
+        return str(fabric_info.provider.value)
     else:
         return FabricProviderType.Databricks.value

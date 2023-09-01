@@ -50,8 +50,8 @@ class Project:
     def load_airflow_folder(self, job_id):
         return self._read_directory(os.path.join(self.project_path, job_id, "code"))
 
-    def load_airflow_folder_with_constants(self, job_id):
-        return self._read_directory_without_change(os.path.join(self.project_path, job_id, "code"))
+    def load_airflow_folder_with_placeholder(self, job_id):
+        return self._read_directory_with_placeholder(os.path.join(self.project_path, job_id, "code"))
 
     def load_airflow_aspect(self, job_id: str) -> Optional[str]:
         path = os.path.join(self.project_path, job_id, "pbt_aspects.yml")
@@ -118,7 +118,7 @@ class Project:
 
         return pipelines.get(pipeline_path, {}).get('name', pipeline_path.split('/')[-1])
 
-    def _read_directory_without_change(self, base_path: str):
+    def _read_directory_with_placeholder(self, base_path: str):
         rdc = {}
 
         for dir_path, dir_names, filenames in os.walk(base_path):

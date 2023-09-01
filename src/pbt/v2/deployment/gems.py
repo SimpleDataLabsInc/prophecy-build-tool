@@ -2,6 +2,7 @@ from ..entities.project import Project
 from ..project_config import ProjectConfig
 
 
+# TODO: Implement GemsDeployment
 class GemsDeployment:
     def __init__(self, project: Project, project_config: ProjectConfig):
         self.project = project

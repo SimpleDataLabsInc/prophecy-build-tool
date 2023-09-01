@@ -1,5 +1,5 @@
 import tempfile
-from typing import Dict, Optional
+from typing import Dict
 
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.dbfs.api import DbfsApi
@@ -11,8 +11,6 @@ from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
 from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
 
-from ..exceptions import InvalidFabricException
-from ..project_config import ProjectConfig, FabricInfo
 from ..utility import Either
 
 
@@ -26,21 +24,6 @@ class DatabricksClient:
         self.job_client = JobsService(ApiClient(host=host, token=token, api_version="2.1"))
         self.secret = SecretApi(ApiClient(host=host, token=token, api_version="2.0"))
         self.permission = PermissionsApi(ApiClient(host=host, token=token, api_version="2.0"))
-
-    @classmethod
-    def from_state_config(cls, project_config: ProjectConfig, fabric_id: str = None):
-        state_config = project_config.deployment_state
-        fabric_info: Optional[FabricInfo] = state_config.get_fabric(str(fabric_id))
-
-        if fabric_id is None or fabric_id == "" or state_config.contains_fabric(
-                str(fabric_id)) is False or fabric_info is None:
-            if fabric_info.databricks is None:
-                # todo improve the error messages.
-                raise InvalidFabricException("Fabric must be databricks")
-
-            raise ValueError("fabric_id must be provided")
-
-        return cls(fabric_info.databricks.url, fabric_info.databricks.token)
 
     @classmethod
     def from_environment_variables(cls):

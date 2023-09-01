@@ -8,15 +8,15 @@ class PBTCli(object):
     """Command line interface for PBT."""
 
     def __init__(self, project_path,
-                 deployment_state,
+                 deployment_state_path,
                  system_config_path,
                  project_id,
                  release_tag,
                  release_version):
         self.project_path = project_path
-        self.state_config_path = deployment_state
+        self.deployment_state_path = deployment_state_path
         self.project = ProjectDeployment(Project(project_path, project_id, release_tag, release_version),
-                                         ProjectConfig.from_path(deployment_state, system_config_path))
+                                         ProjectConfig.from_path(deployment_state_path, system_config_path))
 
     def headers(self):
         """Print headers."""

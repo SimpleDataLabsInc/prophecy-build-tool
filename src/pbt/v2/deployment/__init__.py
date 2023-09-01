@@ -26,15 +26,16 @@ def invert_entity_to_fabric_mapping(entity_id_dict: Dict[str, List[EntityIdToFab
         Dict[str, List[EntityIdToFabricId]]:
     result = {}
 
-    for outer_key, inner_list in entity_id_dict.items():
-        for inner in inner_list:
+    for entity_uri, list_of_entities in entity_id_dict.items():
+        for inner in list_of_entities:
             if inner.entity_id not in result:
                 result[inner.entity_id] = []
-            result[inner.entity_id].append(EntityIdToFabricId(outer_key, inner.fabric_id))
+            result[inner.entity_id].append(EntityIdToFabricId(entity_uri, inner.fabric_id))
 
     return result
 
 
+# creating an abstract class helps to morge both airflow and databricks jobs and have common behavior for both of them.
 class JobData(ABC):
 
     @property

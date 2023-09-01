@@ -7,7 +7,7 @@ from typing import Dict, Optional, List
 import yaml
 
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
-from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_type
+from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
 from ...entities.project import Project
 from ...constants import FABRIC_UID
@@ -48,12 +48,12 @@ def zip_folder(folder_path, output_path):
 
 class AirflowJob(JobData, ABC):
 
-    def __init__(self, job_pbt: dict, prophecy_job_yaml: str, rdc: Dict[str, str], rdc_with_constants: Dict[str, str],
+    def __init__(self, job_pbt: dict, prophecy_job_yaml: str, rdc: Dict[str, str], rdc_with_placeholder: Dict[str, str],
                  sha: Optional[str]):
         self.job_pbt = job_pbt
         self.prophecy_job_yaml = prophecy_job_yaml
         self.rdc = rdc
-        self.rdc_with_constants = rdc_with_constants
+        self.rdc_with_placeholder = rdc_with_placeholder
         self.sha = sha
 
         self.prophecy_job_json_dict = self._initialize_prophecy_job_json()
@@ -89,13 +89,14 @@ class AirflowJob(JobData, ABC):
 
     def validate_prophecy_managed_checksum(self, salt: str):
         file_joiner: str = "$$$"
-        content = file_joiner.join(content for (name, content) in filter_job_files(self.rdc))
+        # always use rdc_with_placeholder to calculate checksum
+        content = file_joiner.join(content for (name, content) in filter_job_files(self.rdc_with_placeholder))
         checksum = calculate_checksum(content, salt)
         return self.sha == checksum
 
     @property
     def job_files(self):
-        return filter_job_files(self.rdc_with_constants)
+        return filter_job_files(self.rdc)
 
     @property
     def dag_name(self):
@@ -214,8 +215,8 @@ class AirflowJobDeployment:
         for job_id, parsed_job in self._project.jobs.items():
             if 'Databricks' not in parsed_job.get('scheduler', None):
 
-                rdc_with_replace_constants = self._project.load_airflow_folder(job_id)
-                rdc = self._project.load_airflow_folder_with_constants(job_id)
+                rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
+                rdc = self._project.load_airflow_folder(job_id)
 
                 aspects = self._project.load_airflow_aspect(job_id)
 
@@ -231,7 +232,7 @@ class AirflowJobDeployment:
                     except Exception as e:
                         log("Error while loading prophecy job yaml", e)
 
-                jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, rdc_with_replace_constants, sha)
+                jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, rdc_with_placeholders, sha)
 
         return jobs
 
@@ -364,6 +365,8 @@ class AirflowJobDeployment:
         return self._rename_jobs() + self._jobs_with_fabric_changed() + self._jobs_to_be_deleted()
 
     # Here we are looking for the flipped state of the job.
+    # jobs which are enabled in state config but disabled in code.
+    # and always get jobs from deployment state.
     def _pause_jobs(self) -> Dict[str, JobInfo]:
         old_enabled_job = {job.id: job for job in self._deployment_state.get_airflow_jobs if job.is_paused is False}
 
@@ -430,7 +433,7 @@ class AirflowJobDeployment:
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
                                                   self._deployment_state.release_tag,
                                                   job_data.is_disabled,
-                                                  get_fabric_type(job_data.fabric_id, self._project_config))
+                                                  get_fabric_provider_type(job_data.fabric_id, self._project_config))
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:

@@ -412,7 +412,7 @@ class DatabricksJobsDeployment:
                 f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}',
                 e)
 
-            return Either(left=e)
+            return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
 
         except Exception as e:
             log_error(
@@ -644,7 +644,7 @@ class ScriptComponents:
         self.databricks_jobs = databricks_jobs
         self.project = project
         self.script_jobs = self._script_components_from_jobs()
-        self.state_config = project_config.deployment_state
+        self.deployment_state = project_config.deployment_state
 
     def summary(self) -> List[str]:
         script_summary = []
