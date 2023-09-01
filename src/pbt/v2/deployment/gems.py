@@ -3,13 +3,13 @@ from ..project_config import ProjectConfig
 
 
 class GemsDeployment:
-    def __init__(self, project:Project, project_config:ProjectConfig):
+    def __init__(self, project: Project, project_config: ProjectConfig):
         self.project = project
         self.project_config = project_config
 
     def _is_gems_exist(self):
         pass
-    
+
     def summary(self):
         return []
 

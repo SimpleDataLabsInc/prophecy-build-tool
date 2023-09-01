@@ -657,7 +657,6 @@ class ScriptComponents:
 
     def headers(self) -> List[StepMetadata]:
         if len(self.script_jobs) > 0:
-            total_scripts = [len(script_job.scripts) for script_job in self.script_jobs.values()]
             return [StepMetadata(self._STEP_ID, f"Upload {len(self.script_jobs)} script components", Operation.Upload,
                                  StepType.Script)]
         else:
@@ -751,6 +750,12 @@ class PipelineConfigurations:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
+
+            def execute_job(fabric_id, configuration_content, configuration_path):
+                futures.append(executor.submit(
+                    lambda f_id=str(fabric_id), conf_content=configuration_content, conf_path=configuration_path:
+                    self._upload_configuration(f_id, conf_content, conf_path)))
+
             for pipeline_id, configurations in self.pipeline_configurations.items():
 
                 path = self.project_config.system_config.get_dbfs_base_path()
@@ -760,11 +765,7 @@ class PipelineConfigurations:
                     configuration_path = f'{pipeline_path}/{configuration_name}.json'
 
                     for fabric_id in self.project_config.deployment_state.db_fabrics():
-                        futures.append(executor.submit(
-                            lambda f_id=str(fabric_id), conf_content=configuration_content,
-                                   conf_path=configuration_path: self._upload_configuration(f_id,
-                                                                                            conf_content,
-                                                                                            conf_path)))
+                        execute_job(fabric_id, configuration_content, configuration_path)
 
         responses = []
 

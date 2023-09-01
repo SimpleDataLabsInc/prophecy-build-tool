@@ -36,7 +36,8 @@ class ProjectDeployment:
         self._pipelines = PipelineDeployment(project, self._databricks_jobs, self._airflow_jobs,
                                              project_config)
 
-        self._gems = GemsDeployment(project, project_config)
+        # add gems Deployment.
+        # self._gems = GemsDeployment(project, project_config)
 
     def headers(self):
         summary = self._script_component.summary() + \

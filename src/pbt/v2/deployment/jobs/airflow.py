@@ -1,5 +1,4 @@
 import os
-import traceback
 import zipfile
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -420,9 +419,11 @@ class AirflowJobDeployment:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"Successfully unpaused dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}", step_id=self._ADD_JOBS_STEP_ID)
+                log(f"Successfully unpaused dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                    step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}", exception=e, step_id=self._ADD_JOBS_STEP_ID)
+                log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                    exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
             log(f"Successfully added job {dag_name} for job_id {job_id}", step_id=self._ADD_JOBS_STEP_ID)
 
@@ -642,6 +643,12 @@ class EMRPipelineConfigurations:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
+
+            def execute_job(fabric_info, configuration_content, configuration_path):
+                futures.append(executor.submit(
+                    lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path:
+                    self._upload_configuration(f_info, conf_content, conf_path)))
+
             for pipeline_id, configurations in self.pipeline_configurations.items():
 
                 path = self.project_config.system_config.get_s3_base_path()
@@ -653,11 +660,7 @@ class EMRPipelineConfigurations:
                     for fabric_info in self._deployment_state.emr_fabrics():
 
                         if fabric_info.emr is not None:
-                            futures.append(executor.submit(
-                                lambda f_info=fabric_info, conf_content=configuration_content,
-                                       conf_path=configuration_path: self._upload_configuration(f_info,
-                                                                                                conf_content,
-                                                                                                conf_path)))
+                            execute_job(fabric_info, configuration_content, configuration_path)
 
         responses = []
 

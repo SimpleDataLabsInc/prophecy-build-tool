@@ -118,7 +118,7 @@ class Project:
 
         return pipelines.get(pipeline_path, {}).get('name', pipeline_path.split('/')[-1])
 
-    def _read_directory_without_change(self, base_path:str):
+    def _read_directory_without_change(self, base_path: str):
         rdc = {}
 
         for dir_path, dir_names, filenames in os.walk(base_path):
@@ -130,6 +130,7 @@ class Project:
                         relative_path = os.path.relpath(full_path, base_path)
                         rdc[relative_path] = content
         return rdc
+
     def _read_directory(self, base_path: str):
         rdc = {}
 
