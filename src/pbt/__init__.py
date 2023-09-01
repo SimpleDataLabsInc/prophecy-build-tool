@@ -123,7 +123,7 @@ def deploy(
     required=True,
 )
 @click.option(
-    "--state-config-path",
+    "--deployment-state-path",
     help="Path to the yaml file containing the state configuration",
     required=True,
 )
@@ -142,9 +142,9 @@ def deploy(
     help="Release version to be used",
     required=True,
 )
-def deploy_v2(path, project_id: str, state_config_path: str, system_config_path: str, release_tag: str,
+def deploy_v2(path, project_id: str, deployment_state_path: str, system_config_path: str, release_tag: str,
               release_version: str):
-    pbt = PBTCli(path, state_config_path, system_config_path, project_id, release_tag, release_version)
+    pbt = PBTCli(path, deployment_state_path, system_config_path, project_id, release_tag, release_version)
     pbt.headers()
     pbt.deploy([])
 

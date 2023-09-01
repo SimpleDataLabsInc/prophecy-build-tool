@@ -4,8 +4,9 @@ import copy
 
 import yaml
 
-from ..deployment.airflow_jobs import AirflowJobDeployment, AirflowGitSecrets
-from ..deployment.databricks_jobs import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
+from ..constants import NEW_DEPLOYMENT_STATE_FILE
+from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations
+from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
     DBTComponents
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
@@ -27,19 +28,25 @@ class ProjectDeployment:
         self._script_component = ScriptComponents(project, self._databricks_jobs, project_config)
         self._pipeline_configurations = PipelineConfigurations(project, self._databricks_jobs,
                                                                project_config)
+        self._emr_pipeline_configurations = EMRPipelineConfigurations(project, self._airflow_jobs, project_config)
+
         self._dbt_component = DBTComponents(project, self._databricks_jobs, project_config)
         self._airflow_git_secrets = AirflowGitSecrets(project, self._airflow_jobs, project_config)
 
         self._pipelines = PipelineDeployment(project, self._databricks_jobs, self._airflow_jobs,
                                              project_config)
 
+        # add gems Deployment.
+        # self._gems = GemsDeployment(project, project_config)
+
     def headers(self):
         summary = self._script_component.summary() + \
                   self._dbt_component.summary() + self._airflow_git_secrets.summary() + \
-                  self._pipeline_configurations.summary() + self._pipelines.summary() + \
+                  self._pipeline_configurations.summary() + self._emr_pipeline_configurations.summary() + \
+                  self._pipelines.summary() + \
                   self._databricks_jobs.summary() + self._airflow_jobs.summary()
 
-        if summary is None:
+        if len(summary) == 0:
             summary = ["No Job and pipelines to build"]
 
         summary_header = [StepMetadata("Summary", "Summary", Operation.Build, StepType.Summary)]
@@ -50,6 +57,7 @@ class ProjectDeployment:
             self._dbt_component.headers(),
             self._airflow_git_secrets.headers(),
             self._pipeline_configurations.headers(),
+            self._emr_pipeline_configurations.headers(),
             self._pipelines.headers(),
             self._databricks_jobs.headers(),
             self._airflow_jobs.headers()
@@ -77,38 +85,43 @@ class ProjectDeployment:
         # pipelines first,
         # then other components
 
-        # pipeline_responses = self._pipelines.deploy()
-        self._pipelines.deploy()
-        # if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
-        #     raise Exception("Pipelines deployment failed.")
+        script_responses = self._script_component.deploy()
 
-        # script_responses = self._script_component.deploy()
-        self._script_component.deploy()
+        if script_responses is not None and any(response.is_left for response in script_responses):
+            raise Exception("Script deployment failed.")
 
-        # if script_responses is not None and any(response.is_left for response in script_responses):
-        #     raise Exception("Script deployment failed.")
+        dbt_component_responses = self._dbt_component.deploy()
 
-        # dbt_components_responses = self._dbt_component.deploy()
-        self._dbt_component.deploy()
+        if dbt_component_responses is not None and any(response.is_left for response in dbt_component_responses):
+            raise Exception("DBT component deployment failed.")
+
+        airflow_git_secrets = self._airflow_git_secrets.deploy()
+
+        if airflow_git_secrets is not None and any(response.is_left for response in airflow_git_secrets):
+            raise Exception("Airflow git Secrets deployment failed.")
 
         # if dbt_components_responses is not None and any(response.is_left for response in dbt_components_responses):
         #     raise Exception("DBT deployment failed.")
 
         # pipeline_configurations_responses = self._pipeline_configurations.deploy()
-        self._pipeline_configurations.deploy()
+        pipeline_config_responses = self._pipeline_configurations.deploy()
 
-        # if pipeline_configurations_responses is not None and any(
-        #         response.is_left for response in pipeline_configurations_responses):
-        #     raise Exception("Pipeline configuration deployment failed.")
+        if pipeline_config_responses is not None and any(response.is_left for response in pipeline_config_responses):
+            raise Exception("Pipeline configuration response failed.")
 
-        # airflow_git_secrets_responses = self._airflow_git_secrets.deploy()
-        self._airflow_git_secrets.deploy()
+        emr_pipeline_config_responses = self._emr_pipeline_configurations.deploy()
 
-        # if airflow_git_secrets_responses is not None and any(
-        #         response.is_left for response in airflow_git_secrets_responses):
-        #     raise Exception("Airflow git secrets deployment failed.")
+        if emr_pipeline_config_responses is not None and any(
+                response.is_left for response in emr_pipeline_config_responses):
+            raise Exception("EMR Pipeline configuration response failed.")
+        # pipeline_responses = self._pipelines.deploy()
 
-        new_state_config = copy.deepcopy(self.project_config.state_config)
+        pipeline_responses = self._pipelines.deploy()
+
+        if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
+            raise Exception("Pipelines deployment failed.")
+
+        new_state_config = copy.deepcopy(self.project_config.deployment_state)
 
         # only jobs changes state_config.
 
@@ -116,7 +129,7 @@ class ProjectDeployment:
         airflow_jobs_responses = self._airflow_jobs.deploy()
 
         new_state_config.update_state(databricks_jobs_responses + airflow_jobs_responses)
-        path = os.path.join(os.getcwd(), "new_state_config.yml")
+        path = os.path.join(os.getcwd(), NEW_DEPLOYMENT_STATE_FILE)
         yaml_str = yaml.dump(remove_null_items_recursively(new_state_config.dict()))
 
         with open(path, 'w') as file:

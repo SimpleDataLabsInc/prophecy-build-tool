@@ -5,10 +5,12 @@ import yaml
 
 from ..constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
-    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX
+    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX
 import re
 
 from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
+
+SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
 
 
 class Project:
@@ -27,20 +29,18 @@ class Project:
         self.jobs = None
         self.pipelines = None
         self.pipeline_id_to_name = {}
-        self.pipeline_configurations = {}
 
         self._verify_project()
         self._load_project_config()
         self._extract_project_info()
-        self._load_pipeline_configurations()
+        self.pipeline_configurations = self._load_pipeline_configurations()
 
     def load_databricks_job(self, job_id: str) -> Optional[str]:
-        content = None
-        try:
-            with open(os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON), "r") as file:
-                content = self._replace_placeholders(self._DATABRICKS_JOB_JSON, file.read())
-        except FileNotFoundError:
-            content = None
+        path = os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON)
+        content = self._read_file_content(path)
+
+        if content is not None:
+            return self._replace_placeholders(self._DATABRICKS_JOB_JSON, content)
 
         return content
 
@@ -48,23 +48,14 @@ class Project:
         return os.path.join(self.project_path, job_id, "code")
 
     def load_airflow_folder(self, job_id):
-        rdc = {}
-        base_path = os.path.join(self.project_path, job_id, "code")
-        for dir_path, dir_names, filenames in os.walk(base_path):
-            for filename in filenames:
-                full_path = os.path.join(dir_path, filename)
-                with open(full_path, 'r') as file:
-                    relative_path = os.path.relpath(full_path, base_path)
-                    content = self._replace_placeholders(relative_path, file.read())
-                    rdc[relative_path] = content
-                    # Do something with the content
-        return rdc
+        return self._read_directory(os.path.join(self.project_path, job_id, "code"))
+
+    def load_airflow_folder_with_placeholder(self, job_id):
+        return self._read_directory_with_placeholder(os.path.join(self.project_path, job_id, "code"))
 
     def load_airflow_aspect(self, job_id: str) -> Optional[str]:
-        content = None
-        with open(os.path.join(self.project_path, job_id, "pbt_aspects.yml"), "r") as file:
-            content = file.read()
-        return content
+        path = os.path.join(self.project_path, job_id, "pbt_aspects.yml")
+        return self._read_file_content(path)
 
     def load_pipeline_base_path(self, pipeline):
         return os.path.join(self.project_path, pipeline, "code")
@@ -72,10 +63,8 @@ class Project:
     @staticmethod
     def is_cross_project_pipeline(pipeline):
 
-        HTTPSURIAllRepoPatterns = re.compile(
-            r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)")
+        match = re.compile(SUBSCRIBED_ENTITY_URI_REGEX).search(pipeline)
 
-        match = HTTPSURIAllRepoPatterns.search(pipeline)
         if match:
             git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
             return project_subscription_project_id, tag.split('/')[1], path
@@ -83,28 +72,16 @@ class Project:
             return None, None, None
 
     def load_pipeline_folder(self, pipeline):
-        rdc = {}
         (project_subscription_id, version, pipeline_path) = self.is_cross_project_pipeline(pipeline)
+
         if project_subscription_id is not None:
             sub_path = f".prophecy/{project_subscription_id}/{pipeline_path}"
         else:
             sub_path = pipeline
 
         base_path = os.path.join(self.project_path, sub_path, "code")
-        for dir_path, dir_names, filenames in os.walk(base_path):
-            for filename in filenames:
-                if filename.endswith(('.py', '.json', '.conf', '.scala', 'pom.xml')):
-                    full_path = os.path.join(dir_path, filename)
-                    with open(full_path, 'r') as file:
-                        relative_path = os.path.relpath(full_path, base_path)
-                        try:
-                            content = self._replace_placeholders(relative_path, file.read())
-                        except Exception as e:
-                            print(f"Failed to replace placeholders in {relative_path}")
-                            raise e
-                        rdc[relative_path] = content
-                        # Do something with the content
-        return rdc
+
+        return self._read_directory(base_path)
 
     @staticmethod
     def get_pipeline_whl_or_jar(base_path: str):
@@ -114,24 +91,64 @@ class Project:
                 if full_path.endswith(".whl") or full_path.endswith(".jar"):
                     return full_path
 
-    def _load_subscribed_project_yml(self, subscribed_project_id: str):
-        with open(os.path.join(self.project_path, ".prophecy", subscribed_project_id, "pbt_project.yml"), "r") as file:
-            return yaml.safe_load(file.read())
+    def get_py_pipeline_main_file(self, pipeline_id):
+        subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
+
+        if subscribed_project_id is None:
+            path = pipeline_id
+        else:
+            path = ".prophecy/{}/{}".format(subscribed_project_id, pipeline_path)
+
+        main_file = os.path.join(self.project_path, path, "code", "main.py")
+        data = self._read_file_content(main_file)
+
+        return data
 
     def get_pipeline_name(self, pipeline_id):
         subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
 
         # pipeline belongs to same deployment.
         if subscribed_project_id is None:
-            pipeline_name = self.pipelines.get(pipeline_id, {}).get('name', pipeline_id.split('/')[
-                -1])  # if it doesn't exist then return only the last name.
+            pipeline_path = pipeline_id
+            pipelines = self.pipelines
+
         else:
             subscribed_project = self._load_subscribed_project_yml(subscribed_project_id)
-            pipeline_name = subscribed_project.get('pipelines', {}).get(pipeline_path, {}).get('name',
-                                                                                               pipeline_path.split('/')[
-                                                                                                   -1])
+            pipelines = subscribed_project.get('pipelines', {})
 
-        return pipeline_name
+        return pipelines.get(pipeline_path, {}).get('name', pipeline_path.split('/')[-1])
+
+    def _read_directory_with_placeholder(self, base_path: str):
+        rdc = {}
+
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                if filename.endswith(('.py', '.json', '.conf', '.scala', 'pom.xml')):
+                    full_path = os.path.join(dir_path, filename)
+                    content = self._read_file_content(full_path)
+                    if content is not None:
+                        relative_path = os.path.relpath(full_path, base_path)
+                        rdc[relative_path] = content
+        return rdc
+
+    def _read_directory(self, base_path: str):
+        rdc = {}
+
+        for dir_path, dir_names, filenames in os.walk(base_path):
+            for filename in filenames:
+                if filename.endswith(('.py', '.json', '.conf', '.scala', 'pom.xml')):
+                    full_path = os.path.join(dir_path, filename)
+                    content = self._read_file_content(full_path)
+                    if content is not None:
+                        relative_path = os.path.relpath(full_path, base_path)
+                        rdc[relative_path] = self._replace_placeholders(relative_path, content)
+        return rdc
+
+    def _load_subscribed_project_yml(self, subscribed_project_id: str):
+        path = os.path.join(self.project_path, ".prophecy", subscribed_project_id, "pbt_project.yml")
+        content = self._read_file_content(path)
+        if content is not None:
+            return yaml.safe_load(content)
 
     def _verify_project(self):
         if not os.path.exists(self.project_path):
@@ -142,8 +159,9 @@ class Project:
 
     def _load_project_config(self):
         pbt_project_path = os.path.join(self.project_path, PBT_FILE_NAME)
-        with open(pbt_project_path, "r") as project_to_release:
-            self.pbt_project_dict = yaml.safe_load(project_to_release)
+        content = self._read_file_content(pbt_project_path)
+        if content is not None:
+            self.pbt_project_dict = yaml.safe_load(content)
 
     def _extract_project_info(self):
         self.project_language = self.pbt_project_dict.get(LANGUAGE, None)
@@ -151,6 +169,8 @@ class Project:
         self.pipelines = self.pbt_project_dict.get(PIPELINES, {})
 
     def _load_pipeline_configurations(self):
+        pipeline_configurations = {}
+
         pipeline_conf = dict(self.pbt_project_dict.get(PIPELINE_CONFIGURATIONS, []))
 
         for pipeline_config_path, pipeline_config_object in pipeline_conf.items():
@@ -160,23 +180,21 @@ class Project:
                 config_name = pipeline_config_object[CONFIGURATIONS][configurations_key]["name"]
                 file_path = os.path.join(self.project_path, configurations_key + JSON_EXTENSION)
 
-                with open(file_path, 'r') as file:
-                    data = file.read()
+                configurations[config_name] = self._read_file_content(file_path)
+            pipeline_configurations[pipeline_config_object[BASE_PIPELINE]] = configurations
 
-                configurations[config_name] = data
-
-            self.pipeline_configurations[pipeline_config_object[BASE_PIPELINE]] = configurations
-
-    def get_files(self, pipeline_path: str, aspect: str):
-        return os.path.join(self.project_path, pipeline_path + '/' + aspect)
+        return pipeline_configurations
 
     def _replace_placeholders(self, path: str, content: str) -> str:
-        if self.project_id is not None and len(self.project_id) > 0 and (
-                path.endswith('.json') or path.endswith('.scala') or path.endswith('.py')):
-            content = content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id)
+        if path.endswith('.json') or path.endswith('.scala') or path.endswith('.py'):
+            content = content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id) \
+                .replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version) \
+                .replace(PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, self.release_tag)
 
-        if self.release_version is not None and len(self.release_version) > 0 and (
-                path.endswith('.json') or path.endswith('.scala') or path.endswith('.py')):
-            content = content.replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version)
+        return content
 
+    def _read_file_content(self, file_path: str) -> Optional[str]:
+        content = None
+        with open(file_path, 'r') as file:
+            content = file.read()
         return content

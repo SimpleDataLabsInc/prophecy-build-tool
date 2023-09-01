@@ -1,18 +1,19 @@
 import json
+from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from requests import HTTPError
 from tenacity import RetryError
 
-from . import JobInfoAndOperation, OperationType
-from ..client.databricks_client import DatabricksClient
-from ..constants import COMPONENTS_LITERAL
-from ..entities.project import Project
-from ..exceptions import InvalidFabricException
-from ..project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
-from ..project_config import JobInfo, ProjectConfig
-from ..utility import custom_print as log, Either
+from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
+from ...client.rest_client_factory import RestClientFactory
+from ...constants import COMPONENTS_LITERAL
+from ...entities.project import Project
+from ...exceptions import InvalidFabricException
+from ...project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
+from ...project_config import JobInfo, ProjectConfig
+from ...utility import custom_print as log, Either
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
@@ -20,9 +21,10 @@ FABRIC_ID = "fabric_id"
 DBT_COMPONENT = "DBTComponent"
 
 
-class DatabricksJobs:
-    def __init__(self, job_pbt: Dict[str, str], databricks_job: str):
-        self.job_pbt = job_pbt
+# todo add a new abstract class for DatabricksJobs and AirflowJobs
+class DatabricksJobs(JobData, ABC):
+    def __init__(self, pbt_job_json: Dict[str, str], databricks_job: str):
+        self.pbt_job_json = pbt_job_json
         self.databricks_job = databricks_job
 
         try:
@@ -32,16 +34,43 @@ class DatabricksJobs:
 
     @property
     def is_valid_job(self):
-        return len(self.databricks_job_json) > 0 and len(self.job_pbt) > 0
+        return len(self.databricks_job_json) > 0 and len(self.pbt_job_json) > 0
 
     @property
     def fabric_id(self):
-        fabric_id = self.job_pbt.get('fabricUID', None)
+        fabric_id = self.pbt_job_json.get('fabricUID', None)
 
         if fabric_id is not None:
             return str(fabric_id)
 
         return fabric_id
+
+    def dag_name(self) -> Optional[str]:
+        pass
+
+    def has_dbt_component(self) -> bool:
+        pass
+
+    def is_disabled(self) -> bool:
+        pass
+
+    def job_files(self):
+        pass
+
+    def is_enabled(self) -> bool:
+        pass
+
+    def validate_prophecy_managed_checksum(self, salt: str) -> bool:
+        pass
+
+    @property
+    def pipeline_and_fabric_ids(self) -> List[EntityIdToFabricId]:
+        pipeline_and_fabric_ids = []
+
+        for pipeline_id in self.pipelines:
+            pipeline_and_fabric_ids.append(EntityIdToFabricId(pipeline_id, self.fabric_id))
+
+        return pipeline_and_fabric_ids
 
     @property
     def databricks_json(self):
@@ -57,15 +86,15 @@ class DatabricksJobs:
 
     @property
     def pipelines(self):
-        return list(set(self.job_pbt.get('pipelines', None)))
+        return list(set(self.pbt_job_json.get('pipelines', None)))
 
     @property
     def name(self):
-        return self.job_pbt.get('name', None)
+        return self.pbt_job_json.get('name', None)
 
     @property
     def is_paused(self):
-        return self.job_pbt.get('enabled', False)
+        return self.pbt_job_json.get('enabled', False)
 
 
 class DatabricksJobsDeployment:
@@ -78,11 +107,10 @@ class DatabricksJobsDeployment:
         self.project = project
 
         self.project_config = project_config
+        self.deployment_state = project_config.deployment_state
 
         self._pipeline_configurations = self.project.pipeline_configurations
-        self._db_clients = {}
-
-        self.config = "1"
+        self._rest_client_factory = RestClientFactory(self.project_config.deployment_state)
 
         self._db_jobs = self._initialize_db_jobs()
         self.valid_databricks_jobs, self._databricks_jobs_without_code = self._initialize_valid_databricks_jobs()
@@ -91,17 +119,10 @@ class DatabricksJobsDeployment:
 
         summary = []
 
-        for id in self._add_jobs().keys():
-            summary.append(f"Adding job {id}")
-
-        for id in self._refresh_jobs().keys():
-            summary.append(f"Refreshing job {id}")
-
-        for id in self._delete_jobs().keys():
-            summary.append(f"Deleting job {id}")
-
-        for job in self._pause_jobs():
-            summary.append(f"Pausing job {job.id}")
+        summary.extend([f"Adding job {id}" for id in list(self._add_jobs().keys())])
+        summary.extend([f"Refreshing job {id}" for id in list(self._refresh_jobs().keys())])
+        summary.extend([f"Deleting job {id}" for id in list(self._delete_jobs().keys())])
+        summary.extend([f"Pausing job {job.id}" for job in list(self._pause_jobs())])
 
         return summary
 
@@ -147,23 +168,19 @@ class DatabricksJobsDeployment:
         return responses
 
     def get_databricks_client(self, fabric_id):
-        if fabric_id not in self._db_clients:
-            self._db_clients[fabric_id] = DatabricksClient.from_state_config(self.project_config,
-                                                                             fabric_id)
-
-        return self._db_clients[fabric_id]
+        return self._rest_client_factory.databricks_client(fabric_id)
 
     @property
     def databricks_job_json_for_refresh_and_new_jobs(self) -> Dict[str, DatabricksJobs]:
-        return self._databricks_job_and_processor_data(self._add_and_refresh_jobs())
+        return self._databricks_jobs_data(self._add_and_refresh_job_ids())
 
     def _initialize_db_jobs(self):
         jobs = {}
 
-        for job_id, parsed_job in self.project.jobs.items():
-            if 'Databricks' in parsed_job.get('scheduler', None):
+        for job_id, pbt_job_json in self.project.jobs.items():
+            if 'Databricks' in pbt_job_json.get('scheduler', None):
                 databricks_job = self.project.load_databricks_job(job_id)
-                jobs[job_id] = DatabricksJobs(parsed_job, databricks_job)
+                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job)
 
         return jobs
 
@@ -181,18 +198,18 @@ class DatabricksJobsDeployment:
 
         return valid_databricks_jobs, databricks_jobs_without_code
 
-    def _add_and_refresh_jobs(self) -> List[str]:
+    def _add_and_refresh_job_ids(self) -> List[str]:
         return list(set(list(self._add_jobs().keys()) + list(self._refresh_jobs().keys())))
 
-    def _databricks_job_and_processor_data(self, jobs: List[str]):
+    def _databricks_jobs_data(self, jobs: List[str]) -> Dict[str, DatabricksJobs]:
 
         return {
             job: self.valid_databricks_jobs.get(job, {}) for job in jobs
         }
 
-    def _refresh_jobs(self):
+    def _refresh_jobs(self) -> Dict[str, JobInfo]:
         return {
-            job_info.id: job_info for job_info in self.project_config.state_config.get_databricks_jobs
+            job_info.id: job_info for job_info in self.deployment_state.get_databricks_jobs
             if any(
                 job_info.id == job_id and job_info.fabric_id == job_data.fabric_id
                 for job_id, job_data in self.valid_databricks_jobs.items()
@@ -202,10 +219,10 @@ class DatabricksJobsDeployment:
     def _pause_jobs(self) -> List[JobInfo]:
 
         return [
-            databricks_job for databricks_job in self.project_config.state_config.get_databricks_jobs
+            databricks_job for databricks_job in self.deployment_state.get_databricks_jobs
             if any(
                 databricks_job.id == job_id and databricks_job.fabric_id != job_data.fabric_id
-                for job_id, job_data in self.valid_databricks_jobs.items()  # Check only from valid airflow jobs.
+                for job_id, job_data in self.valid_databricks_jobs.items()
             )
         ]
 
@@ -213,19 +230,22 @@ class DatabricksJobsDeployment:
 
         return {
             job_id: job_data for job_id, job_data in self.valid_databricks_jobs.items()
-            if self.project_config.state_config.contains_jobs(job_id, str(job_data.fabric_id)) is False
+            if self.deployment_state.contains_jobs(job_id, str(job_data.fabric_id)) is False
         }
 
     def _delete_jobs(self) -> Dict[str, JobInfo]:
         return {
-            job.id: job for job in self.project_config.state_config.get_databricks_jobs
+            job.id: job for job in self.deployment_state.get_databricks_jobs
             if not any(job.id == job_id for job_id in
                        self.valid_databricks_jobs.keys())
         }
 
     '''Deploy Jobs '''
 
-    def _deploy_add_job(self, fabric_id, job_id, job_data, step_id):
+    def _deploy_add_job(self, job_id, job_data, step_id):
+
+        fabric_id = job_data.fabric_id
+
         try:
             client = self.get_databricks_client(fabric_id)
             response = client.create_job(job_data.databricks_json)
@@ -233,10 +253,13 @@ class DatabricksJobsDeployment:
                 step_id=step_id)
 
             job_info = JobInfo.create_db_job(job_data.name, job_id, fabric_id, response['job_id'],
-                                             self.project_config.state_config.release_tag, job_data.is_paused)
+                                             self.deployment_state.release_tag, job_data.is_paused)
+
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
+
         except Exception as e:
-            log(f"Error creating job {job_id} in fabric {fabric_id}", exceptions=e,
+
+            log(f"Error creating job {job_id} in fabric {fabric_id}", exception=e,
                 step_id=step_id)
             return Either(left=e)
 
@@ -250,10 +273,12 @@ class DatabricksJobsDeployment:
 
                 if fabric_id is not None:
                     futures.append(executor.submit(
-                        lambda: self._deploy_add_job(fabric_id, job_id, job_data, self._ADD_JOBS_STEP_ID)))
+                        lambda j_id=job_id, j_data=job_data: self._deploy_add_job(j_id, j_data,
+                                                                                  self._ADD_JOBS_STEP_ID)))
                 else:
                     log(f"In valid fabric {fabric_id}, skipping job creation for job_id {job_id}",
                         step_id=self._ADD_JOBS_STEP_ID)
+
         responses = []
 
         for future in as_completed(futures):
@@ -269,11 +294,12 @@ class DatabricksJobsDeployment:
 
         with ThreadPoolExecutor(max_workers=3) as executor:
 
-            for (job_id, job_info) in self._refresh_jobs().items():
+            for job_id, job_info in self._refresh_jobs().items():
                 fabric_id = job_info.fabric_id
 
                 if fabric_id is not None:
-                    futures.append(executor.submit(lambda: self._reset_and_patch_jobs(job_id, job_info, fabric_id)))
+                    futures.append(executor.submit(
+                        lambda j_id=job_id, j_info=job_info: self._reset_and_patch_job(j_id, j_info)))
                 else:
                     log(f"In valid fabric {fabric_id}, skipping job refresh for job_id {job_id}")
 
@@ -287,43 +313,54 @@ class DatabricksJobsDeployment:
 
         return responses
 
-    def _reset_and_patch_jobs(self, job_id, job_info, fabric_id):
+    def _reset_and_patch_job(self, job_id, job_info):
+        fabric_id = job_info.fabric_id
+
+        def log_error(message, exc, step_id=self._REFRESH_JOBS_STEP_ID):
+            log(message, exception=exc, step_id=step_id)
+
+        def log_success(message):
+            log(message, step_id=self._REFRESH_JOBS_STEP_ID)
+
         try:
             client = self.get_databricks_client(fabric_id)
             job_data = self.valid_databricks_jobs.get(job_id)
             client.reset_job(job_info.external_job_id, job_data.databricks_json)
-            acl = job_data.acl
 
-            if acl is not None:
-                log(f"Refreshed job {job_id} with external job id {job_info.external_job_id} Patching job acl for job {job_id}",
-                    step_id=self._REFRESH_JOBS_STEP_ID)
-                client.patch_job_acl(job_info.external_job_id, acl)
+            if job_data.acl:
+                log_success(f"Refreshed job {job_id} with external job id {job_info.external_job_id} patching job acl")
+                try:
+                    client.patch_job_acl(job_info.external_job_id, job_data.acl)
+                except Exception as e:
+                    log_error(f"Error patching job acl for job {job_id} in fabric {fabric_id}", e)
+                    return Either(left=e)
             else:
-                log(f"Refreshed job {job_id} with external job id {job_info.external_job_id}, No ACL found for job {job_id}",
-                    step_id=self._REFRESH_JOBS_STEP_ID)
+                log_success(f"Refreshed job {job_id} with external job id {job_info.external_job_id}, no acl found")
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
+
         except RetryError as e:
             underlying_exception = e.last_attempt.exception()
 
-            if underlying_exception is HTTPError:
+            if isinstance(underlying_exception, HTTPError):
                 response = underlying_exception.response.content.decode('utf-8')
+
                 if underlying_exception.response.status_code == 400 and f"Job {job_info.external_job_id} does not exist." in response:
-                    # job deleted.
-                    log(f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, trying to recreate it",
-                        step_id=self._REFRESH_JOBS_STEP_ID)
-                    return self._deploy_add_job(fabric_id, job_id, self.valid_databricks_jobs.get(job_id),
+                    log_success(
+                        f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, "
+                        f"trying to recreate it")
+                    return self._deploy_add_job(job_id, self.valid_databricks_jobs.get(job_id),
                                                 step_id=self._REFRESH_JOBS_STEP_ID)
             else:
-                log(
-                    f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                    e, step_id=self._DELETE_JOBS_STEP_ID)
+                log_error(
+                    f'Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
+                    e)
                 return Either(left=e)
 
         except Exception as e:
-            log(
+            log_error(
                 f'Error while resetting job with {job_info.external_job_id} and job-id {job_id} for fabric {fabric_id}',
-                e, step_id=self._REFRESH_JOBS_STEP_ID)
+                e)
             return Either(left=e)
 
     def _deploy_delete_jobs(self):
@@ -331,7 +368,7 @@ class DatabricksJobsDeployment:
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             for job_id, job_info in self._delete_jobs().items():
-                futures.append(executor.submit(lambda: self._delete_job(job_info)))
+                futures.append(executor.submit(lambda j_info=job_info: self._delete_job(j_info)))
 
         responses = []
 
@@ -345,34 +382,43 @@ class DatabricksJobsDeployment:
 
     def _delete_job(self, job_info: JobInfo):
         fabric = job_info.fabric_id
-        if fabric is not None:
-            try:
-                client = self.get_databricks_client(job_info.fabric_id)
-                client.delete_job(job_info.external_job_id)
-                log(
-                    f'Successfully delete job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                    step_id=self._DELETE_JOBS_STEP_ID)
-                return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
-            except HTTPError as e:
-                response = e.response.content.decode('utf-8')
-                if e.response.status_code == 400 and "does not exist." in response:
-                    log("Job already deleted, skipping", step_id=self._DELETE_JOBS_STEP_ID)
-                    return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
-                else:
-                    log(
-                        f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                        e, step_id=self._DELETE_JOBS_STEP_ID)
-                    return Either(left=e)
-            except Exception as e:
-                log(
-                    f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                    e, step_id=self._DELETE_JOBS_STEP_ID)
-                return Either(left=e)
 
-        else:
-            message = f"Invalid fabric {fabric} not deleting job {job_info.id} and databricks id {job_info.external_job_id}"
+        if fabric is None:
+            msg = f"Invalid fabric {fabric} not deleting job {job_info.id} and databricks id {job_info.external_job_id}"
+            log(msg, step_id=self._DELETE_JOBS_STEP_ID)
+            return Either(left=InvalidFabricException(msg))
+
+        def log_error(msg, exc):
+            log(msg, exception=exc, step_id=self._DELETE_JOBS_STEP_ID)
+
+        def log_success(message):
             log(message, step_id=self._DELETE_JOBS_STEP_ID)
-            return Either(left=InvalidFabricException(message))
+
+        try:
+            client = self.get_databricks_client(fabric)
+            client.delete_job(job_info.external_job_id)
+            log_success(
+                f'Successfully deleted job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}')
+            return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
+
+        except HTTPError as e:
+
+            response = e.response.content.decode('utf-8')
+
+            if e.response.status_code == 400 and "does not exist." in response:
+                log_success("Job already deleted, skipping")
+                return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
+            log_error(
+                f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}',
+                e)
+
+            return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
+
+        except Exception as e:
+            log_error(
+                f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}',
+                e)
+            return Either(left=e)
 
     def _deploy_pause_jobs(self):
         futures = []
@@ -386,7 +432,7 @@ class DatabricksJobsDeployment:
                 log(f"Paused job {external_job_id} in fabric {fabric_id}", step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
             except Exception as e:
-                log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exceptions=e,
+                log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exception=e,
                     step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=True)
 
@@ -396,7 +442,7 @@ class DatabricksJobsDeployment:
                 fabric = jobs_info.fabric_id
 
                 if fabric is not None:
-                    futures.append(executor.submit(lambda: pause_job(fabric, jobs_info)))
+                    futures.append(executor.submit(lambda f=fabric, j_info=jobs_info: pause_job(f, j_info)))
                 else:
                     log(f"In valid fabric {fabric} for job_id {jobs_info.id} ", step_id=self._PAUSE_JOBS_STEP_ID)
 
@@ -422,11 +468,11 @@ class DBTComponents:
     _DBT_PROFILES_COMPONENT_STEP_NAME = "DBTProfileComponents"
 
     def __init__(self, project: Project, databricks_jobs: DatabricksJobsDeployment,
-                 state_config_and_db_tokens: ProjectConfig):
+                 project_config: ProjectConfig):
         self.databricks_jobs = databricks_jobs
         self.project = project
-        self.state_config = state_config_and_db_tokens.state_config
-        self.state_config_and_dbt_tokens = state_config_and_db_tokens
+        self.project_config = project_config
+        self.deployment_state = project_config.deployment_state
 
     def summary(self):
         summary = []
@@ -448,7 +494,7 @@ class DBTComponents:
         return self._dbt_secrets_headers() + self._dbt_profiles_to_build_headers()
 
     def deploy(self):
-        self._upload_dbt_secrets() + self._upload_dbt_profiles()
+        return self._upload_dbt_secrets() + self._upload_dbt_profiles()
 
     @property
     def dbt_component_from_jobs(self) -> Dict[str, DbtComponentsModel]:
@@ -479,7 +525,7 @@ class DBTComponents:
                     if components.get('profilePath', None) is not None and components.get('profileContent',
                                                                                           None) is not None:
                         futures.append(executor.submit(
-                            lambda: self._upload_dbt_profile(dbt_component_model, components)))
+                            lambda model=dbt_component_model, comp=components: self._upload_dbt_profile(model, comp)))
 
         responses = []
         for future in as_completed(futures):
@@ -503,7 +549,7 @@ class DBTComponents:
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(right=True)
         except Exception as e:
-            log(f"Error while uploading dbt profile {components['profilePath']}", exceptions=e,
+            log(f"Error while uploading dbt profile {components['profilePath']}", exception=e,
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(left=e)
 
@@ -516,7 +562,9 @@ class DBTComponents:
                     if dbt_component.get('sqlFabricId', None) is not None and dbt_component.get('secretKey',
                                                                                                 None) is not None:
                         futures.append(
-                            executor.submit(lambda: self._upload_dbt_secret(dbt_component_model, dbt_component)))
+                            executor.submit(
+                                lambda model=dbt_component_model, component=dbt_component: self._upload_dbt_secret(
+                                    model, component)))
 
         responses = []
 
@@ -535,22 +583,24 @@ class DBTComponents:
     def _upload_dbt_secret(self, dbt_component_model, dbt_component):
         try:
             self.databricks_jobs.get_databricks_client(str(dbt_component_model.fabric_id)) \
-                .check_and_create_secret_scope(dbt_component_model.secret_scope)
+                .create_secret_scope_if_not_exist(dbt_component_model.secret_scope)
 
-            sqlClient = self.databricks_jobs.get_databricks_client(dbt_component['sqlFabricId'])
+            sql_client = self.databricks_jobs.get_databricks_client(dbt_component['sqlFabricId'])
+            git_token = self.deployment_state.git_token_for_project(dbt_component['projectId'])
+            master_token = f"{sql_client.token};{git_token}"
 
-            sql_fabric_token = sqlClient.token
-            git_token = self.state_config.git_token_for_project(dbt_component['projectId'])
+            sql_client.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
 
-            master_token = f"{sql_fabric_token};{git_token}"
-
-            sqlClient.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
             log(f"Successfully uploaded dbt secret for component {dbt_component['nodeName']}",
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
+
             return Either(right=True)
+
         except Exception as e:
-            log(f"Error while uploading dbt secret  for component {dbt_component['nodeName']}", exceptions=e,
+
+            log(f"Error while uploading dbt secret  for component {dbt_component['nodeName']}", exception=e,
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
+
             return Either(left=e)
 
     def _dbt_profiles_to_build_headers(self):
@@ -594,7 +644,7 @@ class ScriptComponents:
         self.databricks_jobs = databricks_jobs
         self.project = project
         self.script_jobs = self._script_components_from_jobs()
-        self.state_config = project_config.state_config
+        self.deployment_state = project_config.deployment_state
 
     def summary(self) -> List[str]:
         script_summary = []
@@ -614,12 +664,16 @@ class ScriptComponents:
 
     def deploy(self):
         futures = []
-        log(step_status=Status.RUNNING, step_id=self._STEP_ID)
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             for job_id, script_components in self._script_components_from_jobs().items():
-                for script in script_components.scripts:
-                    futures.append(executor.submit(self._upload_content, script, script_components.fabric_id))
+                log(step_status=Status.RUNNING, step_id=self._STEP_ID)
+
+                for scripts in script_components.scripts:
+                    futures.append(executor.submit(
+                        lambda s=scripts, fabric_id=script_components.fabric_id, j_id=job_id: self._upload_content(s,
+                                                                                                                   fabric_id,
+                                                                                                                   j_id)))
 
         responses = []
 
@@ -635,18 +689,19 @@ class ScriptComponents:
 
         return responses
 
-    def _upload_content(self, script: dict, fabric_id: str):
+    def _upload_content(self, script: dict, fabric_id: str, job_id: str):
         node_name = script.get('nodeName')
 
         try:
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             client.upload_content(content=script.get('content', None), path=script.get('path', None))
 
-            log(f"Uploaded script component {node_name} to fabric {fabric_id}", step_id=self._STEP_ID)
+            log(f"Uploaded script component {node_name} to fabric {fabric_id} for job {job_id} to path {script.get('path', None)}",
+                step_id=self._STEP_ID)
             return Either(right=True)
         except Exception as e:
             log(f"Error uploading script component {node_name} to fabric {fabric_id}", step_id=self._STEP_ID,
-                exceptions=e)
+                exception=e)
             return Either(left=e)
 
     def _script_components_from_jobs(self):
@@ -695,18 +750,22 @@ class PipelineConfigurations:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
+
+            def execute_job(fabric_id, configuration_content, configuration_path):
+                futures.append(executor.submit(
+                    lambda f_id=str(fabric_id), conf_content=configuration_content, conf_path=configuration_path:
+                    self._upload_configuration(f_id, conf_content, conf_path)))
+
             for pipeline_id, configurations in self.pipeline_configurations.items():
 
-                path = self.project_config.system_config.get_base_path()
+                path = self.project_config.system_config.get_dbfs_base_path()
                 pipeline_path = f'{path}/{pipeline_id}'
 
                 for configuration_name, configuration_content in configurations.items():
                     configuration_path = f'{pipeline_path}/{configuration_name}.json'
 
-                    for fabric_id in self.project_config.state_config.db_fabrics():
-                        futures.append(executor.submit(
-                            lambda: self._upload_configuration(str(fabric_id), configuration_content,
-                                                               configuration_path)))
+                    for fabric_id in self.project_config.deployment_state.db_fabrics():
+                        execute_job(fabric_id, configuration_content, configuration_path)
 
         responses = []
 
@@ -726,10 +785,13 @@ class PipelineConfigurations:
         try:
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             client.upload_content(configuration_content, configuration_path)
+
             log(f"Uploaded pipeline configuration on path {configuration_path}",
                 step_id=self._STEP_ID)
+
             return Either(right=True)
+
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {configuration_path}", e,
-                self._STEP_ID)
+            log(f"Failed to upload pipeline configuration for path {configuration_path}", exception=e,
+                step_id=self._STEP_ID)
             return Either(left=e)
