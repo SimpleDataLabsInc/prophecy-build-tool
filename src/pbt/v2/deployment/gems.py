@@ -1,21 +1,127 @@
+import os
+import subprocess
+import threading
+import re
+
 from ..entities.project import Project
 from ..project_config import ProjectConfig
+from ..project_models import StepMetadata, StepType, Operation, Status
+from ..utility import custom_print as log, Either
+
+GEMS = "Gems"
 
 
-# TODO: Implement GemsDeployment
 class GemsDeployment:
     def __init__(self, project: Project, project_config: ProjectConfig):
         self.project = project
         self.project_config = project_config
 
-    def _is_gems_exist(self):
-        pass
+    def _does_gems_exist(self):
+        return self.project.gems is not None
 
     def summary(self):
-        return []
+        if self._does_gems_exist():
+            return [f"Gems will be build and uploaded to nexus"]
+        else:
+            return []
 
     def headers(self):
-        return []
+        if self._does_gems_exist():
+            return StepMetadata("gems", f"Gems will be build and uploaded",
+                                Operation.Build, StepType.Pipeline)
+        else:
+            return []
 
     def deploy(self):
-        pass
+        if self._does_gems_exist():
+
+            log(step_status=Status.RUNNING, step_id=GEMS)
+            gem_path = os.path.join(self.project.project_path, "gems")
+            package_builder = PackageBuilder(gem_path, self.project.project_language)
+            return_code = package_builder.build()
+
+            if return_code == 0:
+                log(step_status=Status.SUCCEEDED, step_id=GEMS)
+                return [Either(right=True)]
+            else:
+                log(step_status=Status.FAILED, step_id=GEMS)
+                return [Either(right=True)]
+
+        else:
+            return []
+
+
+class PackageBuilder:
+
+    def __init__(self, path: str, language: str):
+
+        self.path = path
+        self.language = language
+
+    def build(self):
+        if self.language == "SCALA":
+            return self.mvn_build()
+        else:
+            return self.wheel_build()
+
+    def mvn_build(self):
+        mvn = os.environ.get('MAVEN_HOME', 'mvn')
+        command = [mvn, "package", "-DskipTests"]
+
+        log(f"Running mvn command {command}", step_id="gems")
+
+        return self._build(command)
+
+    def wheel_build(self):
+        command = ["python3", "setup.py", "bdist_wheel", "upload", "-r", "local"]
+
+        log(f"Running python command {command}", step_id=GEMS)
+
+        return self._build(command)
+
+    # maybe we can try another iteration with yield ?
+    def _build(self, command: list):
+        env = dict(os.environ)
+
+        # Set the MAVEN_OPTS variable
+        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m -s /opt/docker/build/settings.xml"
+
+        process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+                                   cwd=self.path)
+
+        def log_output(pipe, log_function):
+            while True:
+                # Read line from stdout or stderr, break if EOF
+                output = pipe.readline()
+                if process.poll() is not None and not output:
+                    break
+                # Decode line and print it
+                response = output.decode().strip()
+
+                # stripping unnecessary logs
+                if not re.search(r'Progress \(\d+\):', response):
+                    log_function(response)
+
+        # Create threads to read and log stdout and stderr simultaneously
+        stdout_thread = threading.Thread(target=log_output,
+                                         args=(process.stdout, lambda msg: log(msg, step_id=GEMS)))
+        stderr_thread = threading.Thread(target=log_output,
+                                         args=(process.stderr, lambda msg: log(msg, step_id=GEMS)))
+
+        # Start threads
+        stdout_thread.start()
+        stderr_thread.start()
+
+        # Wait for both threads to finish
+        stdout_thread.join()
+        stderr_thread.join()
+
+        # Get the exit code
+        return_code = process.wait()
+
+        if return_code == 0:
+            log("Build was successful.", step_id=GEMS)
+        else:
+            log(f"Build failed with exit code {return_code}", step_id=GEMS)
+
+        return return_code

@@ -5,7 +5,7 @@ import yaml
 
 from ..constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
-    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX
+    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS
 import re
 
 from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
@@ -29,6 +29,7 @@ class Project:
         self.jobs = None
         self.pipelines = None
         self.pipeline_id_to_name = {}
+        self.gems = {}
 
         self._verify_project()
         self._load_project_config()
@@ -167,6 +168,7 @@ class Project:
         self.project_language = self.pbt_project_dict.get(LANGUAGE, None)
         self.jobs = self.pbt_project_dict.get(JOBS, {})
         self.pipelines = self.pbt_project_dict.get(PIPELINES, {})
+        self.gems = self.pbt_project_dict.get(GEMS, {})
 
     def _load_pipeline_configurations(self):
         pipeline_configurations = {}

@@ -4,6 +4,7 @@ import copy
 
 import yaml
 
+from .gems import GemsDeployment
 from ..constants import NEW_DEPLOYMENT_STATE_FILE
 from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
@@ -11,7 +12,7 @@ from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptCompone
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
 from ..project_config import ProjectConfig
-from ..project_models import StepMetadata, Operation, StepType, Status
+from ..project_models import StepMetadata, Operation, StepType, Status, LogEvent
 from ..utility import remove_null_items_recursively
 
 from ..utility import custom_print as log
@@ -37,10 +38,10 @@ class ProjectDeployment:
                                              project_config)
 
         # add gems Deployment.
-        # self._gems = GemsDeployment(project, project_config)
+        self._gems = GemsDeployment(project, project_config)
 
     def headers(self):
-        summary = self._script_component.summary() + \
+        summary = self._gems.summary() + self._script_component.summary() + \
                   self._dbt_component.summary() + self._airflow_git_secrets.summary() + \
                   self._pipeline_configurations.summary() + self._emr_pipeline_configurations.summary() + \
                   self._pipelines.summary() + \
@@ -53,6 +54,7 @@ class ProjectDeployment:
 
         header_components = (
             summary_header,
+            self._gems.headers(),
             self._script_component.headers(),
             self._dbt_component.headers(),
             self._airflow_git_secrets.headers(),
@@ -64,6 +66,11 @@ class ProjectDeployment:
         )
 
         headers = sum(header_components, [])
+
+        # 1st steps have to be summary
+        for header in headers:
+            logline = LogEvent.from_step_metadata(header)
+            log(logline.to_json())
 
         for step in summary:
             log(message=step, step_id="Summary")
@@ -84,6 +91,11 @@ class ProjectDeployment:
     def deploy(self, job_ids):
         # pipelines first,
         # then other components
+
+        gems_responses = self._gems.deploy()
+
+        if gems_responses is not None and any(response.is_left for response in gems_responses):
+            raise Exception("Gems deployment failed.")
 
         script_responses = self._script_component.deploy()
 

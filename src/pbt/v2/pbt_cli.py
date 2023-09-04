@@ -20,9 +20,7 @@ class PBTCli(object):
 
     def headers(self):
         """Print headers."""
-        for header in self.project.headers():
-            logline = LogEvent.from_step_metadata(header)
-            print(logline.to_json())
+        self.project.headers()
 
     def build(self, pipeline_ids):
         """Build pipelines."""

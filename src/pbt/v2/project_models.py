@@ -29,6 +29,7 @@ class StepType(enum.Enum):
     Summary = "Summary"
     Subgraph = "Subgraph"  # why this?
     Project = "Project"
+    Gems = "Gems"
 
 
 class LogLevel(enum.Enum):
