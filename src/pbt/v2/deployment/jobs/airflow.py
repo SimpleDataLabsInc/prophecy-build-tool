@@ -49,12 +49,13 @@ def zip_folder(folder_path, output_path):
 class AirflowJob(JobData, ABC):
 
     def __init__(self, job_pbt: dict, prophecy_job_yaml: str, rdc: Dict[str, str], rdc_with_placeholder: Dict[str, str],
-                 sha: Optional[str]):
+                 sha: Optional[str], fabric_override: Optional[str] = None):
         self.job_pbt = job_pbt
         self.prophecy_job_yaml = prophecy_job_yaml
         self.rdc = rdc
         self.rdc_with_placeholder = rdc_with_placeholder
         self.sha = sha
+        self.fabric_override = fabric_override
 
         self.prophecy_job_json_dict = self._initialize_prophecy_job_json()
 
@@ -112,8 +113,11 @@ class AirflowJob(JobData, ABC):
 
     @property
     def fabric_id(self):
-        fabric_id = self.job_pbt.get(FABRIC_UID)
-        return str(fabric_id) if fabric_id is not None else None
+        if self.fabric_override is not None:
+            return self.fabric_override
+        else:
+            fabric_id = self.job_pbt.get(FABRIC_UID)
+            return str(fabric_id) if fabric_id is not None else None
 
     @property
     def pipelines(self):
@@ -146,6 +150,7 @@ class AirflowJobDeployment:
         self._airflow_clients = {}
         self._rest_client_factory = RestClientFactory(self._deployment_state)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
+        self.project_state_override_config = project_config.project_state_override
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
          self._airflow_jobs_without_code) = self._initialize_valid_airflow_jobs()
@@ -232,7 +237,9 @@ class AirflowJobDeployment:
                     except Exception as e:
                         log("Error while loading prophecy job yaml", e)
 
-                jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, rdc_with_placeholders, sha)
+                jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, rdc_with_placeholders, sha,
+                                          fabric_override=self.project_state_override_config.find_fabric_override_for_job(
+                                              job_id))
 
         return jobs
 

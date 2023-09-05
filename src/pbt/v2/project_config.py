@@ -43,6 +43,11 @@ class RuntimeMode(enum.Enum):
     Test = "Test"
 
 
+class DeploymentMode(enum.Enum):
+    FullProjectDeployment = "FullProjectDeployment"
+    SelectiveJobDeployment = "SelectiveJobDeployment"
+
+
 class EMRInfo(BaseModel):
     region: str
     bucket: str
@@ -233,6 +238,31 @@ class DeploymentState(BaseModel):
                 self.jobs = new_jobs
 
 
+class JobsAndFabric(BaseModel):
+    job_id: str
+    fabric_id: str
+
+
+class ProjectStateOverrideConfig(BaseModel):
+    are_tests_enabled: Optional[bool] = False
+    mode: Optional[DeploymentMode] = DeploymentMode.FullProjectDeployment
+    jobs_and_fabric: Optional[List[JobsAndFabric]] = None
+
+    def find_fabric_override_for_job(self, job_id: str) -> Optional[str]:
+        if self.mode == DeploymentMode.SelectiveJobDeployment and self.jobs_and_fabric:
+            matching_fabric = next(
+                (job_and_fabric.fabric_id for job_and_fabric in self.jobs_and_fabric if
+                 job_and_fabric.job_id == job_id),
+                None
+            )
+            return matching_fabric
+        return None
+
+    @staticmethod
+    def empty():
+        return ProjectStateOverrideConfig()
+
+
 class NexusConfig(BaseModel):
     url: str
     username: str
@@ -259,13 +289,15 @@ class SystemConfig(BaseModel):
 
 
 class ProjectConfig:
-    def __init__(self, deployment_state: DeploymentState, system_config: SystemConfig):
+    def __init__(self, deployment_state: DeploymentState, system_config: SystemConfig,
+                 project_state_override: ProjectStateOverrideConfig):
 
         self.deployment_state = deployment_state
         self.system_config = system_config
+        self.project_state_override = project_state_override
 
     @staticmethod
-    def from_path(deployment_state_path: str, system_config_path: str):
+    def from_path(deployment_state_path: str, system_config_path: str, project_state_override_path: str):
         def load_deployment_state():
             if deployment_state_path is not None and len(deployment_state_path) > 0:
                 with open(deployment_state_path, "r") as deployment_state:
@@ -282,4 +314,12 @@ class ProjectConfig:
             else:
                 raise Exception("System config path is not provided")
 
-        return ProjectConfig(load_deployment_state(), load_system_config())
+        def load_project_state_override_config():
+            if project_state_override_path is not None and len(project_state_override_path) > 0:
+                with open(project_state_override_path, "r") as project_deployment:
+                    data = project_deployment.read()
+                    return parse_yaml_raw_as(ProjectStateOverrideConfig, data)
+            else:
+                return ProjectStateOverrideConfig.empty()
+
+        return ProjectConfig(load_deployment_state(), load_system_config(), load_project_state_override_config())

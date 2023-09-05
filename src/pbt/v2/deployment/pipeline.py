@@ -34,6 +34,7 @@ class PipelineDeployment:
 
         self.project = project
         self.project_config = project_config
+        self.are_tests_enabled = project_config.project_state_override.are_tests_enabled
 
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case deployment doesn't have any pipelines.
@@ -67,7 +68,8 @@ class PipelineDeployment:
                 log(f"Building pipeline {pipeline_id}", step_id=pipeline_id)
                 log(step_id=pipeline_id, step_status=Status.RUNNING)
 
-                pipeline_builder = PackageBuilder(self.project, pipeline_id, pipeline_name, self.project_config)
+                pipeline_builder = PackageBuilder(self.project, pipeline_id, pipeline_name, self.project_config,
+                                                  are_tests_enabled=self.are_tests_enabled)
                 futures.append(executor.submit(lambda p=pipeline_builder: p.build_and_get_pipeline()))
 
             for future in as_completed(futures):
@@ -135,11 +137,11 @@ class PipelineDeployment:
 class PackageBuilder:
 
     def __init__(self, project: Project, pipeline_id: str, pipeline_name: str,
-                 project_config: ProjectConfig = None, is_tests_enabled: bool = False):
+                 project_config: ProjectConfig = None, are_tests_enabled: bool = False):
 
         self._pipeline_id = pipeline_id
         self._pipeline_name = pipeline_name
-        self._is_tests_enabled = is_tests_enabled
+        self._are_tests_enabled = are_tests_enabled
         self._project = project
         self._project_langauge = project.project_language
         self._base_path = None
@@ -230,13 +232,22 @@ class PackageBuilder:
 
     def mvn_build(self):
         mvn = os.environ.get('MAVEN_HOME', 'mvn')
-        command = [mvn, "package", "-DskipTests"] if not self._is_tests_enabled else [mvn, "package"]
+        command = [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package"]
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id)
 
         self._build(command)
 
     def wheel_build(self):
+        response_code = 0
+        if self._are_tests_enabled:
+            test_command = ["pytest"]
+            log(f"Running python test {test_command}", step_id=self._pipeline_id)
+            response_code = self._build(test_command)
+
+        if response_code != 0:
+            raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
+
         command = ["python3", "setup.py", "bdist_wheel"]
 
         log(f"Running python command {command}", step_id=self._pipeline_id)
@@ -287,6 +298,8 @@ class PackageBuilder:
             log("Build was successful.", step_id=self._pipeline_id)
         else:
             log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
+
+        return return_code
 
 
 class PipelineUploader:

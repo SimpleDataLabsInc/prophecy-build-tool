@@ -28,7 +28,7 @@ def cli():
 @click.option(
     "--ignore-build-errors",
     help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
-    "errors.",
+         "errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -36,7 +36,7 @@ def cli():
 @click.option(
     "--ignore-parse-errors",
     help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
-    "any errors.",
+         "any errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -133,6 +133,11 @@ def deploy(
     required=True,
 )
 @click.option(
+    "--project-override-config-path",
+    help="Project deployment path",
+    required=False
+)
+@click.option(
     "--release-tag",
     help="Release tag to be used",
     required=True,
@@ -142,9 +147,10 @@ def deploy(
     help="Release version to be used",
     required=True,
 )
-def deploy_v2(path, project_id: str, deployment_state_path: str, system_config_path: str, release_tag: str,
-              release_version: str):
-    pbt = PBTCli(path, deployment_state_path, system_config_path, project_id, release_tag, release_version)
+def deploy_v2(path, project_id: str, deployment_state_path: str, system_config_path: str, project_state_override_config_path: str,
+              release_tag: str, release_version: str):
+    pbt = PBTCli(path, deployment_state_path, system_config_path, project_id, project_state_override_config_path, release_tag,
+                 release_version)
     pbt.headers()
     pbt.deploy([])
 

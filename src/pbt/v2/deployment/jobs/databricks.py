@@ -23,9 +23,10 @@ DBT_COMPONENT = "DBTComponent"
 
 # todo add a new abstract class for DatabricksJobs and AirflowJobs
 class DatabricksJobs(JobData, ABC):
-    def __init__(self, pbt_job_json: Dict[str, str], databricks_job: str):
+    def __init__(self, pbt_job_json: Dict[str, str], databricks_job: str, fabric_override: Optional[str] = None):
         self.pbt_job_json = pbt_job_json
         self.databricks_job = databricks_job
+        self.fabric_override = fabric_override
 
         try:
             self.databricks_job_json = json.loads(databricks_job)
@@ -38,10 +39,13 @@ class DatabricksJobs(JobData, ABC):
 
     @property
     def fabric_id(self):
-        fabric_id = self.pbt_job_json.get('fabricUID', None)
+        if self.fabric_override is not None:
+            return self.fabric_override
+        else:
+            fabric_id = self.pbt_job_json.get('fabricUID', None)
 
-        if fabric_id is not None:
-            return str(fabric_id)
+            if fabric_id is not None:
+                return str(fabric_id)
 
         return fabric_id
 
@@ -108,6 +112,7 @@ class DatabricksJobsDeployment:
 
         self.project_config = project_config
         self.deployment_state = project_config.deployment_state
+        self.project_override_state_config = project_config.project_state_override
 
         self._pipeline_configurations = self.project.pipeline_configurations
         self._rest_client_factory = RestClientFactory(self.project_config.deployment_state)
@@ -180,7 +185,8 @@ class DatabricksJobsDeployment:
         for job_id, pbt_job_json in self.project.jobs.items():
             if 'Databricks' in pbt_job_json.get('scheduler', None):
                 databricks_job = self.project.load_databricks_job(job_id)
-                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job)
+                fabric_override = self.project_override_state_config.find_fabric_override_for_job(job_id)
+                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
 
         return jobs
 
