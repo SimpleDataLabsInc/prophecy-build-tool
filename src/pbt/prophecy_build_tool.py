@@ -725,7 +725,11 @@ class ProphecyBuildTool:
         self.jobs: Dict = {}
         with open(self.path_project, "r") as _in:
             self.project = yaml.safe_load(_in)
-            self.jobs = self.project["jobs"]
+            self.jobs = dict(
+                (job_name, job)
+                for job_name, job in self.project["jobs"].items()
+                if "scheduler" in job and "Databricks" in job["scheduler"]
+            )
             self.pipelines = self.project["pipelines"]
             self.project_language = self.project["language"]
             self.pipeline_configurations = dict(self.project.get("pipelineConfigurations", []))
