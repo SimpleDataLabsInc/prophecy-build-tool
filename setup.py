@@ -5,11 +5,11 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.2.1",
+    version="1.2.3",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
-                "Prophecy IDE.",
+    "Prophecy IDE.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/SimpleDataLabsInc/prophecy-build-tool",
@@ -38,10 +38,10 @@ setuptools.setup(
         "tenacity==8.2.3",
     ],
     extras_require={
-        'test': [
-            'pytest',
+        "test": [
+            "pytest",
             "pyspark==3.3.0",
-            'mock',  # or any other testing-specific packages you need
+            "mock",  # or any other testing-specific packages you need
         ]
     },
     python_requires=">=3.7",
