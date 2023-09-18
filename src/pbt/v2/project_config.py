@@ -57,7 +57,7 @@ class EMRInfo(BaseModel):
 class ComposerInfo(BaseModel):
     key_json: str
     version: str
-    location: str
+    location: Optional[str] = None
     project_id: str
     airflow_url: str
     dag_location: str

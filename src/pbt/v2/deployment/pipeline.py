@@ -6,7 +6,7 @@ import threading
 
 from . import JobData, invert_entity_to_fabric_mapping, EntityIdToFabricId
 from ..client.rest_client_factory import RestClientFactory
-from ..exceptions import InvalidFabricException
+from ..exceptions import InvalidFabricException, ProjectBuildFailedException
 from ..utility import custom_print as log, Either
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Dict
@@ -190,7 +190,10 @@ class PackageBuilder:
 
                 return Either(right=(self._pipeline_id, path))
             except Exception as e:
+
                 log(message="Failed to build the pipeline package.", exception=e, step_id=self._pipeline_id)
+                log(step_status=Status.FAILED, step_id=self._pipeline_id)
+
                 return Either(left=e)
 
     def _uploading_to_nexus(self, upload_path):
@@ -229,7 +232,7 @@ class PackageBuilder:
             return f'{result}-1.0-py3-none-any.whl'
 
     def mvn_build(self):
-        mvn = os.environ.get('MAVEN_HOME', 'mvn')
+        mvn = "mvn"
         command = [mvn, "package", "-DskipTests"] if not self._is_tests_enabled else [mvn, "package"]
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id)
@@ -287,6 +290,7 @@ class PackageBuilder:
             log("Build was successful.", step_id=self._pipeline_id)
         else:
             log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
+            raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")
 
 
 class PipelineUploader:
@@ -347,6 +351,7 @@ class PipelineUploader:
 
                                 log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {fabric_id}",
                                     step_id=self.pipeline_id)
+                                
 
                 except InvalidFabricException as e:
                     log(f"Wrong fabric to upload pipeline {self.pipeline_id}", step_id=self.pipeline_id,
