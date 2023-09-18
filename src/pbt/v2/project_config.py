@@ -1,5 +1,6 @@
 import enum
 from typing import List, Optional
+
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
@@ -33,6 +34,7 @@ class FabricProviderType(enum.Enum):
     Databricks = "Databricks"
     Prophecy = "Prophecy"
     EMR = "EMR"
+    Dataproc = "Dataproc"
 
 
 class RuntimeMode(enum.Enum):
@@ -44,8 +46,8 @@ class RuntimeMode(enum.Enum):
 
 
 class DeploymentMode(enum.Enum):
-    FullProjectDeployment = "FullProjectDeployment"
-    SelectiveJobDeployment = "SelectiveJobDeployment"
+    FullProject = "FullProject"
+    SelectiveJob = "SelectiveJob"
 
 
 class EMRInfo(BaseModel):
@@ -57,6 +59,13 @@ class EMRInfo(BaseModel):
 
     def bare_bucket(self):
         return self.bucket.replace("s3://", "")
+
+
+class DataprocInfo(BaseModel):
+    bucket: str
+    project_id: str
+    key_json: str
+    location: str
 
 
 class ComposerInfo(BaseModel):
@@ -88,11 +97,12 @@ class FabricInfo(BaseModel):
     id: str
     name: str
     type: Optional[FabricType]  # sql/ databricks/ airflow
-    provider: Optional[FabricProviderType]  # composer/mwaa/prophecy/databricks
+    provider: Optional[FabricProviderType]  # composer/mwaa/prophecy/databricks/dataproc
     composer: Optional[ComposerInfo] = None
     mwaa: Optional[MwaaInfo] = None
     databricks: Optional[DatabricksInfo] = None
     emr: Optional[EMRInfo] = None
+    dataproc: Optional[DataprocInfo] = None
 
 
 class JobInfo(BaseModel):
@@ -201,6 +211,10 @@ class DeploymentState(BaseModel):
         return [fabric for fabric in self.fabrics if
                 (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.EMR)]
 
+    def dataproc_fabrics(self) -> List[FabricInfo]:
+        return [fabric for fabric in self.fabrics if
+                (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)]
+
     def update_state(self, jobs_and_operation_types: List[Either]):
         jobs_and_operation_types_filtered: List[JobInfoAndOperation] = [job_and_operation_type.right for
                                                                         job_and_operation_type
@@ -243,13 +257,13 @@ class JobsAndFabric(BaseModel):
     fabric_id: str
 
 
-class ProjectStateOverrideConfig(BaseModel):
+class DeploymentRunOverrideConfig(BaseModel):
     are_tests_enabled: Optional[bool] = False
-    mode: Optional[DeploymentMode] = DeploymentMode.FullProjectDeployment
+    mode: Optional[DeploymentMode] = DeploymentMode.FullProject
     jobs_and_fabric: Optional[List[JobsAndFabric]] = None
 
     def find_fabric_override_for_job(self, job_id: str) -> Optional[str]:
-        if self.mode == DeploymentMode.SelectiveJobDeployment and self.jobs_and_fabric:
+        if self.mode == DeploymentMode.SelectiveJob and self.jobs_and_fabric:
             matching_fabric = next(
                 (job_and_fabric.fabric_id for job_and_fabric in self.jobs_and_fabric if
                  job_and_fabric.job_id == job_id),
@@ -260,7 +274,7 @@ class ProjectStateOverrideConfig(BaseModel):
 
     @staticmethod
     def empty():
-        return ProjectStateOverrideConfig()
+        return DeploymentRunOverrideConfig()
 
 
 class NexusConfig(BaseModel):
@@ -290,14 +304,14 @@ class SystemConfig(BaseModel):
 
 class ProjectConfig:
     def __init__(self, deployment_state: DeploymentState, system_config: SystemConfig,
-                 project_state_override: ProjectStateOverrideConfig):
+                 deployment_run_override_config: DeploymentRunOverrideConfig):
 
         self.deployment_state = deployment_state
         self.system_config = system_config
-        self.project_state_override = project_state_override
+        self.deployment_run_override_config = deployment_run_override_config
 
     @staticmethod
-    def from_path(deployment_state_path: str, system_config_path: str, project_state_override_path: str):
+    def from_path(deployment_state_path: str, system_config_path: str, deployment_run_override_config_path: str):
         def load_deployment_state():
             if deployment_state_path is not None and len(deployment_state_path) > 0:
                 with open(deployment_state_path, "r") as deployment_state:
@@ -314,12 +328,12 @@ class ProjectConfig:
             else:
                 raise Exception("System config path is not provided")
 
-        def load_project_state_override_config():
-            if project_state_override_path is not None and len(project_state_override_path) > 0:
-                with open(project_state_override_path, "r") as project_deployment:
-                    data = project_deployment.read()
-                    return parse_yaml_raw_as(ProjectStateOverrideConfig, data)
+        def load_deployment_run_override_config():
+            if deployment_run_override_config_path is not None and len(deployment_run_override_config_path) > 0:
+                with open(deployment_run_override_config_path, "r") as deployment_run:
+                    data = deployment_run.read()
+                    return parse_yaml_raw_as(DeploymentRunOverrideConfig, data)
             else:
-                return ProjectStateOverrideConfig.empty()
+                return DeploymentRunOverrideConfig.empty()
 
-        return ProjectConfig(load_deployment_state(), load_system_config(), load_project_state_override_config())
+        return ProjectConfig(load_deployment_state(), load_system_config(), load_deployment_run_override_config())

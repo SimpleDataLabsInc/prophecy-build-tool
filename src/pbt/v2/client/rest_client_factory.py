@@ -79,3 +79,26 @@ class RestClientFactory:
         if client is not None:
             self.fabric_id_to_rest_client[fabric_id] = client
             return client
+
+    def dataproc_client(self, fabric_id: str) -> ComposerRestClient:
+        if self._get_client(fabric_id) is not None:
+            return self._get_client(fabric_id)
+
+        fabric_info = self._get_fabric_info(fabric_id)
+
+        dataproc = fabric_info.dataproc
+
+        client = None
+        if dataproc is not None:
+            client = ComposerRestClient("dummyAirflowUrl",
+                                        dataproc.project_id,
+                                        None,
+                                        dataproc.key_json,
+                                        "dummyDagLocation",
+                                        dataproc.location)
+        else:
+            raise ValueError("Fabric Id is not defined in the deployment state")
+
+        if client is not None:
+            self.fabric_id_to_rest_client[fabric_id] = client
+            return client

@@ -1,21 +1,21 @@
+import copy
 import os
 from typing import List
-import copy
 
 import yaml
 
 from .gems import GemsDeployment
 from ..constants import NEW_DEPLOYMENT_STATE_FILE
-from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations
+from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
+    DataprocPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
     DBTComponents
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
 from ..project_config import ProjectConfig
 from ..project_models import StepMetadata, Operation, StepType, Status, LogEvent
-from ..utility import remove_null_items_recursively
-
 from ..utility import custom_print as log
+from ..utility import remove_null_items_recursively
 
 
 class ProjectDeployment:
@@ -31,6 +31,9 @@ class ProjectDeployment:
                                                                project_config)
         self._emr_pipeline_configurations = EMRPipelineConfigurations(project, self._airflow_jobs, project_config)
 
+        self._dataproc_pipeline_configurations = DataprocPipelineConfigurations(project, self._airflow_jobs,
+                                                                                project_config)
+
         self._dbt_component = DBTComponents(project, self._databricks_jobs, project_config)
         self._airflow_git_secrets = AirflowGitSecrets(project, self._airflow_jobs, project_config)
 
@@ -44,7 +47,7 @@ class ProjectDeployment:
         summary = self._gems.summary() + self._script_component.summary() + \
                   self._dbt_component.summary() + self._airflow_git_secrets.summary() + \
                   self._pipeline_configurations.summary() + self._emr_pipeline_configurations.summary() + \
-                  self._pipelines.summary() + \
+                  self._dataproc_pipeline_configurations.summary() + self._pipelines.summary() + \
                   self._databricks_jobs.summary() + self._airflow_jobs.summary()
 
         if len(summary) == 0:
@@ -60,6 +63,7 @@ class ProjectDeployment:
             self._airflow_git_secrets.headers(),
             self._pipeline_configurations.headers(),
             self._emr_pipeline_configurations.headers(),
+            self._dataproc_pipeline_configurations.headers(),
             self._pipelines.headers(),
             self._databricks_jobs.headers(),
             self._airflow_jobs.headers()
@@ -70,7 +74,7 @@ class ProjectDeployment:
         # 1st steps have to be summary
         for header in headers:
             logline = LogEvent.from_step_metadata(header)
-            log(logline.to_json())
+            log(message=logline.to_json(), step_id=logline.step_id)
 
         for step in summary:
             log(message=step, step_id="Summary")
@@ -126,7 +130,12 @@ class ProjectDeployment:
         if emr_pipeline_config_responses is not None and any(
                 response.is_left for response in emr_pipeline_config_responses):
             raise Exception("EMR Pipeline configuration response failed.")
-        # pipeline_responses = self._pipelines.deploy()
+
+        dataproc_pipeline_configurations_responses = self._dataproc_pipeline_configurations.deploy()
+
+        if dataproc_pipeline_configurations_responses is not None and any(
+                response.is_left for response in dataproc_pipeline_configurations_responses):
+            raise Exception("Dataproc Pipeline configuration response failed.")
 
         pipeline_responses = self._pipelines.deploy()
 

@@ -6,13 +6,13 @@ from typing import Dict, Optional, List
 
 import yaml
 
-from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
-from ...entities.project import Project
 from ...constants import FABRIC_UID
-from ...project_models import StepMetadata, Operation, StepType, Status
+from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
+from ...entities.project import Project
 from ...project_config import JobInfo, ProjectConfig
+from ...project_models import StepMetadata, Operation, StepType, Status
 from ...utility import Either, generate_secure_content, calculate_checksum
 from ...utility import custom_print as log
 
@@ -148,9 +148,11 @@ class AirflowJobDeployment:
         self._deployment_state = project_config.deployment_state
 
         self._airflow_clients = {}
+        self.deployment_run_override_config = project_config.deployment_run_override_config
+
         self._rest_client_factory = RestClientFactory(self._deployment_state)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
-        self.project_state_override_config = project_config.project_state_override
+        self.deployment_run_override_config = project_config.deployment_run_override_config
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
          self._airflow_jobs_without_code) = self._initialize_valid_airflow_jobs()
@@ -238,7 +240,7 @@ class AirflowJobDeployment:
                         log("Error while loading prophecy job yaml", e)
 
                 jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, rdc_with_placeholders, sha,
-                                          fabric_override=self.project_state_override_config.find_fabric_override_for_job(
+                                          fabric_override=self.deployment_run_override_config.find_fabric_override_for_job(
                                               job_id))
 
         return jobs
@@ -618,7 +620,7 @@ class AirflowGitSecrets:
 
 
 class EMRPipelineConfigurations:
-    _STEP_ID = "EMRpipeline_configurations"
+    _STEP_ID = "EMR_pipeline_configurations"
 
     def __init__(self, project: Project, airflow_jobs: AirflowJobDeployment,
                  project_config: ProjectConfig):
@@ -691,6 +693,89 @@ class EMRPipelineConfigurations:
             client = self._rest_client_factory.s3_client(str(fabric_info.fabric_id))
             emr_info = fabric_info.emr
             client.upload_content(emr_info.bucket, configuration_path, configuration_content)
+
+            log(f"Uploaded pipeline configuration on path {configuration_path}",
+                step_id=self._STEP_ID)
+
+            return Either(right=True)
+
+        except Exception as e:
+            log(f"Failed to upload pipeline configuration for path {configuration_path}", exception=e,
+                step_id=self._STEP_ID)
+            return Either(left=e)
+
+
+class DataprocPipelineConfigurations:
+    _STEP_ID = "DATAPROC_pipeline_configurations"
+
+    def __init__(self, project: Project, airflow_jobs: AirflowJobDeployment,
+                 project_config: ProjectConfig):
+        self.airflow_jobs = airflow_jobs
+        self.pipeline_configurations = project.pipeline_configurations
+        self.project_config = project_config
+        self._deployment_state = project_config.deployment_state
+        self._rest_client_factory = RestClientFactory(self._deployment_state)
+
+    def _dataproc_fabrics(self):
+        return self._deployment_state.dataproc_fabrics()
+
+    def summary(self) -> List[str]:
+        summary = []
+        for ids in self.pipeline_configurations.keys():
+            if len(self._dataproc_fabrics()) > 0:
+                summary.append(f"Uploading pipeline dataproc-configurations for pipeline {ids}")
+
+        return summary
+
+    def headers(self) -> List[StepMetadata]:
+        all_configs = [value for sublist in self.pipeline_configurations.values() for value in sublist]
+        if len(all_configs) > 0 and len(self._dataproc_fabrics()) > 0:
+            return [StepMetadata(self._STEP_ID,
+                                 f"Upload {len(all_configs)} pipeline dataproc-configurations",
+                                 Operation.Upload, StepType.PipelineConfiguration)]
+        else:
+            return []
+
+    def deploy(self):
+        futures = []
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+
+            def execute_job(fabric_info, configuration_content, configuration_path):
+                futures.append(executor.submit(
+                    lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path:
+                    self._upload_configuration(f_info, conf_content, conf_path)))
+
+                for pipeline_id, configurations in self.pipeline_configurations.items():
+                    path = self.project_config.system_config.get_s3_base_path()
+                    pipeline_path = f'{path}/{pipeline_id}'
+                    for configuration_name, configuration_content in configurations.items():
+                        configuration_path = f'{pipeline_path}/{configuration_name}.jsn'
+
+                        for fabric_info in self._deployment_state.dataproc_fabrics():
+
+                            if fabric_info.dataproc is not None:
+                                execute_job(fabric_info, configuration_content, configuration_path)
+
+        responses = []
+
+        for future in as_completed(futures):
+            responses.append(future.result())
+
+            # copy paste for now, will refactor later
+        if responses is not None and len(responses) > 0:
+            if any(response.is_left for response in responses):
+                log(step_status=Status.FAILED, step_id=self._STEP_ID)
+            else:
+                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
+
+        return responses
+
+    def _upload_configuration(self, fabric_info, configuration_content, configuration_path):
+        try:
+            client = self._rest_client_factory.dataproc_client(str(fabric_info.fabric_id))
+            dataproc_info = fabric_info.data_proc
+            client.put_object(dataproc_info.bucket, configuration_path, configuration_content)
 
             log(f"Uploaded pipeline configuration on path {configuration_path}",
                 step_id=self._STEP_ID)

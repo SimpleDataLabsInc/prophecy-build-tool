@@ -200,3 +200,6 @@ class Project:
         with open(file_path, 'r') as file:
             content = file.read()
         return content
+
+    def non_empty_gems_directory(self):
+        return self.gems and os.path.exists(os.path.join(self.project_path, "gems"))

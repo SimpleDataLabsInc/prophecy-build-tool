@@ -1,7 +1,8 @@
 import os
+import re
 import subprocess
 import threading
-import re
+from typing import List
 
 from ..entities.project import Project
 from ..project_config import ProjectConfig
@@ -17,7 +18,7 @@ class GemsDeployment:
         self.project_config = project_config
 
     def _does_gems_exist(self):
-        return self.project.gems is not None
+        return self.project.non_empty_gems_directory()
 
     def summary(self):
         if self._does_gems_exist():
@@ -25,10 +26,10 @@ class GemsDeployment:
         else:
             return []
 
-    def headers(self):
+    def headers(self) -> List[StepMetadata]:
         if self._does_gems_exist():
-            return StepMetadata("gems", f"Gems will be build and uploaded",
-                                Operation.Build, StepType.Pipeline)
+            return [StepMetadata("gems", f"Gems will be build and uploaded",
+                                 Operation.Build, StepType.Pipeline)]
         else:
             return []
 

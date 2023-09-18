@@ -1,7 +1,6 @@
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
 from .project_config import ProjectConfig
-from .project_models import LogEvent
 
 
 class PBTCli(object):
@@ -11,13 +10,14 @@ class PBTCli(object):
                  deployment_state_path,
                  system_config_path,
                  project_id,
-                 project_state_override_config_path,
+                 deployment_state_override_config_path,
                  release_tag,
                  release_version):
         self.project_path = project_path
         self.deployment_state_path = deployment_state_path
         self.project = ProjectDeployment(Project(project_path, project_id, release_tag, release_version),
-                                         ProjectConfig.from_path(deployment_state_path, system_config_path, project_state_override_config_path))
+                                         ProjectConfig.from_path(deployment_state_path, system_config_path,
+                                                                 deployment_state_override_config_path))
 
     def headers(self):
         """Print headers."""

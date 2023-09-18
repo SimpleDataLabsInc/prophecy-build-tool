@@ -49,7 +49,7 @@ class Either:
         return self.left is not None
 
     @property
-    def is_right(self):
+    def is_right(self) -> bool:
         return self.right is not None
 
 
