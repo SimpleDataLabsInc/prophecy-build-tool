@@ -3,21 +3,20 @@ import re
 import subprocess
 import tempfile
 import threading
-
-from . import JobData, invert_entity_to_fabric_mapping, EntityIdToFabricId
-from ..client.rest_client_factory import RestClientFactory
-from ..exceptions import InvalidFabricException, ProjectBuildFailedException
-from ..utility import custom_print as log, Either
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Dict
 
+from . import JobData, invert_entity_to_fabric_mapping, EntityIdToFabricId
 from ..client.nexus import NexusClient
+from ..client.rest_client_factory import RestClientFactory
 from ..constants import SCALA_LANGUAGE
 from ..deployment.jobs.airflow import AirflowJobDeployment
 from ..deployment.jobs.databricks import DatabricksJobsDeployment
 from ..entities.project import Project
-from ..project_models import StepMetadata, Operation, StepType, Status
+from ..exceptions import InvalidFabricException, ProjectBuildFailedException
 from ..project_config import ProjectConfig
+from ..project_models import StepMetadata, Operation, StepType, Status
+from ..utility import custom_print as log, Either
 
 
 class PipelineDeployment:
@@ -364,7 +363,6 @@ class PipelineUploader:
 
                                 log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {fabric_id}",
                                     step_id=self.pipeline_id)
-
 
                 except InvalidFabricException as e:
                     log(f"Wrong fabric to upload pipeline {self.pipeline_id}", step_id=self.pipeline_id,
