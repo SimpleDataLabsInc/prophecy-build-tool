@@ -150,7 +150,7 @@ class AirflowJobDeployment:
         self._airflow_clients = {}
         self._rest_client_factory = RestClientFactory(self._deployment_state)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
-        self.project_state_override_config = project_config.deployment_run_override_config
+        self.deployment_run_override_config = project_config.deployment_run_override_config
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
          self._airflow_jobs_without_code) = self._initialize_valid_airflow_jobs()
@@ -238,7 +238,7 @@ class AirflowJobDeployment:
                         log("Error while loading prophecy job yaml", e)
 
                 jobs[job_id] = AirflowJob(parsed_job, prophecy_job_json, rdc, rdc_with_placeholders, sha,
-                                          fabric_override=self.project_state_override_config.find_fabric_override_for_job(
+                                          fabric_override=self.deployment_run_override_config.find_fabric_override_for_job(
                                               job_id))
 
         return jobs
