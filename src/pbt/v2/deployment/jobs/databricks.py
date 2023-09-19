@@ -112,7 +112,7 @@ class DatabricksJobsDeployment:
 
         self.project_config = project_config
         self.deployment_state = project_config.deployment_state
-        self.project_override_state_config = project_config.project_state_override
+        self.deployment_run_override_config = project_config.deployment_run_override_config
 
         self._pipeline_configurations = self.project.pipeline_configurations
         self._rest_client_factory = RestClientFactory(self.project_config.deployment_state)
@@ -185,7 +185,7 @@ class DatabricksJobsDeployment:
         for job_id, pbt_job_json in self.project.jobs.items():
             if 'Databricks' in pbt_job_json.get('scheduler', None):
                 databricks_job = self.project.load_databricks_job(job_id)
-                fabric_override = self.project_override_state_config.find_fabric_override_for_job(job_id)
+                fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
                 jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
 
         return jobs
