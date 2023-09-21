@@ -13,7 +13,7 @@ from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptCompone
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
 from ..project_config import ProjectConfig
-from ..project_models import StepMetadata, Operation, StepType, Status, LogEvent
+from ..project_models import StepMetadata, Operation, StepType, Status
 from ..utility import custom_print as log
 from ..utility import remove_null_items_recursively
 
@@ -73,8 +73,7 @@ class ProjectDeployment:
 
         # 1st steps have to be summary
         for header in headers:
-            logline = LogEvent.from_step_metadata(header)
-            log(message=logline.to_json(), step_id=logline.step_id)
+            log(step_id=header.id, step_metadata=header)
 
         for step in summary:
             log(message=step, step_id="Summary")

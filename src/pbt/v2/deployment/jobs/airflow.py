@@ -152,7 +152,6 @@ class AirflowJobDeployment:
 
         self._rest_client_factory = RestClientFactory(self._deployment_state)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
-        self.deployment_run_override_config = project_config.deployment_run_override_config
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
          self._airflow_jobs_without_code) = self._initialize_valid_airflow_jobs()
@@ -220,7 +219,8 @@ class AirflowJobDeployment:
         jobs = {}
 
         for job_id, parsed_job in self._project.jobs.items():
-            if 'Databricks' not in parsed_job.get('scheduler', None):
+            if 'Databricks' not in parsed_job.get('scheduler',
+                                                  None) and self.deployment_run_override_config.is_job_to_run(job_id):
 
                 rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
                 rdc = self._project.load_airflow_folder(job_id)

@@ -276,6 +276,11 @@ class DeploymentRunOverrideConfig(BaseModel):
     def empty():
         return DeploymentRunOverrideConfig()
 
+    def is_job_to_run(self, job_id) -> bool:
+        if self.mode == DeploymentMode.SelectiveJob and self.jobs_and_fabric:
+            return any(job_and_fabric.job_id == job_id for job_and_fabric in self.jobs_and_fabric)
+        return True
+
 
 class NexusConfig(BaseModel):
     url: str

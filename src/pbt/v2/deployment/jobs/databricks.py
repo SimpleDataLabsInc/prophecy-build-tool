@@ -6,13 +6,13 @@ from typing import Dict, List, Optional
 from requests import HTTPError
 from tenacity import RetryError
 
-from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...client.rest_client_factory import RestClientFactory
 from ...constants import COMPONENTS_LITERAL
+from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
 from ...exceptions import InvalidFabricException
-from ...project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
 from ...project_config import JobInfo, ProjectConfig
+from ...project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
 from ...utility import custom_print as log, Either
 
 SCRIPT_COMPONENT = "ScriptComponent"
@@ -183,7 +183,8 @@ class DatabricksJobsDeployment:
         jobs = {}
 
         for job_id, pbt_job_json in self.project.jobs.items():
-            if 'Databricks' in pbt_job_json.get('scheduler', None):
+            if 'Databricks' in pbt_job_json.get('scheduler',
+                                                None) and self.deployment_run_override_config.is_job_to_run(job_id):
                 databricks_job = self.project.load_databricks_job(job_id)
                 fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
                 jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
@@ -673,7 +674,6 @@ class ScriptComponents:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             for job_id, script_components in self._script_components_from_jobs().items():
-                log(step_status=Status.RUNNING, step_id=self._STEP_ID)
 
                 for scripts in script_components.scripts:
                     futures.append(executor.submit(
