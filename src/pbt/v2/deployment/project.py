@@ -5,7 +5,7 @@ from typing import List
 import yaml
 
 from .gems import GemsDeployment
-from ..constants import NEW_DEPLOYMENT_STATE_FILE
+from ..constants import NEW_JOB_STATE_FILE
 from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
     DataprocPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
@@ -14,7 +14,7 @@ from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
 from ..project_config import ProjectConfig
 from ..project_models import StepMetadata, Operation, StepType, Status
-from ..utility import custom_print as log, Either
+from ..utility import custom_print as log
 from ..utility import remove_null_items_recursively
 
 
@@ -91,78 +91,101 @@ class ProjectDeployment:
     def test(self, pipeline_name: List):
         pass
 
-    def deploy(self, job_ids):
-        # pipelines first,
-        # then other components
-
+    def deploy_gems(self):
         gems_responses = self._gems.deploy()
 
         if gems_responses is not None and any(response.is_left for response in gems_responses):
             raise Exception("Gems deployment failed.")
 
+    def _deploy_scripts(self):
         script_responses = self._script_component.deploy()
 
         if script_responses is not None and any(response.is_left for response in script_responses):
             raise Exception("Script deployment failed.")
 
-        dbt_component_responses = self._dbt_component.deploy()
+    def _deploy_dbt_components(self):
+        dbt_responses = self._dbt_component.deploy()
 
-        if dbt_component_responses is not None and any(response.is_left for response in dbt_component_responses):
-            raise Exception("DBT component deployment failed.")
+        if dbt_responses is not None and any(response.is_left for response in dbt_responses):
+            raise Exception("DBT deployment failed.")
 
-        airflow_git_secrets = self._airflow_git_secrets.deploy()
+    def _deploy_airflow_git_secrets(self):
+        airflow_git_secrets_responses = self._airflow_git_secrets.deploy()
 
-        if airflow_git_secrets is not None and any(response.is_left for response in airflow_git_secrets):
-            raise Exception("Airflow git Secrets deployment failed.")
+        if airflow_git_secrets_responses is not None and any(
+                response.is_left for response in airflow_git_secrets_responses):
+            raise Exception("Airflow git secrets deployment failed.")
 
-        # if dbt_components_responses is not None and any(response.is_left for response in dbt_components_responses):
-        #     raise Exception("DBT deployment failed.")
-
-        # pipeline_configurations_responses = self._pipeline_configurations.deploy()
+    def _deploy_pipeline_configs(self):
         pipeline_config_responses = self._pipeline_configurations.deploy()
 
         if pipeline_config_responses is not None and any(response.is_left for response in pipeline_config_responses):
-            raise Exception("Pipeline configuration response failed.")
+            raise Exception("Pipeline config deployment failed.")
 
+    def _deploy_emr_pipeline_config(self):
         emr_pipeline_config_responses = self._emr_pipeline_configurations.deploy()
 
         if emr_pipeline_config_responses is not None and any(
                 response.is_left for response in emr_pipeline_config_responses):
-            raise Exception("EMR Pipeline configuration response failed.")
+            raise Exception("EMR pipeline config deployment failed.")
 
-        dataproc_pipeline_configurations_responses = self._dataproc_pipeline_configurations.deploy()
+    def _deploy_dataproc_pipeline_config(self):
+        dataproc_pipeline_config_responses = self._dataproc_pipeline_configurations.deploy()
 
-        if dataproc_pipeline_configurations_responses is not None and any(
-                response.is_left for response in dataproc_pipeline_configurations_responses):
-            raise Exception("Dataproc Pipeline configuration response failed.")
+        if dataproc_pipeline_config_responses is not None and any(
+                response.is_left for response in dataproc_pipeline_config_responses):
+            raise Exception("Dataproc pipeline config deployment failed.")
 
+    def _deploy_pipelines(self):
         pipeline_responses = self._pipelines.deploy()
 
         if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
-            raise Exception("Pipelines deployment failed.")
+            raise Exception("Pipeline deployment failed.")
+
+    def _deploy_databricks_jobs(self):
+        databricks_jobs_responses = self._databricks_jobs.deploy()
+
+        if databricks_jobs_responses is not None and any(response.is_left for response in databricks_jobs_responses):
+            raise Exception("Databricks jobs deployment failed.")
+
+    def _deploy_airflow_jobs(self):
+        airflow_jobs_responses = self._airflow_jobs.deploy()
+
+        if airflow_jobs_responses is not None and any(response.is_left for response in airflow_jobs_responses):
+            raise Exception("Airflow jobs deployment failed.")
+
+    def deploy(self, job_ids):
+        self.deploy_gems()
+        self._deploy_scripts()
+        self._deploy_dbt_components()
+        self._deploy_airflow_git_secrets()
+        self._deploy_pipeline_configs()
+        self._deploy_emr_pipeline_config()
+        self._deploy_dataproc_pipeline_config()
+        self._deploy_pipelines()
+
+        databricks_responses = self._deploy_databricks_jobs()
+        airflow_responses = self._deploy_airflow_jobs()
 
         new_state_config = copy.deepcopy(self.project_config.jobs_state)
 
         # only jobs changes state_config.
 
-        databricks_jobs_responses: List[Either] = self._databricks_jobs.deploy()
-        airflow_jobs_responses: List[Either] = self._airflow_jobs.deploy()
-
-        new_state_config.update_state(databricks_jobs_responses + airflow_jobs_responses)
-        path = os.path.join(os.getcwd(), NEW_DEPLOYMENT_STATE_FILE)
+        new_state_config.update_state(databricks_responses + airflow_responses)
+        path = os.path.join(os.getcwd(), NEW_JOB_STATE_FILE)
         yaml_str = yaml.dump(remove_null_items_recursively(new_state_config.dict()))
 
         with open(path, 'w') as file:
             file.write(yaml_str)
 
         # Only fail when there is a failure in jobs deployment.
-        if databricks_jobs_responses is not None and any(response.is_left for response in databricks_jobs_responses):
-            for response in databricks_jobs_responses:
+        if databricks_responses is not None and any(response.is_left for response in databricks_responses):
+            for response in databricks_responses:
                 if response.is_left:
                     print(response.left)
             raise Exception("Databricks jobs deployment failed.")
 
-        if airflow_jobs_responses is not None and any(response.is_left for response in airflow_jobs_responses):
+        if airflow_responses is not None and any(response.is_left for response in airflow_responses):
             raise Exception("Airflow jobs deployment failed.")
 
-        return databricks_jobs_responses + airflow_jobs_responses
+        return databricks_responses + airflow_responses

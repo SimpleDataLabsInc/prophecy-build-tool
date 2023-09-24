@@ -65,13 +65,14 @@ class PackageBuilder:
         self.language = language
 
     def build(self):
-        if self.language == "SCALA":
+        if self.language == "scala":
             return self.mvn_build()
         else:
             return self.wheel_build()
 
     def mvn_build(self):
-        command = ["mvn", "package", "-DskipTests"]
+        settings_xml = os.environ["MAVEN_HOME"] + "/conf/settings.xml"
+        command = ["mvn", "package", "-DskipTests", "-s", settings_xml]
 
         log(f"Running mvn command {command}", step_id=GEMS)
 
@@ -89,7 +90,7 @@ class PackageBuilder:
         env = dict(os.environ)
 
         # Set the MAVEN_OPTS variable
-        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m -s /opt/docker/build/settings.xml"
+        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
 
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self.path)

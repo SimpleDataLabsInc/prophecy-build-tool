@@ -150,7 +150,6 @@ class ProjectAndGitTokens(BaseModel):
 class FabricConfig(BaseModel):
     fabrics: List[FabricInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
-    fabric_id_to_client_dict: Optional[dict] = None  # in-memory cache for clients
 
     def is_fabric_db_fabric(self, fabric_id: str) -> bool:
         return any((fabric for fabric in self.fabrics if

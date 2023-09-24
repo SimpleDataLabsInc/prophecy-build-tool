@@ -11,9 +11,17 @@ from ..project_config import FabricInfo, FabricConfig
 class RestClientFactory:
     _instance = None
 
+    def __new__(cls, fabric_config: FabricConfig):
+        if not cls._instance:
+            cls._instance = super(RestClientFactory, cls).__new__(cls)
+            cls._instance.fabric_config = fabric_config
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self, fabric_config: FabricConfig):
-        self.fabric_config = fabric_config
-        self.fabric_id_to_rest_client = {}
+        if not self._initialized:
+            self.fabric_config = fabric_config
+            self.fabric_id_to_rest_client = {}
 
     def _get_fabric_info(self, fabric_id: str) -> FabricInfo:
         if fabric_id is None or fabric_id == "":
