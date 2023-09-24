@@ -201,5 +201,6 @@ class Project:
             content = file.read()
         return content
 
+    # only check for non-empty gems directory
     def non_empty_gems_directory(self):
-        return self.gems and os.path.exists(os.path.join(self.project_path, "gems"))
+        return os.path.exists(os.path.join(self.project_path, "gems"))

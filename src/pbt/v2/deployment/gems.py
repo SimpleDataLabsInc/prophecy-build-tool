@@ -22,7 +22,7 @@ class GemsDeployment:
 
     def summary(self):
         if self._does_gems_exist():
-            return ["Gems will be build and uploaded to nexus"]
+            return ["Gems package will be build and uploaded to nexus"]
         else:
             return []
 
@@ -39,15 +39,20 @@ class GemsDeployment:
             log(step_status=Status.RUNNING, step_id=GEMS)
             gem_path = os.path.join(self.project.project_path, "gems")
             package_builder = PackageBuilder(gem_path, self.project.project_language)
-            return_code = package_builder.build()
 
-            if return_code == 0:
-                log(step_status=Status.SUCCEEDED, step_id=GEMS)
-                return [Either(right=True)]
-            else:
-                log(step_status=Status.FAILED, step_id=GEMS)
-                return [Either(right=True)]
+            try:
+                return_code = package_builder.build()
 
+                if return_code == 0:
+                    log(step_status=Status.SUCCEEDED, step_id=GEMS)
+                    return [Either(right=True)]
+                else:
+                    log(step_status=Status.FAILED, step_id=GEMS)
+                    return [Either(right=True)]
+
+            except Exception as e:
+                log(message="Failed to build the pipeline package.", exception=e, step_id=GEMS)
+                return Either(left=e)
         else:
             return []
 
@@ -66,10 +71,9 @@ class PackageBuilder:
             return self.wheel_build()
 
     def mvn_build(self):
-        mvn = os.environ.get('MAVEN_HOME', 'mvn')
-        command = [mvn, "package", "-DskipTests"]
+        command = ["mvn", "package", "-DskipTests"]
 
-        log(f"Running mvn command {command}", step_id="gems")
+        log(f"Running mvn command {command}", step_id=GEMS)
 
         return self._build(command)
 
