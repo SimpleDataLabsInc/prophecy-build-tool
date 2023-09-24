@@ -365,7 +365,7 @@ class ProjectConfig:
     # best used when invoking from execution.
     @classmethod
     def from_conf_folder(cls, conf_folder):
-        ProjectConfig.from_path(os.path.join(conf_folder, "jobs_state.yml"),
+        return ProjectConfig.from_path(os.path.join(conf_folder, "jobs_state.yml"),
                                 os.path.join(conf_folder, "system.yml"),
                                 os.path.join(conf_folder, "config_override.yml"),
                                 os.path.join(conf_folder, "fabrics.yml"))

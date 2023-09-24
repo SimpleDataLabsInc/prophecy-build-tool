@@ -24,7 +24,8 @@ class PBTCli(object):
         self.project.deploy(job_ids)
 
     @classmethod
-    def from_conf_folder(cls, project_path, project_id, conf_folder, release_tag:Optional[str], release_version):
+    def from_conf_folder(cls, project_path: str, project_id: str, conf_folder: str, release_tag: Optional[str],
+                         release_version: str):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version)
         project_config = ProjectConfig.from_conf_folder(conf_folder)
