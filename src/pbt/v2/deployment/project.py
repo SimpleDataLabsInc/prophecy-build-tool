@@ -14,7 +14,7 @@ from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
 from ..project_config import ProjectConfig
 from ..project_models import StepMetadata, Operation, StepType, Status
-from ..utility import custom_print as log
+from ..utility import custom_print as log, Either
 from ..utility import remove_null_items_recursively
 
 
@@ -82,8 +82,8 @@ class ProjectDeployment:
 
         return headers
 
-    def build(self, pipeline_ids):
-        self._pipelines.build_and_upload(pipeline_ids)
+    def build(self):
+        self._pipelines.build_and_upload()
 
     def validate(self):
         pass
@@ -141,12 +141,12 @@ class ProjectDeployment:
         if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
             raise Exception("Pipelines deployment failed.")
 
-        new_state_config = copy.deepcopy(self.project_config.deployment_state)
+        new_state_config = copy.deepcopy(self.project_config.jobs_state)
 
         # only jobs changes state_config.
 
-        databricks_jobs_responses = self._databricks_jobs.deploy()
-        airflow_jobs_responses = self._airflow_jobs.deploy()
+        databricks_jobs_responses: List[Either] = self._databricks_jobs.deploy()
+        airflow_jobs_responses: List[Either] = self._airflow_jobs.deploy()
 
         new_state_config.update_state(databricks_jobs_responses + airflow_jobs_responses)
         path = os.path.join(os.getcwd(), NEW_DEPLOYMENT_STATE_FILE)

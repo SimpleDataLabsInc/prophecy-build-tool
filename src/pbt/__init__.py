@@ -1,6 +1,8 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+from typing import Optional
+
 import click
 import pkg_resources
 from rich import print
@@ -113,7 +115,7 @@ def deploy(
 
 @cli.command()
 @click.option(
-    "--path",
+    "--project-path",
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
@@ -123,38 +125,28 @@ def deploy(
     required=True,
 )
 @click.option(
-    "--deployment-state-path",
-    help="Path to the yaml file containing the state configuration",
-    required=True,
-)
-@click.option(
-    "--system-config-path",
-    help="Path to the yaml file containing the system configuration",
-    required=True,
-)
-@click.option(
-    "--deployment-state-override-path",
-    help="Deployment state override path",
-    required=False
+    "--conf-folder",
+    help="Path to the configuration file folders",
+    required=False,
 )
 @click.option(
     "--release-tag",
-    help="Release tag to be used",
-    required=True,
+    help="Release tag",
+    required=False,
 )
 @click.option(
     "--release-version",
-    help="Release version to be used",
+    help="Release version",
     required=True,
 )
-def deploy_v2(path, project_id: str, deployment_state_path: str, system_config_path: str,
-              deployment_state_override_path: str,
-              release_tag: str, release_version: str):
-    pbt = PBTCli(path, deployment_state_path, system_config_path, project_id, deployment_state_override_path,
-                 release_tag,
-                 release_version)
-    pbt.headers()
-    pbt.deploy([])
+def deploy_v2(project_path, project_id: str, conf_folder: Optional[str],
+              release_tag: Optional[str] , release_version: str):
+    if conf_folder is not None:
+        pbt = PBTCli.from_conf_folder(project_path, project_id, conf_folder, release_tag, release_version)
+        pbt.headers()
+        pbt.deploy([])
+    else:
+        raise Exception("Not implemented")
 
 
 @cli.command()

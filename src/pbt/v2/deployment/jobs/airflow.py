@@ -145,12 +145,13 @@ class AirflowJobDeployment:
     def __init__(self, project: Project, project_config: ProjectConfig):
         self._project = project
         self._project_config = project_config
-        self._deployment_state = project_config.deployment_state
+        self._jobs_state = project_config.jobs_state
+        self._fabrics_config = project_config.fabric_config
 
         self._airflow_clients = {}
-        self.deployment_run_override_config = project_config.deployment_run_override_config
+        self.deployment_run_override_config = project_config.configs_override
 
-        self._rest_client_factory = RestClientFactory(self._deployment_state)
+        self._rest_client_factory = RestClientFactory(self._fabrics_config)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
@@ -266,7 +267,7 @@ class AirflowJobDeployment:
 
     def _validate_airflow_job(self, job_id: str, job_data: AirflowJob):
 
-        is_prophecy_managed_fabric = self._deployment_state.is_fabric_prophecy_managed(
+        is_prophecy_managed_fabric = self._fabrics_config.is_fabric_prophecy_managed(
             job_data.fabric_id)
         rdc = job_data.rdc
 
@@ -291,7 +292,7 @@ class AirflowJobDeployment:
         for job_id, job_data in self.valid_airflow_jobs.items():
 
             is_job_enabled = job_data.is_enabled
-            is_prophecy_managed_fabric = self._deployment_state.is_fabric_prophecy_managed(
+            is_prophecy_managed_fabric = self._fabrics_config.is_fabric_prophecy_managed(
                 job_data.fabric_id)
 
             if is_job_enabled and is_prophecy_managed_fabric and job_data.has_dbt_component:
@@ -337,7 +338,7 @@ class AirflowJobDeployment:
     def _jobs_to_be_deleted(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._deployment_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
             if not any(
                 airflow_job.id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
@@ -352,7 +353,7 @@ class AirflowJobDeployment:
     def _jobs_with_fabric_changed(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._deployment_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_airflow_jobs.items()  # Check only from valid airflow jobs.
@@ -361,7 +362,7 @@ class AirflowJobDeployment:
 
     def _rename_jobs(self) -> List[JobInfo]:
         return [
-            airflow_job for airflow_job in self._deployment_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
 
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id == job_data.fabric_id and
@@ -377,14 +378,14 @@ class AirflowJobDeployment:
     # jobs which are enabled in state config but disabled in code.
     # and always get jobs from deployment state.
     def _pause_jobs(self) -> Dict[str, JobInfo]:
-        old_enabled_job = {job.id: job for job in self._deployment_state.get_airflow_jobs if job.is_paused is False}
+        old_enabled_job = {job.id: job for job in self._jobs_state.get_airflow_jobs if job.is_paused is False}
 
         old_enabled_job_which_are_disabled_in_new = {
             job_id: job_info
             for job_id, job_info in old_enabled_job.items()
             if any(
-                job_id == id and job_info.fabric_id == job_data.fabric_id and job_data.is_disabled  # disabled in new
-                for id, job_data in self.valid_airflow_jobs.items()
+                job_id == _id and job_info.fabric_id == job_data.fabric_id and job_data.is_disabled  # disabled in new
+                for _id, job_data in self.valid_airflow_jobs.items()
             )
         }
 
@@ -440,7 +441,7 @@ class AirflowJobDeployment:
             log(f"Successfully added job {dag_name} for job_id {job_id}", step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
-                                                  self._deployment_state.release_tag,
+                                                  self._project.release_tag,
                                                   job_data.is_disabled,
                                                   get_fabric_provider_type(job_data.fabric_id, self._project_config))
 
@@ -540,14 +541,15 @@ class AirflowGitSecrets:
         self.project = project
         self.airflow_jobs = airflow_jobs
         self.project_config = project_config
-        self.deployment_state = project_config.deployment_state
+        self.deployment_state = project_config.jobs_state
+        self.fabric_config = project_config.fabric_config
 
     def summary(self) -> List[str]:
         summary = []
 
         if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
 
-            for project_git_tokens in self.deployment_state.project_git_tokens:
+            for project_git_tokens in self.fabric_config.project_git_tokens:
                 git_tokens = project_git_tokens.git_token
                 project_id = project_git_tokens.project_id
 
@@ -573,7 +575,7 @@ class AirflowGitSecrets:
             job_data = list(self.airflow_jobs.prophecy_managed_dbt_jobs.values())[0]
 
             with ThreadPoolExecutor(max_workers=10) as executor:
-                for project_git_tokens in self.deployment_state.project_git_tokens:
+                for project_git_tokens in self.fabric_config.project_git_tokens:
                     git_tokens = project_git_tokens.git_token
                     project_id = project_git_tokens.project_id
 
@@ -627,11 +629,12 @@ class EMRPipelineConfigurations:
         self.airflow_jobs = airflow_jobs
         self.pipeline_configurations = project.pipeline_configurations
         self.project_config = project_config
-        self._deployment_state = project_config.deployment_state
-        self._rest_client_factory = RestClientFactory(self._deployment_state)
+        self._jobs_state = project_config.jobs_state
+        self._fabric_config = project_config.fabric_config
+        self._rest_client_factory = RestClientFactory(self._fabric_config)
 
     def _emr_fabrics(self):
-        return self._deployment_state.emr_fabrics()
+        return self._fabric_config.emr_fabrics()
 
     def summary(self) -> List[str]:
         summary = []
@@ -656,9 +659,9 @@ class EMRPipelineConfigurations:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
 
-            def execute_job(fabric_info, configuration_content, configuration_path):
+            def execute_job(_fabric_info, _config_content, _config_path):
                 futures.append(executor.submit(
-                    lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path:
+                    lambda f_info=_fabric_info, conf_content=_config_content, conf_path=_config_path:
                     self._upload_configuration(f_info, conf_content, conf_path)))
 
             for pipeline_id, configurations in self.pipeline_configurations.items():
@@ -669,7 +672,7 @@ class EMRPipelineConfigurations:
                 for configuration_name, configuration_content in configurations.items():
                     configuration_path = f'{pipeline_path}/{configuration_name}.jsn'
 
-                    for fabric_info in self._deployment_state.emr_fabrics():
+                    for fabric_info in self._fabric_config.emr_fabrics():
 
                         if fabric_info.emr is not None:
                             execute_job(fabric_info, configuration_content, configuration_path)
@@ -713,11 +716,12 @@ class DataprocPipelineConfigurations:
         self.airflow_jobs = airflow_jobs
         self.pipeline_configurations = project.pipeline_configurations
         self.project_config = project_config
-        self._deployment_state = project_config.deployment_state
-        self._rest_client_factory = RestClientFactory(self._deployment_state)
+        self._deployment_state = project_config.jobs_state
+        self._fabric_config = project_config.fabric_config
+        self._rest_client_factory = RestClientFactory(self._fabric_config)
 
     def _dataproc_fabrics(self):
-        return self._deployment_state.dataproc_fabrics()
+        return self._fabric_config.dataproc_fabrics()
 
     def summary(self) -> List[str]:
         summary = []
@@ -752,7 +756,7 @@ class DataprocPipelineConfigurations:
                     for configuration_name, configuration_content in configurations.items():
                         configuration_path = f'{pipeline_path}/{configuration_name}.jsn'
 
-                        for fabric_info in self._deployment_state.dataproc_fabrics():
+                        for fabric_info in self._fabric_config.dataproc_fabrics():
 
                             if fabric_info.dataproc is not None:
                                 execute_job(fabric_info, configuration_content, configuration_path)

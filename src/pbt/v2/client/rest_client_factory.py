@@ -5,19 +5,21 @@ from .airflow.composer import ComposerRestClient
 from .airflow.mwaa import MWAARestClient
 from .databricks import DatabricksClient
 from .s3 import S3Client
-from ..project_config import DeploymentState, FabricInfo
+from ..project_config import FabricInfo, FabricConfig
 
 
 class RestClientFactory:
-    def __init__(self, deployment_state: DeploymentState):
-        self.deployment_state = deployment_state
+    _instance = None
+
+    def __init__(self, fabric_config: FabricConfig):
+        self.fabric_config = fabric_config
         self.fabric_id_to_rest_client = {}
 
     def _get_fabric_info(self, fabric_id: str) -> FabricInfo:
         if fabric_id is None or fabric_id == "":
             raise ValueError("Fabric Id is not defined in the deployment state")
         else:
-            fabric_info: Optional[FabricInfo] = self.deployment_state.get_fabric(str(fabric_id))
+            fabric_info: Optional[FabricInfo] = self.fabric_config.get_fabric(str(fabric_id))
             if fabric_info is None:
                 raise ValueError("Fabric Id is not defined in the deployment state")
             return fabric_info
@@ -65,7 +67,6 @@ class RestClientFactory:
         composer = fabric_info.composer
         mwaa = fabric_info.mwaa
 
-        client = None
         if composer is not None:
             client = ComposerRestClient(composer.airflow_url, composer.project_id, composer.client_id,
                                         composer.key_json, composer.dag_location)
@@ -88,7 +89,6 @@ class RestClientFactory:
 
         dataproc = fabric_info.dataproc
 
-        client = None
         if dataproc is not None:
             client = ComposerRestClient("dummyAirflowUrl",
                                         dataproc.project_id,

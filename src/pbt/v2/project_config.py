@@ -1,4 +1,5 @@
 import enum
+import os
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -146,44 +147,14 @@ class ProjectAndGitTokens(BaseModel):
     git_token: str = ""
 
 
-class DeploymentState(BaseModel):
-    name: str
-    language: str
-    description: str
-    version: str
-    release_tag: str  # current release tag.
+class FabricConfig(BaseModel):
     fabrics: List[FabricInfo] = []
-    jobs: List[JobInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
-
-    def contains_jobs(self, job_id: str, fabric_uid: str) -> bool:
-        return any(
-            job.id == job_id and job.fabric_id == fabric_uid and job.skip_processing is False for job in self.jobs)
-
-    def get_jobs(self, job_id: str) -> List[JobInfo]:
-        return [job for job in self.jobs if job.id == job_id and job.skip_processing is False]
-
-    def get_job(self, job_id: str, fabric_id: str) -> Optional[JobInfo]:
-        return next(
-            (job for job in self.jobs if
-             job.id == job_id and job.fabric_id == fabric_id and job.skip_processing is False),
-            None)
+    fabric_id_to_client_dict: Optional[dict] = None  # in-memory cache for clients
 
     def is_fabric_db_fabric(self, fabric_id: str) -> bool:
         return any((fabric for fabric in self.fabrics if
                     fabric.id == fabric_id and fabric.provider == FabricProviderType.Databricks))
-
-    def is_fabric_emr_fabric(self, fabric_id: str) -> bool:
-        return any((fabric for fabric in self.fabrics if
-                    fabric.id == fabric_id and fabric.provider == FabricProviderType.EMR))
-
-    @property
-    def get_databricks_jobs(self) -> List[JobInfo]:
-        return [job for job in self.jobs if job.type == SchedulerType.Databricks and job.skip_processing is False]
-
-    @property
-    def get_airflow_jobs(self) -> List[JobInfo]:
-        return [job for job in self.jobs if job.type != SchedulerType.Databricks and job.skip_processing is False]
 
     def contains_fabric(self, fabric_id: str) -> bool:
         return any(fabric.id == fabric_id for fabric in self.fabrics)
@@ -202,6 +173,10 @@ class DeploymentState(BaseModel):
 
         return False
 
+    def is_fabric_emr_fabric(self, fabric_id: str) -> bool:
+        return any((fabric for fabric in self.fabrics if
+                    fabric.id == fabric_id and fabric.provider == FabricProviderType.EMR))
+
     def db_fabrics(self):
         return [fabric.id for fabric in self.fabrics if
                 (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Databricks) or
@@ -215,39 +190,73 @@ class DeploymentState(BaseModel):
         return [fabric for fabric in self.fabrics if
                 (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)]
 
-    def update_state(self, jobs_and_operation_types: List[Either]):
-        jobs_and_operation_types_filtered: List[JobInfoAndOperation] = [job_and_operation_type.right for
-                                                                        job_and_operation_type
-                                                                        in jobs_and_operation_types if
-                                                                        job_and_operation_type.is_right]
 
-        for job_and_operation_type in jobs_and_operation_types_filtered:
-            job_response = job_and_operation_type.job_info
-            if job_and_operation_type.operation_type == OperationType.DELETED:
-                self.jobs = [job for job in self.jobs if
-                             not (job.id == job_response.id and job.fabric_id == job_response.fabric_id)]
+class JobsState(BaseModel):
+    version: str
+    jobs: List[JobInfo] = []
 
-        for job_and_operation_type in jobs_and_operation_types_filtered:
-            job_response = job_and_operation_type.job_info
-            if job_and_operation_type.operation_type == OperationType.REFRESH:
-                new_jobs = [job for job in self.jobs if
-                            not (job.id == job_response.id and job.fabric_id == job_response.fabric_id)]
-                new_jobs.append(job_response)
+    def contains_jobs(self, job_id: str, fabric_uid: str) -> bool:
+        return any(
+            job.id == job_id and job.fabric_id == fabric_uid and job.skip_processing is False for job in self.jobs)
+
+    def get_jobs(self, job_id: str) -> List[JobInfo]:
+        return [job for job in self.jobs if job.id == job_id and job.skip_processing is False]
+
+    def get_job(self, job_id: str, fabric_id: str) -> Optional[JobInfo]:
+        return next(
+            (job for job in self.jobs if
+             job.id == job_id and job.fabric_id == fabric_id and job.skip_processing is False),
+            None)
+
+    @property
+    def get_databricks_jobs(self) -> List[JobInfo]:
+        return [job for job in self.jobs if job.type == SchedulerType.Databricks and job.skip_processing is False]
+
+    @property
+    def get_airflow_jobs(self) -> List[JobInfo]:
+        return [job for job in self.jobs if job.type != SchedulerType.Databricks and job.skip_processing is False]
+
+    def filter_jobs(self, job_info) -> List[JobInfo]:
+        return [job for job in self.jobs if
+                not (job.id == job_info.id and job.fabric_id == job_info.fabric_id)]
+
+    def update_state(self, jobs_responses: List[Either]):
+        filtered_response: List[JobInfoAndOperation] = [response.right for
+                                                        response
+                                                        in jobs_responses if
+                                                        response.is_right]
+        ## Important to do all operations in this order,
+        # first we delete
+        # then we refresh
+        # then we create
+
+        for job_response in filtered_response:
+            job_info = job_response.job_info
+
+            if job_response.operation == OperationType.DELETED:
+                self.jobs = self.filter_jobs(job_info)
+
+        for job_response in filtered_response:
+            job_info = job_response.job_info
+
+            if job_response.operation == OperationType.REFRESH:
+                new_jobs = self.filter_jobs(job_info)
+                new_jobs.append(job_info)
                 self.jobs = new_jobs
 
-        for job_and_operation_type in jobs_and_operation_types_filtered:
-            job_response = job_and_operation_type.job_info
-            if job_and_operation_type.operation_type == OperationType.CREATED:
-                matching_job = next((job for job in self.jobs if job.id == job_response.id), None)
+        for job_response in filtered_response:
+            job_info = job_response.job_info
 
-                new_jobs = [job for job in self.jobs if
-                            not (job.id == job_response.id and job.fabric_id == job_response.fabric_id)]
+            if job_response.operation == OperationType.CREATED:
+                matching_job = next((job for job in self.jobs if job.id == job_info.id), None)
+
+                new_jobs = self.filter_jobs(job_info)
 
                 if matching_job is not None:
                     # super important to preserve the release tag.
-                    job_response.with_release_tag(matching_job.release_tag)
+                    job_info.with_release_tag(matching_job.release_tag)
 
-                new_jobs.append(job_response)
+                new_jobs.append(job_info)
 
                 self.jobs = new_jobs
 
@@ -257,7 +266,7 @@ class JobsAndFabric(BaseModel):
     fabric_id: str
 
 
-class DeploymentRunOverrideConfig(BaseModel):
+class ConfigsOverride(BaseModel):
     are_tests_enabled: Optional[bool] = False
     mode: Optional[DeploymentMode] = DeploymentMode.FullProject
     jobs_and_fabric: Optional[List[JobsAndFabric]] = None
@@ -274,7 +283,7 @@ class DeploymentRunOverrideConfig(BaseModel):
 
     @staticmethod
     def empty():
-        return DeploymentRunOverrideConfig()
+        return ConfigsOverride()
 
     def is_job_to_run(self, job_id) -> bool:
         if self.mode == DeploymentMode.SelectiveJob and self.jobs_and_fabric:
@@ -292,7 +301,6 @@ class NexusConfig(BaseModel):
 class SystemConfig(BaseModel):
     customer_name: Optional[str] = 'dev'
     control_plane_name: Optional[str] = 'execution'
-    runtime_mode: Optional[RuntimeMode] = RuntimeMode.Regular  # maybe an enum.
     prophecy_salt: Optional[str] = 'execution'
     nexus: Optional[NexusConfig] = None
 
@@ -308,22 +316,25 @@ class SystemConfig(BaseModel):
 
 
 class ProjectConfig:
-    def __init__(self, deployment_state: DeploymentState, system_config: SystemConfig,
-                 deployment_run_override_config: DeploymentRunOverrideConfig):
+    def __init__(self, jobs_state: JobsState, fabric_config: FabricConfig, system_config: SystemConfig,
+                 config_override: ConfigsOverride):
 
-        self.deployment_state = deployment_state
+        self.jobs_state = jobs_state
+        self.fabric_config = fabric_config
         self.system_config = system_config
-        self.deployment_run_override_config = deployment_run_override_config
+        self.configs_override = config_override
 
     @staticmethod
-    def from_path(deployment_state_path: str, system_config_path: str, deployment_run_override_config_path: str):
-        def load_deployment_state():
-            if deployment_state_path is not None and len(deployment_state_path) > 0:
-                with open(deployment_state_path, "r") as deployment_state:
-                    data = deployment_state.read()
-                    return parse_yaml_raw_as(DeploymentState, data)
+    def from_path(job_state_path: str, system_config_path: str, configs_override_path: str,
+                  fabric_config_path: str) \
+            :
+        def load_jobs_state():
+            if job_state_path is not None and len(job_state_path) > 0:
+                with open(job_state_path, "r") as job_state:
+                    data = job_state.read()
+                    return parse_yaml_raw_as(JobsState, data)
             else:
-                raise Exception("State config path is not provided")
+                raise Exception("Job state config path is not provided")
 
         def load_system_config():
             if system_config_path is not None and len(system_config_path) > 0:
@@ -333,12 +344,28 @@ class ProjectConfig:
             else:
                 raise Exception("System config path is not provided")
 
-        def load_deployment_run_override_config():
-            if deployment_run_override_config_path is not None and len(deployment_run_override_config_path) > 0:
-                with open(deployment_run_override_config_path, "r") as deployment_run:
-                    data = deployment_run.read()
-                    return parse_yaml_raw_as(DeploymentRunOverrideConfig, data)
+        def load_configs_override():
+            if configs_override_path is not None and len(configs_override_path) > 0:
+                with open(configs_override_path, "r") as config_override:
+                    data = config_override.read()
+                    return parse_yaml_raw_as(ConfigsOverride, data)
             else:
-                return DeploymentRunOverrideConfig.empty()
+                return ConfigsOverride.empty()
 
-        return ProjectConfig(load_deployment_state(), load_system_config(), load_deployment_run_override_config())
+        def load_fabric_config():
+            if fabric_config_path is not None and len(fabric_config_path) > 0:
+                with open(fabric_config_path, "r") as fabric_config:
+                    data = fabric_config.read()
+                    return parse_yaml_raw_as(FabricConfig, data)
+            else:
+                raise Exception("Fabric config path is not provided")
+
+        return ProjectConfig(load_jobs_state(), load_fabric_config(), load_system_config(), load_configs_override())
+
+    # best used when invoking from execution.
+    @classmethod
+    def from_conf_folder(cls, conf_folder):
+        ProjectConfig.from_path(os.path.join(conf_folder, "jobs_state.yml"),
+                                os.path.join(conf_folder, "system.yml"),
+                                os.path.join(conf_folder, "config_override.yml"),
+                                os.path.join(conf_folder, "fabrics.yml"))

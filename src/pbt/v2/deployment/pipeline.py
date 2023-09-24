@@ -34,7 +34,7 @@ class PipelineDeployment:
 
         self.project = project
         self.project_config = project_config
-        self.are_tests_enabled = project_config.deployment_run_override_config.are_tests_enabled
+        self.are_tests_enabled = project_config.configs_override.are_tests_enabled
 
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case deployment doesn't have any pipelines.
@@ -60,7 +60,7 @@ class PipelineDeployment:
                                         Operation.Build, StepType.Pipeline))
         return headers
 
-    def build_and_upload(self, pipeline_ids: str):
+    def build_and_upload(self):
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = []
             responses = []
@@ -92,7 +92,7 @@ class PipelineDeployment:
     def deploy(self):
 
         if not self.has_pipelines:
-            responses = self.build_and_upload([])
+            responses = self.build_and_upload()
 
             if any(response.is_left for response in responses):
                 return responses
@@ -345,7 +345,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
             responses = []
 
             for fabric_id in self.all_fabrics:
-                fabric_info = self.project_config.deployment_state.get_fabric(fabric_id)
+                fabric_info = self.project_config.fabric_config.get_fabric(fabric_id)
                 db_info = fabric_info.databricks
                 emr_info = fabric_info.emr
                 dataproc_info = fabric_info.dataproc
@@ -355,7 +355,6 @@ class PipelineUploadManager(PipelineUploader, ABC):
                                                                    self.pipeline_id, to_path, self.from_path,
                                                                    file_name,
                                                                    fabric_id)
-
 
                 elif emr_info is not None:
                     pipeline_uploader = EMRPipelineUploader(self.project, self.project_config,
@@ -399,7 +398,7 @@ class EMRPipelineUploader(PipelineUploader, ABC):
         self.emr_info = emr_info
         self.file_name = file_name
 
-        self.rest_client_factory = RestClientFactory(project_config.deployment_state)
+        self.rest_client_factory = RestClientFactory(project_config.fabric_config)
 
     def upload_pipeline(self):
         try:
@@ -407,6 +406,7 @@ class EMRPipelineUploader(PipelineUploader, ABC):
             upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
             client = self.rest_client_factory.s3_client(self.fabric_id)
             client.upload_file(self.emr_info.bare_bucket(), upload_path, self.from_path)
+
             log(f"Uploaded pipeline to s3, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
                 step_id=self.pipeline_id)
 
@@ -434,7 +434,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.pipeline_id = pipeline_id
         self.to_path = to_path
         self.fabric_id = fabric_id
-        self.rest_client_factory = RestClientFactory(project_config.deployment_state)
+        self.rest_client_factory = RestClientFactory(project_config.fabric_config)
 
     def upload_pipeline(self) -> Either:
         try:
@@ -442,8 +442,10 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
             upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
             client = self.rest_client_factory.databricks_client(self.fabric_id)
             client.upload_src_path(self.file_path, upload_path)
+
             log(f"Uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_id}",
                 step_id=self.pipeline_id)
+
             return Either(right=True)
 
         except Exception as e:
@@ -465,7 +467,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.dataproc_info = dataproc_info
         self.file_name = file_name
 
-        self.rest_client_factory = RestClientFactory(project_config.deployment_state)
+        self.rest_client_factory = RestClientFactory(project_config.fabric_config)
 
     def upload_pipeline(self):
         try:
@@ -473,6 +475,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
             upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
             client = self.rest_client_factory.dataproc_client(self.fabric_id)
             client.put_object_from_file(self.dataproc_info.bucket, upload_path, self.from_path)
+
             log(f"Uploaded pipeline to s3, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
                 step_id=self.pipeline_id)
 

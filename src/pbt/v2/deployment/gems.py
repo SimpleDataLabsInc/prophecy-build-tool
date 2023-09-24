@@ -22,13 +22,13 @@ class GemsDeployment:
 
     def summary(self):
         if self._does_gems_exist():
-            return [f"Gems will be build and uploaded to nexus"]
+            return ["Gems will be build and uploaded to nexus"]
         else:
             return []
 
     def headers(self) -> List[StepMetadata]:
         if self._does_gems_exist():
-            return [StepMetadata("gems", f"Gems will be build and uploaded",
+            return [StepMetadata("gems", "Gems will be build and uploaded",
                                  Operation.Build, StepType.Pipeline)]
         else:
             return []

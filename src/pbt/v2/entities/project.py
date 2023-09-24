@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional
 
 import yaml
@@ -6,8 +7,6 @@ import yaml
 from ..constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
     PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS
-import re
-
 from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
 SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
@@ -16,13 +15,14 @@ SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscri
 class Project:
     _DATABRICKS_JOB_JSON = "databricks-job.json"
 
-    def __init__(self, project_path: str, project_id: Optional[str] = None, release_tag: Optional[str] = None,
-                 release_version: Optional[str] = None):
+    def __init__(self, project_path: str, project_id: Optional[str] = None,
+                 release_tag: Optional[str] = None, release_version: Optional[str] = None):
 
         self.project_id = project_id
+        self.project_path = project_path
+
         self.release_tag = release_tag
         self.release_version = release_version
-        self.project_path = project_path
 
         self.pbt_project_dict = {}
         self.project_language = None
