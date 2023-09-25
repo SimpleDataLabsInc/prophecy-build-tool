@@ -1,13 +1,12 @@
 import os
+import re
 from typing import Optional
 
 import yaml
 
 from ..constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
-    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX
-import re
-
+    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS
 from ..exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
 SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
@@ -16,19 +15,21 @@ SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscri
 class Project:
     _DATABRICKS_JOB_JSON = "databricks-job.json"
 
-    def __init__(self, project_path: str, project_id: Optional[str] = None, release_tag: Optional[str] = None,
-                 release_version: Optional[str] = None):
+    def __init__(self, project_path: str, project_id: Optional[str] = None,
+                 release_tag: Optional[str] = None, release_version: Optional[str] = None):
 
         self.project_id = project_id
+        self.project_path = project_path
+
         self.release_tag = release_tag
         self.release_version = release_version
-        self.project_path = project_path
 
         self.pbt_project_dict = {}
         self.project_language = None
         self.jobs = None
         self.pipelines = None
         self.pipeline_id_to_name = {}
+        self.gems = {}
 
         self._verify_project()
         self._load_project_config()
@@ -167,6 +168,7 @@ class Project:
         self.project_language = self.pbt_project_dict.get(LANGUAGE, None)
         self.jobs = self.pbt_project_dict.get(JOBS, {})
         self.pipelines = self.pbt_project_dict.get(PIPELINES, {})
+        self.gems = self.pbt_project_dict.get(GEMS, {})
 
     def _load_pipeline_configurations(self):
         pipeline_configurations = {}
@@ -198,3 +200,7 @@ class Project:
         with open(file_path, 'r') as file:
             content = file.read()
         return content
+
+    # only check for non-empty gems directory
+    def non_empty_gems_directory(self):
+        return os.path.exists(os.path.join(self.project_path, "gems"))

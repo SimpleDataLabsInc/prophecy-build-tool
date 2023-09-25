@@ -6,13 +6,13 @@ from typing import Dict, List, Optional
 from requests import HTTPError
 from tenacity import RetryError
 
-from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...client.rest_client_factory import RestClientFactory
 from ...constants import COMPONENTS_LITERAL
+from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
 from ...exceptions import InvalidFabricException
-from ...project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
 from ...project_config import JobInfo, ProjectConfig
+from ...project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
 from ...utility import custom_print as log, Either
 
 SCRIPT_COMPONENT = "ScriptComponent"
@@ -23,9 +23,10 @@ DBT_COMPONENT = "DBTComponent"
 
 # todo add a new abstract class for DatabricksJobs and AirflowJobs
 class DatabricksJobs(JobData, ABC):
-    def __init__(self, pbt_job_json: Dict[str, str], databricks_job: str):
+    def __init__(self, pbt_job_json: Dict[str, str], databricks_job: str, fabric_override: Optional[str] = None):
         self.pbt_job_json = pbt_job_json
         self.databricks_job = databricks_job
+        self.fabric_override = fabric_override
 
         try:
             self.databricks_job_json = json.loads(databricks_job)
@@ -38,10 +39,13 @@ class DatabricksJobs(JobData, ABC):
 
     @property
     def fabric_id(self):
-        fabric_id = self.pbt_job_json.get('fabricUID', None)
+        if self.fabric_override is not None:
+            return self.fabric_override
+        else:
+            fabric_id = self.pbt_job_json.get('fabricUID', None)
 
-        if fabric_id is not None:
-            return str(fabric_id)
+            if fabric_id is not None:
+                return str(fabric_id)
 
         return fabric_id
 
@@ -107,10 +111,11 @@ class DatabricksJobsDeployment:
         self.project = project
 
         self.project_config = project_config
-        self.deployment_state = project_config.deployment_state
+        self.deployment_state = project_config.jobs_state
+        self.deployment_run_override_config = project_config.configs_override
 
         self._pipeline_configurations = self.project.pipeline_configurations
-        self._rest_client_factory = RestClientFactory(self.project_config.deployment_state)
+        self._rest_client_factory = RestClientFactory.get_instance(self.project_config.fabric_config)
 
         self._db_jobs = self._initialize_db_jobs()
         self.valid_databricks_jobs, self._databricks_jobs_without_code = self._initialize_valid_databricks_jobs()
@@ -159,7 +164,7 @@ class DatabricksJobsDeployment:
 
         return all_headers
 
-    def deploy(self):
+    def deploy(self) -> List[Either]:
         responses = self._deploy_add_jobs() + \
                     self._deploy_refresh_jobs() + \
                     self._deploy_delete_jobs() + \
@@ -178,9 +183,11 @@ class DatabricksJobsDeployment:
         jobs = {}
 
         for job_id, pbt_job_json in self.project.jobs.items():
-            if 'Databricks' in pbt_job_json.get('scheduler', None):
+            if 'Databricks' in pbt_job_json.get('scheduler',
+                                                None) and self.deployment_run_override_config.is_job_to_run(job_id):
                 databricks_job = self.project.load_databricks_job(job_id)
-                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job)
+                fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
+                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
 
         return jobs
 
@@ -253,7 +260,7 @@ class DatabricksJobsDeployment:
                 step_id=step_id)
 
             job_info = JobInfo.create_db_job(job_data.name, job_id, fabric_id, response['job_id'],
-                                             self.deployment_state.release_tag, job_data.is_paused)
+                                             self.project.release_tag, job_data.is_paused)
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
 
@@ -388,8 +395,8 @@ class DatabricksJobsDeployment:
             log(msg, step_id=self._DELETE_JOBS_STEP_ID)
             return Either(left=InvalidFabricException(msg))
 
-        def log_error(msg, exc):
-            log(msg, exception=exc, step_id=self._DELETE_JOBS_STEP_ID)
+        def log_error(_msg, exc):
+            log(_msg, exception=exc, step_id=self._DELETE_JOBS_STEP_ID)
 
         def log_success(message):
             log(message, step_id=self._DELETE_JOBS_STEP_ID)
@@ -472,7 +479,8 @@ class DBTComponents:
         self.databricks_jobs = databricks_jobs
         self.project = project
         self.project_config = project_config
-        self.deployment_state = project_config.deployment_state
+        self.jobs_state = project_config.jobs_state
+        self.fabrics_config = project_config.fabric_config
 
     def summary(self):
         summary = []
@@ -586,7 +594,7 @@ class DBTComponents:
                 .create_secret_scope_if_not_exist(dbt_component_model.secret_scope)
 
             sql_client = self.databricks_jobs.get_databricks_client(dbt_component['sqlFabricId'])
-            git_token = self.deployment_state.git_token_for_project(dbt_component['projectId'])
+            git_token = self.fabrics_config.git_token_for_project(dbt_component['projectId'])
             master_token = f"{sql_client.token};{git_token}"
 
             sql_client.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
@@ -644,7 +652,7 @@ class ScriptComponents:
         self.databricks_jobs = databricks_jobs
         self.project = project
         self.script_jobs = self._script_components_from_jobs()
-        self.deployment_state = project_config.deployment_state
+        self.deployment_state = project_config.jobs_state
 
     def summary(self) -> List[str]:
         script_summary = []
@@ -656,8 +664,10 @@ class ScriptComponents:
         return script_summary
 
     def headers(self) -> List[StepMetadata]:
-        if len(self.script_jobs) > 0:
-            return [StepMetadata(self._STEP_ID, f"Upload {len(self.script_jobs)} script components", Operation.Upload,
+        all_scripts = sum(len(v.scripts) for v in self.script_jobs.values())
+
+        if all_scripts > 0:
+            return [StepMetadata(self._STEP_ID, f"Upload {all_scripts} script components", Operation.Upload,
                                  StepType.Script)]
         else:
             return []
@@ -667,7 +677,6 @@ class ScriptComponents:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             for job_id, script_components in self._script_components_from_jobs().items():
-                log(step_status=Status.RUNNING, step_id=self._STEP_ID)
 
                 for scripts in script_components.scripts:
                     futures.append(executor.submit(
@@ -704,7 +713,7 @@ class ScriptComponents:
                 exception=e)
             return Either(left=e)
 
-    def _script_components_from_jobs(self):
+    def _script_components_from_jobs(self) -> Dict[str, ScriptComponentsModel]:
         job_id_to_script_components = {}
 
         for jobs_id, job_data in self.databricks_jobs.databricks_job_json_for_refresh_and_new_jobs.items():
@@ -751,9 +760,9 @@ class PipelineConfigurations:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
 
-            def execute_job(fabric_id, configuration_content, configuration_path):
+            def execute_job(_fabric_id, config_content, config_path):
                 futures.append(executor.submit(
-                    lambda f_id=str(fabric_id), conf_content=configuration_content, conf_path=configuration_path:
+                    lambda f_id=str(_fabric_id), conf_content=config_content, conf_path=config_path:
                     self._upload_configuration(f_id, conf_content, conf_path)))
 
             for pipeline_id, configurations in self.pipeline_configurations.items():
@@ -764,7 +773,7 @@ class PipelineConfigurations:
                 for configuration_name, configuration_content in configurations.items():
                     configuration_path = f'{pipeline_path}/{configuration_name}.json'
 
-                    for fabric_id in self.project_config.deployment_state.db_fabrics():
+                    for fabric_id in self.project_config.fabric_config.db_fabrics():
                         execute_job(fabric_id, configuration_content, configuration_path)
 
         responses = []

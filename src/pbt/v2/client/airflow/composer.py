@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import tempfile
@@ -5,18 +6,18 @@ from abc import ABC
 from pathlib import Path
 from typing import Optional
 
+import requests
+from google.auth.transport.requests import AuthorizedSession
 from google.cloud import secretmanager, storage
 from google.cloud.storage import Blob
 from google.oauth2 import service_account
 from google.oauth2.gdch_credentials import ServiceAccountCredentials
 from requests import HTTPError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+
 from . import AirflowRestClient
 from ...exceptions import DagUploadFailedException, DagFileDeletionFailedException
 from ...project_models import DAG
-from google.auth.transport.requests import AuthorizedSession
-import requests
-import json
 
 pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
 
@@ -46,12 +47,14 @@ class ComposerRestClient(AirflowRestClient, ABC):
     _pattern = re.compile(pattern)
     _headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-    def __init__(self, airflow_url: str, project_id: str, client_id: Optional[str], key_json: str, dag_location: str):
+    def __init__(self, airflow_url: str, project_id: str, client_id: Optional[str], key_json: str, dag_location: str,
+                 location: Optional[str] = None):
         self.airflow_url = airflow_url
         self.project_id = project_id
         self.client_id = client_id
         self.key_json_file = key_json
         self.dag_location = dag_location
+        self.location = location
 
         self.file_path = self._create_key_json_file(key_json)
 
@@ -184,3 +187,15 @@ class ComposerRestClient(AirflowRestClient, ABC):
         response.raise_for_status()
         response_data = response.json()
         return DAG.create(response_data)
+
+    def put_object_from_file(self, bucket: str, key: str, file_path: str):
+        try:
+            self.storage_handler.bucket(bucket).blob(key).upload_from_filename(file_path)
+        except Exception as e:
+            raise DagUploadFailedException(f"Failed to upload file: {file_path} ", e)
+
+    def put_object(self, bucket: str, key: str, content: str):
+        try:
+            self.storage_handler.bucket(bucket).blob(key).upload_from_string(content)
+        except Exception as e:
+            raise DagUploadFailedException(f"Failed to content from bucket: {bucket} ", e)

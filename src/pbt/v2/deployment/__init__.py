@@ -11,9 +11,9 @@ class OperationType(Enum):
 
 
 class JobInfoAndOperation:
-    def __init__(self, job_info, operation_type):
+    def __init__(self, job_info, operation: OperationType):
         self.job_info = job_info
-        self.operation_type = operation_type
+        self.operation = operation
 
 
 class EntityIdToFabricId:

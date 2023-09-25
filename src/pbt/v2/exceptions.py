@@ -48,3 +48,8 @@ class ArtifactDownloadFailedException(PBTException):
 class InvalidFabricException(PBTException):
     def __init__(self, message):
         self.message = message
+
+
+class ProjectBuildFailedException(PBTException):
+    def __init__(self, message):
+        self.message = message
