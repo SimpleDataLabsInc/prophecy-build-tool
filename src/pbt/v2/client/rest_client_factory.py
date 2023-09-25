@@ -9,19 +9,12 @@ from ..project_config import FabricInfo, FabricConfig
 
 
 class RestClientFactory:
-    _instance = None
-
-    def __new__(cls, fabric_config: FabricConfig):
-        if not cls._instance:
-            cls._instance = super(RestClientFactory, cls).__new__(cls)
-            cls._instance.fabric_config = fabric_config
-            cls._instance._initialized = False
-        return cls._instance
+    _instance_dict = {}
 
     def __init__(self, fabric_config: FabricConfig):
-        if not self._initialized:
-            self.fabric_config = fabric_config
-            self.fabric_id_to_rest_client = {}
+
+        self.fabric_config = fabric_config
+        self.fabric_id_to_rest_client = {}
 
     def _get_fabric_info(self, fabric_id: str) -> FabricInfo:
         if fabric_id is None or fabric_id == "":
@@ -110,3 +103,10 @@ class RestClientFactory:
         if client is not None:
             self.fabric_id_to_rest_client[fabric_id] = client
             return client
+
+    @staticmethod
+    def get_instance(cls, fabric_config: FabricConfig):
+        if cls._instance_dict.get(fabric_config) is None:
+            cls._instance_dict[fabric_config] = RestClientFactory(fabric_config)
+
+        return cls._instance_dict[fabric_config]

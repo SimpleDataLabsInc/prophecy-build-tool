@@ -115,7 +115,7 @@ def deploy(
 
 @cli.command()
 @click.option(
-    "--project-path",
+    "--project-dir",
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
@@ -125,7 +125,7 @@ def deploy(
     required=True,
 )
 @click.option(
-    "--conf-folder",
+    "--conf-dir",
     help="Path to the configuration file folders",
     required=False,
 )
@@ -139,10 +139,10 @@ def deploy(
     help="Release version",
     required=True,
 )
-def deploy_v2(project_path, project_id: str, conf_folder: Optional[str],
-              release_tag: Optional[str] , release_version: str):
-    if conf_folder is not None:
-        pbt = PBTCli.from_conf_folder(project_path, project_id, conf_folder, release_tag, release_version)
+def deploy_v2(project_dir, project_id: str, conf_dir: Optional[str],
+              release_tag: Optional[str], release_version: str):
+    if conf_dir is not None:
+        pbt = PBTCli.from_conf_folder(project_dir, project_id, conf_dir, release_tag, release_version)
         pbt.headers()
         pbt.deploy([])
     else:

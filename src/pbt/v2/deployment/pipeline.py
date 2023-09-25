@@ -398,7 +398,7 @@ class EMRPipelineUploader(PipelineUploader, ABC):
         self.emr_info = emr_info
         self.file_name = file_name
 
-        self.rest_client_factory = RestClientFactory(project_config.fabric_config)
+        self.rest_client_factory = RestClientFactory.get_instance(project_config.fabric_config)
 
     def upload_pipeline(self):
         try:
@@ -434,7 +434,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.pipeline_id = pipeline_id
         self.to_path = to_path
         self.fabric_id = fabric_id
-        self.rest_client_factory = RestClientFactory(project_config.fabric_config)
+        self.rest_client_factory = RestClientFactory.get_instance(project_config.fabric_config)
 
     def upload_pipeline(self) -> Either:
         try:
@@ -467,7 +467,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.dataproc_info = dataproc_info
         self.file_name = file_name
 
-        self.rest_client_factory = RestClientFactory(project_config.fabric_config)
+        self.rest_client_factory = RestClientFactory.get_instance(project_config.fabric_config)
 
     def upload_pipeline(self):
         try:
