@@ -164,7 +164,7 @@ class DatabricksJobsDeployment:
 
         return all_headers
 
-    def deploy(self):
+    def deploy(self) -> List[Either]:
         responses = self._deploy_add_jobs() + \
                     self._deploy_refresh_jobs() + \
                     self._deploy_delete_jobs() + \

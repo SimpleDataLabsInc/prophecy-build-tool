@@ -52,7 +52,8 @@ class GemsDeployment:
 
             except Exception as e:
                 log(message="Failed to build the pipeline package.", exception=e, step_id=GEMS)
-                return Either(left=e)
+                log(step_id=GEMS, step_status=Status.FAILED)
+                return [Either(left=e)]
         else:
             return []
 

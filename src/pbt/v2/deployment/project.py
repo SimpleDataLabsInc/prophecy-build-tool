@@ -14,7 +14,7 @@ from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
 from ..project_config import ProjectConfig
 from ..project_models import StepMetadata, Operation, StepType, Status
-from ..utility import custom_print as log
+from ..utility import custom_print as log, Either
 from ..utility import remove_null_items_recursively
 
 
@@ -91,7 +91,7 @@ class ProjectDeployment:
     def test(self, pipeline_name: List):
         pass
 
-    def deploy_gems(self):
+    def _deploy_gems(self):
         gems_responses = self._gems.deploy()
 
         if gems_responses is not None and any(response.is_left for response in gems_responses):
@@ -142,20 +142,24 @@ class ProjectDeployment:
         if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
             raise Exception("Pipeline deployment failed.")
 
-    def _deploy_databricks_jobs(self):
+    def _deploy_databricks_jobs(self) -> List[Either]:
         databricks_jobs_responses = self._databricks_jobs.deploy()
 
         if databricks_jobs_responses is not None and any(response.is_left for response in databricks_jobs_responses):
             raise Exception("Databricks jobs deployment failed.")
 
-    def _deploy_airflow_jobs(self):
+        return databricks_jobs_responses
+
+    def _deploy_airflow_jobs(self) -> List[Either]:
         airflow_jobs_responses = self._airflow_jobs.deploy()
 
         if airflow_jobs_responses is not None and any(response.is_left for response in airflow_jobs_responses):
             raise Exception("Airflow jobs deployment failed.")
 
+        return airflow_jobs_responses
+
     def deploy(self, job_ids):
-        self.deploy_gems()
+        self._deploy_gems()
         self._deploy_scripts()
         self._deploy_dbt_components()
         self._deploy_airflow_git_secrets()
