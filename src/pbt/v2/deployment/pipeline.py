@@ -124,11 +124,11 @@ class PipelineDeployment:
             pipeline_id_to_fabrics_dict = {}
 
             for job_id, job_data in self._all_jobs.items():
-                for pipeline_id, fabric_id in job_data.pipeline_and_fabric_ids:
-                    if pipeline_id not in pipeline_id_to_fabrics_dict:
-                        pipeline_id_to_fabrics_dict[pipeline_id] = set()
+                for entity in job_data.pipeline_and_fabric_ids:
+                    if entity.entity_id not in pipeline_id_to_fabrics_dict:
+                        pipeline_id_to_fabrics_dict[entity.entity_id] = set()
 
-                    pipeline_id_to_fabrics_dict[pipeline_id].add(fabric_id)
+                    pipeline_id_to_fabrics_dict[entity.entity_id].add(entity.fabric_id)
 
             return {pipeline_id: list(fabric_ids) for pipeline_id, fabric_ids in pipeline_id_to_fabrics_dict.items()}
 
