@@ -151,7 +151,7 @@ class AirflowJobDeployment:
         self._airflow_clients = {}
         self.deployment_run_override_config = project_config.configs_override
 
-        self._rest_client_factory = RestClientFactory.get_instance(self._fabrics_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabrics_config)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
@@ -631,7 +631,7 @@ class EMRPipelineConfigurations:
         self.project_config = project_config
         self._jobs_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
-        self._rest_client_factory = RestClientFactory.get_instance(self._fabric_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
 
     def _emr_fabrics(self):
         return self._fabric_config.emr_fabrics()
@@ -718,7 +718,7 @@ class DataprocPipelineConfigurations:
         self.project_config = project_config
         self._deployment_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
-        self._rest_client_factory = RestClientFactory.get_instance(self._fabric_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
 
     def _dataproc_fabrics(self):
         return self._fabric_config.dataproc_fabrics()

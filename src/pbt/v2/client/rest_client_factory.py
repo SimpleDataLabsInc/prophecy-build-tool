@@ -9,7 +9,7 @@ from ..project_config import FabricInfo, FabricConfig
 
 
 class RestClientFactory:
-    _instance_dict = {}
+    _instance = None
 
     def __init__(self, fabric_config: FabricConfig):
 
@@ -105,8 +105,8 @@ class RestClientFactory:
             return client
 
     @staticmethod
-    def get_instance(cls, fabric_config: FabricConfig):
-        if cls._instance_dict.get(fabric_config) is None:
-            cls._instance_dict[fabric_config] = RestClientFactory(fabric_config)
+    def get_instance(cls, fabric_config):
+        if cls._instance is None:
+            cls._instance = RestClientFactory(fabric_config)
 
-        return cls._instance_dict[fabric_config]
+        return cls._instance

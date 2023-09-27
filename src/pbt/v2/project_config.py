@@ -189,6 +189,9 @@ class FabricConfig(BaseModel):
         return [fabric for fabric in self.fabrics if
                 (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)]
 
+    def list_all_fabrics(self) -> List[str]:
+        return [fabric.id for fabric in self.fabrics]
+
 
 class JobsState(BaseModel):
     version: str

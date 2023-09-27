@@ -115,7 +115,7 @@ class DatabricksJobsDeployment:
         self.deployment_run_override_config = project_config.configs_override
 
         self._pipeline_configurations = self.project.pipeline_configurations
-        self._rest_client_factory = RestClientFactory.get_instance(self.project_config.fabric_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, fabric_config=self.project_config.fabric_config)
 
         self._db_jobs = self._initialize_db_jobs()
         self.valid_databricks_jobs, self._databricks_jobs_without_code = self._initialize_valid_databricks_jobs()
