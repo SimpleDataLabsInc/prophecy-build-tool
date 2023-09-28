@@ -410,9 +410,10 @@ class EMRPipelineUploader(PipelineUploader, ABC):
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
 
     def upload_pipeline(self):
+        base_path = self.project_config.system_config.get_s3_base_path()
+        upload_path = f"{self.emr_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}"
+
         try:
-            base_path = self.project_config.system_config.get_s3_base_path()
-            upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
             client = self.rest_client_factory.s3_client(self.fabric_id)
             client.upload_file(self.emr_info.bare_bucket(), upload_path, self.from_path)
 
@@ -430,6 +431,8 @@ class EMRPipelineUploader(PipelineUploader, ABC):
             return Either(right=True)
 
         except Exception as e:
+            log(f"Unknown Exception while uploading pipeline to emr, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+                exception=e, step_id=self.pipeline_id)
             return Either(left=e)
 
 
@@ -463,6 +466,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
 
                 response = underlying_exception.response.content.decode('utf-8')
                 log(step_id=self.pipeline_id, message=response)
+
                 if underlying_exception.response.status_code == 401 or underlying_exception.response.status_code == 403:
                     log(f'Error while uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_id}, but ignoring',
                         exception=underlying_exception, step_id=self.pipeline_id)
@@ -505,24 +509,28 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
 
     def upload_pipeline(self):
-        try:
-            base_path = self.project_config.system_config.get_s3_base_path()
-            upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
-            client = self.rest_client_factory.dataproc_client(self.fabric_id)
-            client.put_object_from_file(self.dataproc_info.bucket, upload_path, self.from_path)
+        base_path = self.project_config.system_config.get_s3_base_path()
 
-            log(f"Uploaded pipeline to s3, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+        upload_path = f"{self.dataproc_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}"
+
+        try:
+            client = self.rest_client_factory.dataproc_client(self.fabric_id)
+            client.put_object_from_file(self.dataproc_info.bare_bucket(), upload_path, self.from_path)
+
+            log(f"Uploaded pipeline to data-proc, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
                 step_id=self.pipeline_id)
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
                 pipeline_name = self.pipeline_id.split("/")[0]
                 launcher_path = f"{upload_path}/{pipeline_name}/launcher.py"
-                client.put_object(self.dataproc_info.bucket, launcher_path, content)
+                client.put_object(self.dataproc_info.bare_bucket(), launcher_path, content)
 
                 log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {self.fabric_id}",
                     step_id=self.pipeline_id)
             return Either(right=True)
 
         except Exception as e:
+            log(f"Unknown Exception while uploading pipeline to data-proc, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+                exception=e, step_id=self.pipeline_id)
             return Either(left=e)

@@ -162,7 +162,7 @@ class ProjectDeployment:
         self._deploy_gems()
         self._deploy_scripts()
         self._deploy_dbt_components()
-        self._deploy_airflow_git_secrets()
+        self._deploy_airflow_git_secrets ()
         self._deploy_pipeline_configs()
         self._deploy_emr_pipeline_config()
         self._deploy_dataproc_pipeline_config()
