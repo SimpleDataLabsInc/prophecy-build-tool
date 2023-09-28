@@ -191,9 +191,8 @@ class DatabricksJobsDeployment:
             does_fabric_exist = self.fabric_configs.get_fabric(
                 job_fabric) is not None or self.fabric_configs.get_fabric(fabric_override) is not None
 
-            if 'Databricks' in pbt_job_json.get('scheduler',
-                                                None) and self.deployment_run_override_config.is_job_to_run(
-                job_id) and does_fabric_exist:
+            if 'Databricks' in pbt_job_json.get('scheduler', None) and \
+                    self.deployment_run_override_config.is_job_to_run(job_id) and does_fabric_exist:
                 databricks_job = self.project.load_databricks_job(job_id)
                 fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
                 jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)

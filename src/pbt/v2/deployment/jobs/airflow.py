@@ -225,9 +225,8 @@ class AirflowJobDeployment:
             does_fabric_exist = self._fabrics_config.get_fabric(
                 job_fabric) is not None or self._fabrics_config.get_fabric(fabric_override) is not None
 
-            if 'Databricks' not in parsed_job.get('scheduler',
-                                                  None) and self.deployment_run_override_config.is_job_to_run(
-                job_id) and does_fabric_exist:
+            if 'Databricks' not in parsed_job.get('scheduler', None) and \
+                    self.deployment_run_override_config.is_job_to_run(job_id) and does_fabric_exist:
 
                 rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
                 rdc = self._project.load_airflow_folder(job_id)
