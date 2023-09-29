@@ -85,11 +85,6 @@ class PipelineDeployment:
                     (pipeline_id, pipeline_package_path) = response.right
                     self.pipeline_id_to_local_path[pipeline_id] = pipeline_package_path
 
-                else:
-
-                    log(step_id=pipeline_id, step_status=Status.FAILED)
-                    log(f"Error building pipeline: {response.left}", step_id=pipeline_id)
-
             self.has_pipelines = True
             return responses
 
@@ -209,6 +204,7 @@ class PackageBuilder:
 
             except Exception as e:
                 log(message="Failed to build the pipeline package.", exception=e, step_id=self._pipeline_id)
+                log(step_id=self._pipeline_id, step_status=Status.FAILED)
                 return Either(left=e)
 
     def _uploading_to_nexus(self, upload_path):
@@ -257,7 +253,7 @@ class PackageBuilder:
     def wheel_build(self):
         response_code = 0
         if self._are_tests_enabled:
-            test_command = ["pytest"]
+            test_command = [f"python3 -m pytest -v test/TestSuite.py"]
             log(f"Running python test {test_command}", step_id=self._pipeline_id)
             response_code = self._build(test_command)
 
