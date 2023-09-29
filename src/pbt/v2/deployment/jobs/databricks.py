@@ -113,9 +113,11 @@ class DatabricksJobsDeployment:
         self.project_config = project_config
         self.deployment_state = project_config.jobs_state
         self.deployment_run_override_config = project_config.configs_override
+        self.fabric_configs = project_config.fabric_config
 
         self._pipeline_configurations = self.project.pipeline_configurations
-        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, fabric_config=self.project_config.fabric_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory,
+                                                                   fabric_config=self.project_config.fabric_config)
 
         self._db_jobs = self._initialize_db_jobs()
         self.valid_databricks_jobs, self._databricks_jobs_without_code = self._initialize_valid_databricks_jobs()
@@ -183,8 +185,14 @@ class DatabricksJobsDeployment:
         jobs = {}
 
         for job_id, pbt_job_json in self.project.jobs.items():
-            if 'Databricks' in pbt_job_json.get('scheduler',
-                                                None) and self.deployment_run_override_config.is_job_to_run(job_id):
+
+            fabric_override = str(self.deployment_run_override_config.find_fabric_override_for_job(job_id))
+            job_fabric = str(pbt_job_json.get('fabricUID', None))
+            does_fabric_exist = self.fabric_configs.get_fabric(
+                job_fabric) is not None or self.fabric_configs.get_fabric(fabric_override) is not None
+
+            if 'Databricks' in pbt_job_json.get('scheduler', None) and \
+                    self.deployment_run_override_config.is_job_to_run(job_id) and does_fabric_exist:
                 databricks_job = self.project.load_databricks_job(job_id)
                 fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
                 jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
@@ -358,6 +366,11 @@ class DatabricksJobsDeployment:
                         f"trying to recreate it")
                     return self._deploy_add_job(job_id, self.valid_databricks_jobs.get(job_id),
                                                 step_id=self._REFRESH_JOBS_STEP_ID)
+                else:
+                    log_error(
+                        f'Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
+                        e)
+                    return Either(left=e)
             else:
                 log_error(
                     f'Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',

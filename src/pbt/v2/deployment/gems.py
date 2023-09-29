@@ -28,7 +28,7 @@ class GemsDeployment:
 
     def headers(self) -> List[StepMetadata]:
         if self._does_gems_exist():
-            return [StepMetadata("gems", "Gems will be build and uploaded",
+            return [StepMetadata(GEMS, "Gems will be build and uploaded",
                                  Operation.Build, StepType.Pipeline)]
         else:
             return []

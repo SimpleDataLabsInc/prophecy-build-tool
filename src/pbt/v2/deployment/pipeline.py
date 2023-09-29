@@ -85,11 +85,6 @@ class PipelineDeployment:
                     (pipeline_id, pipeline_package_path) = response.right
                     self.pipeline_id_to_local_path[pipeline_id] = pipeline_package_path
 
-                else:
-
-                    log(step_id=pipeline_id, step_status=Status.FAILED)
-                    log(f"Error building pipeline: {response.left}", step_id=pipeline_id)
-
             self.has_pipelines = True
             return responses
 
@@ -209,6 +204,7 @@ class PackageBuilder:
 
             except Exception as e:
                 log(message="Failed to build the pipeline package.", exception=e, step_id=self._pipeline_id)
+                log(step_id=self._pipeline_id, step_status=Status.FAILED)
                 return Either(left=e)
 
     def _uploading_to_nexus(self, upload_path):
@@ -257,12 +253,14 @@ class PackageBuilder:
     def wheel_build(self):
         response_code = 0
         if self._are_tests_enabled:
-            test_command = ["pytest"]
+            test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py",
+                            f"--html={self._base_path}/report.html",
+                            "--self-contained-html", f"--junitxml={self._base_path}/report.xml"""]
             log(f"Running python test {test_command}", step_id=self._pipeline_id)
             response_code = self._build(test_command)
 
-        if response_code != 0:
-            raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
+            if response_code != 0:
+                raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
         command = ["python3", "setup.py", "bdist_wheel"]
 
@@ -276,7 +274,7 @@ class PackageBuilder:
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
-
+        log(f"Running command {command} on path {self._base_path}", step_id=self._pipeline_id)
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self._base_path)
 
@@ -410,9 +408,10 @@ class EMRPipelineUploader(PipelineUploader, ABC):
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
 
     def upload_pipeline(self):
+        base_path = self.project_config.system_config.get_s3_base_path()
+        upload_path = f"{self.emr_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}"
+
         try:
-            base_path = self.project_config.system_config.get_s3_base_path()
-            upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
             client = self.rest_client_factory.s3_client(self.fabric_id)
             client.upload_file(self.emr_info.bare_bucket(), upload_path, self.from_path)
 
@@ -430,6 +429,8 @@ class EMRPipelineUploader(PipelineUploader, ABC):
             return Either(right=True)
 
         except Exception as e:
+            log(f"Unknown Exception while uploading pipeline to emr, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+                exception=e, step_id=self.pipeline_id)
             return Either(left=e)
 
 
@@ -463,6 +464,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
 
                 response = underlying_exception.response.content.decode('utf-8')
                 log(step_id=self.pipeline_id, message=response)
+
                 if underlying_exception.response.status_code == 401 or underlying_exception.response.status_code == 403:
                     log(f'Error while uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_id}, but ignoring',
                         exception=underlying_exception, step_id=self.pipeline_id)
@@ -505,24 +507,28 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
 
     def upload_pipeline(self):
-        try:
-            base_path = self.project_config.system_config.get_s3_base_path()
-            upload_path = f"{base_path}/{self.to_path}/pipeline/{self.file_name}"
-            client = self.rest_client_factory.dataproc_client(self.fabric_id)
-            client.put_object_from_file(self.dataproc_info.bucket, upload_path, self.from_path)
+        base_path = self.project_config.system_config.get_s3_base_path()
 
-            log(f"Uploaded pipeline to s3, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+        upload_path = f"{self.dataproc_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}"
+
+        try:
+            client = self.rest_client_factory.dataproc_client(self.fabric_id)
+            client.put_object_from_file(self.dataproc_info.bare_bucket(), upload_path, self.from_path)
+
+            log(f"Uploaded pipeline to data-proc, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
                 step_id=self.pipeline_id)
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
                 pipeline_name = self.pipeline_id.split("/")[0]
                 launcher_path = f"{upload_path}/{pipeline_name}/launcher.py"
-                client.put_object(self.dataproc_info.bucket, launcher_path, content)
+                client.put_object(self.dataproc_info.bare_bucket(), launcher_path, content)
 
                 log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {self.fabric_id}",
                     step_id=self.pipeline_id)
             return Either(right=True)
 
         except Exception as e:
+            log(f"Unknown Exception while uploading pipeline to data-proc, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+                exception=e, step_id=self.pipeline_id)
             return Either(left=e)
