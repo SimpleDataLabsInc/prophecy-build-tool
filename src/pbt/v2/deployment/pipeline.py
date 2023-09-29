@@ -253,7 +253,7 @@ class PackageBuilder:
     def wheel_build(self):
         response_code = 0
         if self._are_tests_enabled:
-            test_command = ["python3"]
+            test_command = [f"python3 -m pytest -v {self._base_path}/test/TestSuite.py"]
             log(f"Running python test {test_command}", step_id=self._pipeline_id)
             response_code = self._build(test_command)
 
@@ -272,7 +272,7 @@ class PackageBuilder:
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
-
+        log(f"Running command {command} on path {self._base_path}", step_id=self._pipeline_id)
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self._base_path)
 
