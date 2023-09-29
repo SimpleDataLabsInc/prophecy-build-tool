@@ -253,12 +253,14 @@ class PackageBuilder:
     def wheel_build(self):
         response_code = 0
         if self._are_tests_enabled:
-            test_command = [f"python3 -m pytest -v {self._base_path}/test/TestSuite.py"]
+            test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py",
+                            f"--html={self._base_path}/report.html",
+                            "--self-contained-html", f"--junitxml={self._base_path}/report.xml"""]
             log(f"Running python test {test_command}", step_id=self._pipeline_id)
             response_code = self._build(test_command)
 
-        if response_code != 0:
-            raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
+            if response_code != 0:
+                raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
         command = ["python3", "setup.py", "bdist_wheel"]
 
