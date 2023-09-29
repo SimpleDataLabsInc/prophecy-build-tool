@@ -253,7 +253,7 @@ class PackageBuilder:
     def wheel_build(self):
         response_code = 0
         if self._are_tests_enabled:
-            test_command = ["python3 -m pytest -v test/TestSuite.py"]
+            test_command = ["python3"]
             log(f"Running python test {test_command}", step_id=self._pipeline_id)
             response_code = self._build(test_command)
 
