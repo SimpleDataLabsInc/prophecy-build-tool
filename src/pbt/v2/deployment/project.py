@@ -145,16 +145,10 @@ class ProjectDeployment:
     def _deploy_databricks_jobs(self) -> List[Either]:
         databricks_jobs_responses = self._databricks_jobs.deploy()
 
-        if databricks_jobs_responses is not None and any(response.is_left for response in databricks_jobs_responses):
-            raise Exception("Databricks jobs deployment failed.")
-
         return databricks_jobs_responses
 
     def _deploy_airflow_jobs(self) -> List[Either]:
         airflow_jobs_responses = self._airflow_jobs.deploy()
-
-        if airflow_jobs_responses is not None and any(response.is_left for response in airflow_jobs_responses):
-            raise Exception("Airflow jobs deployment failed.")
 
         return airflow_jobs_responses
 
