@@ -90,11 +90,11 @@ class PipelineDeployment:
 
     def deploy(self):
 
-        if not self.has_pipelines:
-            responses = self.build_and_upload()
+        failed_response = []
 
-            if any(response.is_left for response in responses):
-                return responses
+        if not self.has_pipelines:
+            build_response = self.build_and_upload()
+            failed_response = [response for response in build_response if response.is_left]
 
         futures = []
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -114,7 +114,8 @@ class PipelineDeployment:
         for future in as_completed(futures):
             responses.append(future.result())
 
-        return responses
+        # merging the failed responses from build and upload.
+        return responses + failed_response
 
     @property
     def _pipeline_to_list_fabrics(self) -> Dict[str, List[str]]:
