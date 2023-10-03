@@ -278,6 +278,8 @@ class PackageBuilder:
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
+        env["FABRIC_NAME"] = "default" # for python test runs.
+
         log(f"Running command {command} on path {self._base_path}", step_id=self._pipeline_id)
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self._base_path)
