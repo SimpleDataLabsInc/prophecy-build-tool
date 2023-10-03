@@ -443,7 +443,8 @@ class AirflowJobDeployment:
                 log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}", step_id=self._ADD_JOBS_STEP_ID)
+            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}",
+                step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
                                                   self._project.release_tag,
@@ -464,16 +465,9 @@ class AirflowJobDeployment:
             self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
 
     def _skip_jobs(self):
-        jobs_to_be_skipped = {}
-        for job_id, job_data in self._airflow_jobs.items():
-            job_validation = self._validate_airflow_job(job_id, job_data)
-
-            if job_validation.is_right:
-                continue
-
-            jobs_to_be_skipped[job_id] = job_validation
-
-        return jobs_to_be_skipped
+        return {job_id: self._validate_airflow_job(job_id, job_data)
+                for job_id, job_data in self._airflow_jobs.items()
+                if self._validate_airflow_job(job_id, job_data).is_left}
 
     def _deploy_rename_jobs(self):
         futures = []
