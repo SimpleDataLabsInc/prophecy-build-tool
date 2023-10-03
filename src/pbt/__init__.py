@@ -99,6 +99,11 @@ def validate(path, treat_warnings_as_errors):
     default="",
 )
 @click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
+@click.option(
+    "--only-update-configs",
+    help="Configs(comma separated) which should be updated",
+    default="",
+)
 def deploy(
         path,
         dependent_projects_path,
@@ -108,9 +113,10 @@ def deploy(
         fabric_ids,
         job_ids,
         skip_builds,
+        only_update_configs,
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
-    pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
+    pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids, only_update_configs=only_update_configs)
 
 
 @cli.command()

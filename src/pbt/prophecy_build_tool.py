@@ -249,7 +249,7 @@ class ProphecyBuildTool:
             print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
-    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
+    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None, only_update_configs=None):
         # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
         # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
         if job_ids and fabric_ids:
@@ -265,6 +265,7 @@ class ProphecyBuildTool:
 
         fabric_ids = list(i.strip() for i in fabric_ids.split(r",")) if fabric_ids else list()
         job_ids = list(i.strip() for i in job_ids.split(r",")) if job_ids else list()
+        only_update_configs = list(i.strip() for i in only_update_configs.split(r",")) if only_update_configs else list()
 
         if not fabric_ids and not job_ids:
             print("Deploying jobs for all Fabrics")
@@ -296,6 +297,8 @@ class ProphecyBuildTool:
             print("[INFO]: Generating depending pipelines for all jobs as '--job-ids' flag is passed.")
             pipelines_to_build = self.generate_pipeline_deps()
             self.build(pipelines_to_build)
+        elif only_update_configs:
+            print("[ONLY_CONFIG_UPDATES]: Skipping builds for all pipelines as '--only-update-configs' flag is passed.")
         else:
             print("[SKIP]: Skipping builds for all pipelines as '--skip-builds' flag is passed.")
 

@@ -9,7 +9,6 @@ from .constants import PROPHECY_ARTIFACTS, DBFS_FILE_STORE
 from .deployment import OperationType, JobInfoAndOperation
 from .utility import Either
 
-
 class SchedulerType(enum.Enum):
     Composer = "Composer"
     MWAA = "MWAA"

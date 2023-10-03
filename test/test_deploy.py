@@ -23,7 +23,25 @@ def test_deploy_path_default():
     assert "[START]:  Deploying job jobs/test-job" in result.output
     assert "[START]:  Deploying job jobs/job-another" in result.output
 
-
+def test_deploy_config_update():
+    path="/Users/ashishpatel/prophecy-dev/child_project"
+    os.environ["DATABRICKS_HOST"]="https://dbc-84bbf870-2e0a.cloud.databricks.com"
+    os.environ["DATABRICKS_TOKEN"]="dapi4dab5e7c09b8653e82188700f20e8fe0"
+    runner = CliRunner()
+    result = runner.invoke(deploy, ["--path", path, "--release-version", "1.2",
+                                    # "--skip-builds" ,
+                                    "--project-id", "12163",
+         "--only-update-configs", "config1,config2"])
+    print(result)
+    # assert "Found 2 jobs: test-job1234, job-another" in result.output
+    # assert (
+    #     "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
+    #     "farmers-markets-irs (python)" in result.output
+    # )
+    # assert "Deploying 2 jobs" in result.output
+    # assert "Deploying jobs for all Fabrics" in result.output
+    # assert "[START]:  Deploying job jobs/test-job" in result.output
+    # assert "[START]:  Deploying job jobs/job-another" in result.output
 def test_deploy_path_default_new_project():
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", PROJECT_PATH_NEW, "--release-version", "1.0", "--project-id", "1"])

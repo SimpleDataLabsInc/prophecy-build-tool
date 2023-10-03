@@ -4,7 +4,7 @@
     "PipelineComponent" : {
       "id" : "pipelines/farmers-markets-irs",
       "nodeName" : "farmers-markets-irs",
-      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/farmers_markets_irs-1.0-py3-none-any.whl",
+      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/1/1.0/pipeline/farmers_markets_irs-1.0-py3-none-any.whl",
       "language" : "python"
     }
   } ],
@@ -24,12 +24,12 @@
         },
         "spark_conf" : {
           "prophecy.metadata.fabric.id" : "647",
-          "prophecy.metadata.job.uri" : "__PROJECT_ID_PLACEHOLDER__/jobs/job-another",
+          "prophecy.metadata.job.uri" : "1/jobs/job-another",
           "prophecy.metadata.is.interactive.run" : "false",
-          "prophecy.project.id" : "__PROJECT_ID_PLACEHOLDER__",
+          "prophecy.project.id" : "1",
           "prophecy.execution.service.url" : "wss://execution.dp.app.prophecy.io/eventws",
-          "prophecy.packages.path" : "{\"pipelines/farmers-markets-irs\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/farmers_markets_irs-1.0-py3-none-any.whl\"}",
-          "prophecy.metadata.job.branch" : "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
+          "prophecy.packages.path" : "{\"pipelines/farmers-markets-irs\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/1/1.0/pipeline/farmers_markets_irs-1.0-py3-none-any.whl\"}",
+          "prophecy.metadata.job.branch" : "1.0",
           "prophecy.metadata.url" : "__PROPHECY_URL_PLACEHOLDER__",
           "prophecy.execution.metrics.disabled" : false
         }
@@ -53,7 +53,7 @@
           "package" : "prophecy-libs==1.5.0"
         }
       }, {
-        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/farmers_markets_irs-1.0-py3-none-any.whl"
+        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/1/1.0/pipeline/farmers_markets_irs-1.0-py3-none-any.whl"
       } ],
       "email_notifications" : { },
       "max_retries" : 0
