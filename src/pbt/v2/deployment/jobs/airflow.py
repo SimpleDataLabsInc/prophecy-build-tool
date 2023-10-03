@@ -458,8 +458,8 @@ class AirflowJobDeployment:
             return Either(left=e)
 
     def _deploy_skipped_jobs(self):
-        for job_id, messages in self._skip_jobs().items():
-            log(f"Skipping job_id: {job_id} encountered some error ", exception=messages,
+        for job_id, message in self._skip_jobs().items():
+            log(f"Skipping job_id: {job_id} encountered some error ", exception=message.left,
                 step_id=self._SKIP_JOBS_STEP_ID)
         if len(self._skip_jobs()) > 0:
             self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
