@@ -437,10 +437,10 @@ class AirflowJobDeployment:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"Successfully unpaused dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"Successfully un-pause dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"Failed to un-pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
             log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}",
