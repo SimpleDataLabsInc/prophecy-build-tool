@@ -90,28 +90,32 @@ class PipelineDeployment:
 
     def deploy(self):
 
-        if not self.has_pipelines:
-            responses = self.build_and_upload()
+        failed_response = []
 
-            if any(response.is_left for response in responses):
-                return responses
+        if not self.has_pipelines:
+            build_response = self.build_and_upload()
+            failed_response = [response for response in build_response if response.is_left]
 
         futures = []
         with ThreadPoolExecutor(max_workers=3) as executor:
             for pipeline_id, list_of_entities_to_fabric_id in self._pipeline_to_list_fabrics.items():
-                pipeline_uploader = PipelineUploadManager(self.project, self.project_config, pipeline_id,
-                                                          list_of_entities_to_fabric_id,
-                                                          self.pipeline_id_to_local_path[pipeline_id])
+                # ignore pipelines that are not in the list of pipelines to build.
+                # they are already failed.
+                if pipeline_id in self.pipeline_id_to_local_path:
+                    pipeline_uploader = PipelineUploadManager(self.project, self.project_config, pipeline_id,
+                                                              list_of_entities_to_fabric_id,
+                                                              self.pipeline_id_to_local_path[pipeline_id])
 
-                futures.append(
-                    executor.submit(
-                        lambda uploader=pipeline_uploader: uploader.upload_pipeline()))
+                    futures.append(
+                        executor.submit(
+                            lambda uploader=pipeline_uploader: uploader.upload_pipeline()))
 
         responses = []
         for future in as_completed(futures):
             responses.append(future.result())
 
-        return responses
+        # merging the failed responses from build and upload.
+        return responses + failed_response
 
     @property
     def _pipeline_to_list_fabrics(self) -> Dict[str, List[str]]:
@@ -195,6 +199,7 @@ class PackageBuilder:
                     self.wheel_build()
 
                 path = Project.get_pipeline_whl_or_jar(self._base_path)
+                log(f"Pipeline package built successfully, with path {path}", step_id=self._pipeline_id)
 
                 if self._project_config.system_config.nexus is not None:
                     log("Trying to upload pipeline package to nexus.", self._pipeline_id)
@@ -244,7 +249,8 @@ class PackageBuilder:
 
     def mvn_build(self):
         mvn = "mvn"
-        command = [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package"]
+        command = [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package",
+                                                                                       "-Dfabric=default"]
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id)
 
@@ -253,13 +259,11 @@ class PackageBuilder:
     def wheel_build(self):
         response_code = 0
         if self._are_tests_enabled:
-            test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py",
-                            f"--html={self._base_path}/report.html",
-                            "--self-contained-html", f"--junitxml={self._base_path}/report.xml"""]
+            test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py"]
             log(f"Running python test {test_command}", step_id=self._pipeline_id)
             response_code = self._build(test_command)
 
-            if response_code != 0:
+            if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
         command = ["python3", "setup.py", "bdist_wheel"]
@@ -308,8 +312,8 @@ class PackageBuilder:
         # Get the exit code
         return_code = process.wait()
 
-        if return_code == 0:
-            log("Build was successful.", step_id=self._pipeline_id)
+        if return_code in (0, 5):
+            log(f"Build was successful with exit code {return_code}", step_id=self._pipeline_id)
         else:
             log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")

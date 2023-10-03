@@ -443,7 +443,7 @@ class AirflowJobDeployment:
                 log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"Successfully added job {dag_name} for job_id {job_id}", step_id=self._ADD_JOBS_STEP_ID)
+            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}", step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
                                                   self._project.release_tag,
