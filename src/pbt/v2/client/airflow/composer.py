@@ -62,7 +62,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
     def delete_dag_file(self, dag_id: str):
         gcs_path_info = GCSPathInfo.get_gcs_path_info(self.dag_location)
-        blob: Blob = Blob(gcs_path_info.bucket, self._get_dag_location(gcs_path_info, dag_id))
+        blob: Blob = Blob(self._get_dag_location(gcs_path_info, dag_id), gcs_path_info.bucket)
         try:
             self.storage_handler.bucket(gcs_path_info.bucket).delete_blob(blob.name)
         except Exception as e:
