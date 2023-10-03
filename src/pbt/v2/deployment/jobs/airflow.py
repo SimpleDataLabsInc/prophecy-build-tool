@@ -437,13 +437,14 @@ class AirflowJobDeployment:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"Successfully unpaused dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"Successfully un-pause dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"Failed to un-pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}", step_id=self._ADD_JOBS_STEP_ID)
+            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}",
+                step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
                                                   self._project.release_tag,
@@ -457,23 +458,16 @@ class AirflowJobDeployment:
             return Either(left=e)
 
     def _deploy_skipped_jobs(self):
-        for job_id, messages in self._skip_jobs().items():
-            log(f"Skipping job_id: {job_id} encountered some error ", exception=messages,
+        for job_id, message in self._skip_jobs().items():
+            log(f"Skipping job_id: {job_id} encountered some error ", exception=message.left,
                 step_id=self._SKIP_JOBS_STEP_ID)
         if len(self._skip_jobs()) > 0:
             self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
 
     def _skip_jobs(self):
-        jobs_to_be_skipped = {}
-        for job_id, job_data in self._airflow_jobs.items():
-            job_validation = self._validate_airflow_job(job_id, job_data)
-
-            if job_validation.is_right:
-                continue
-
-            jobs_to_be_skipped[job_id] = job_validation
-
-        return jobs_to_be_skipped
+        return {job_id: self._validate_airflow_job(job_id, job_data)
+                for job_id, job_data in self._airflow_jobs.items()
+                if self._validate_airflow_job(job_id, job_data).is_left}
 
     def _deploy_rename_jobs(self):
         futures = []

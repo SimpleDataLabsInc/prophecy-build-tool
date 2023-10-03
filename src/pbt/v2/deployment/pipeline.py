@@ -278,6 +278,8 @@ class PackageBuilder:
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
+        env["FABRIC_NAME"] = "default"  # for python test runs.
+
         log(f"Running command {command} on path {self._base_path}", step_id=self._pipeline_id)
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self._base_path)
@@ -431,11 +433,10 @@ class EMRPipelineUploader(PipelineUploader, ABC):
                 log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {self.fabric_id}",
                     step_id=self.pipeline_id)
             return Either(right=True)
-
         except Exception as e:
-            log(f"Unknown Exception while uploading pipeline to emr, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+            log(f"Unknown Exception while uploading pipeline to emr, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}, Ignoring",
                 exception=e, step_id=self.pipeline_id)
-            return Either(left=e)
+            return Either(right=True)
 
 
 class DatabricksPipelineUploader(PipelineUploader, ABC):
@@ -480,12 +481,12 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
             else:
                 log(f"RetryError while uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_id}",
                     exception=e, step_id=self.pipeline_id)
-                return Either(left=e)
+                return Either(right=True)
 
         except Exception as e:
-            log(f"Unknown Exception while uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_id}",
+            log(f"Unknown Exception while uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_id}, ignoring exception",
                 exception=e, step_id=self.pipeline_id)
-            return Either(left=e)
+            return Either(right=True)
 
 
 class DummyPipelineUploader(PipelineUploader, ABC):
@@ -533,6 +534,6 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
             return Either(right=True)
 
         except Exception as e:
-            log(f"Unknown Exception while uploading pipeline to data-proc, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}",
+            log(f"Unknown Exception while uploading pipeline to data-proc, from-path {self.from_path} to to-path {upload_path} for fabric {self.fabric_id}, ignoring exception",
                 exception=e, step_id=self.pipeline_id)
-            return Either(left=e)
+            return Either(right=True)
