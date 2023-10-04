@@ -704,7 +704,8 @@ class EMRPipelineConfigurations:
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {upload_path}", exception=e,
+            log(f"Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}",
+                exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)
 
@@ -789,6 +790,7 @@ class DataprocPipelineConfigurations:
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {upload_path}", exception=e,
+            log(f"Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}",
+                exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)
