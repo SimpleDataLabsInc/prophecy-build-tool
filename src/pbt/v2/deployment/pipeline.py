@@ -186,8 +186,8 @@ class PackageBuilder:
             log("Pipeline found in nexus and successfully downloaded it.", step_id=self._pipeline_id)
             return Either(right=(self._pipeline_id, response.right))
         else:
-            log(f"Pipeline not found in nexus, building the pipeline package. {response.left}", response.left,
-                self._pipeline_id)
+            # log(f"Pipeline not found in nexus, building the pipeline package. {response.left}", response.left,
+            #     self._pipeline_id)
             try:
                 self._initialize_temp_folder()
 
@@ -344,7 +344,14 @@ class PipelineUploadManager(PipelineUploader, ABC):
             if self.from_path is None:
                 raise Exception(f"Pipeline build failed {self.pipeline_id}")
 
-            file_name = os.path.basename(self.from_path)
+            file_name_with_extension = os.path.basename(self.from_path)
+
+            if file_name_with_extension.endswith("-1.0.jar"):
+                # scala based pipeline
+                file_name = file_name_with_extension.replace("-1.0.jar", ".jar")
+            else:
+                # python based pipeline they are correctly generated.
+                file_name = file_name_with_extension
 
             subscribed_project_id, subscribed_project_release_version, path = Project.is_cross_project_pipeline(
                 self.from_path)
@@ -357,38 +364,45 @@ class PipelineUploadManager(PipelineUploader, ABC):
             responses = []
 
             for fabric_id in self.all_fabrics:
-                fabric_info = self.project_config.fabric_config.get_fabric(fabric_id)
-                db_info = fabric_info.databricks
-                emr_info = fabric_info.emr
-                dataproc_info = fabric_info.dataproc
+                try:
+                    fabric_info = self.project_config.fabric_config.get_fabric(fabric_id)
+                    db_info = fabric_info.databricks
+                    emr_info = fabric_info.emr
+                    dataproc_info = fabric_info.dataproc
 
-                if db_info is not None:
-                    pipeline_uploader = DatabricksPipelineUploader(self.project, self.project_config,
-                                                                   self.pipeline_id, to_path, self.from_path,
-                                                                   file_name,
-                                                                   fabric_id)
+                    if db_info is not None:
+                        pipeline_uploader = DatabricksPipelineUploader(self.project, self.project_config,
+                                                                       self.pipeline_id, to_path, self.from_path,
+                                                                       file_name,
+                                                                       fabric_id)
 
-                elif emr_info is not None:
-                    pipeline_uploader = EMRPipelineUploader(self.project, self.project_config,
-                                                            self.pipeline_id, self.from_path, to_path,
-                                                            file_name, fabric_id, emr_info)
+                    elif emr_info is not None:
+                        pipeline_uploader = EMRPipelineUploader(self.project, self.project_config,
+                                                                self.pipeline_id, self.from_path, to_path,
+                                                                file_name, fabric_id, emr_info)
 
-                elif dataproc_info is not None:
-                    pipeline_uploader = DataprocPipelineUploader(self.project, self.project_config,
-                                                                 self.pipeline_id, self.from_path, to_path,
-                                                                 file_name, fabric_id, dataproc_info)
-                else:
-                    log(f"Fabric {fabric_id} is not supported for pipeline upload", step_id=self.pipeline_id)
-                    pipeline_uploader = DummyPipelineUploader()
+                    elif dataproc_info is not None:
+                        pipeline_uploader = DataprocPipelineUploader(self.project, self.project_config,
+                                                                     self.pipeline_id, self.from_path, to_path,
+                                                                     file_name, fabric_id, dataproc_info)
+                    else:
+                        log(f"Fabric {fabric_id} is not supported for pipeline upload", step_id=self.pipeline_id)
+                        pipeline_uploader = DummyPipelineUploader()
 
-                responses.append(pipeline_uploader.upload_pipeline())
+                    responses.append(pipeline_uploader.upload_pipeline())
 
-            if all([response.is_right for response in responses]):
-                log(step_status=Status.SUCCEEDED, step_id=self.pipeline_id)
-                return Either(right=True)
-            else:
-                log(step_status=Status.FAILED, step_id=self.pipeline_id)
-                return Either(left=responses)
+                    if all([response.is_right for response in responses]):
+                        log(step_status=Status.SUCCEEDED, step_id=self.pipeline_id)
+                        return Either(right=True)
+                    else:
+                        log(step_status=Status.FAILED, step_id=self.pipeline_id)
+                        return Either(left=responses)
+
+                except Exception as e:
+                    log(f"Error while uploading pipeline {self.pipeline_id} for fabric {fabric_id}",
+                        step_id=self.pipeline_id, exception=e)
+                    log(step_status=Status.FAILED, step_id=self.pipeline_id)
+                    return Either(left=e)
 
         except Exception as e:
             log(f"Error while uploading pipeline {self.pipeline_id}", step_id=self.pipeline_id,
@@ -504,11 +518,9 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
 
         self.from_path = from_path
         self.to_path = to_path
-        self.file_name = file_name
         self.fabric_id = fabric_id
         self.dataproc_info = dataproc_info
         self.file_name = file_name
-
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
 
     def upload_pipeline(self):

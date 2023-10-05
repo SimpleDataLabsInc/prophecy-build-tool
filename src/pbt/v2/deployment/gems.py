@@ -48,7 +48,7 @@ class GemsDeployment:
                     return [Either(right=True)]
                 else:
                     log(step_status=Status.FAILED, step_id=GEMS)
-                    return [Either(right=True)]
+                    return [Either(left=Exception(f"Failed to build the gems package with exit code {return_code}."))]
 
             except Exception as e:
                 log(message="Failed to build the pipeline package.", exception=e, step_id=GEMS)
@@ -73,7 +73,7 @@ class PackageBuilder:
 
     def mvn_build(self):
         settings_xml = os.environ["MAVEN_HOME"] + "/conf/settings.xml"
-        command = ["mvn", "package", "-DskipTests", "-s", settings_xml]
+        command = ["mvn", "deploy", "-DskipTests", "-s", settings_xml]
 
         log(f"Running mvn command {command}", step_id=GEMS)
 
