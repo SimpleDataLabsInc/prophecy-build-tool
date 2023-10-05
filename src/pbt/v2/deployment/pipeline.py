@@ -520,13 +520,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.to_path = to_path
         self.fabric_id = fabric_id
         self.dataproc_info = dataproc_info
-        if file_name.endswith("1.0-jar"):
-            # scala based pipeline
-            self.file_name = file_name.replace("1.0-jar", ".jar")
-        else:
-            # python based pipeline they are correctly generated.
-            self.file_name = file_name
-
+        self.file_name = file_name
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
 
     def upload_pipeline(self):
