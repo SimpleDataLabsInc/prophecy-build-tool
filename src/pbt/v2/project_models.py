@@ -196,7 +196,12 @@ class DAG:
         is_subdag = responses.get('is_subdag', None)
         owners = responses.get('owners', [])
         root_dag_id = responses.get('root_dag_id', None)
-        schedule_interval = responses.get('schedule_interval', {}).get('value', None)
+
+        try:
+            schedule_interval = responses.get('schedule_interval', {}).get('value', None)
+        except AttributeError:
+            schedule_interval = None
+
         next_dagrun = responses.get('next_dagrun', None)
         tags = responses.get('tags', [])
         return DAG(dag_id, description, file_token, fileloc, is_active, is_paused, is_subdag, owners, root_dag_id,

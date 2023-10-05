@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.2.4",
+    version="1.2.5-dev4",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
@@ -39,6 +39,7 @@ setuptools.setup(
     ],
     extras_require={
         "test": [
+            "pytest-html",
             "pytest",
             "pyspark==3.3.0",
             "mock",  # or any other testing-specific packages you need

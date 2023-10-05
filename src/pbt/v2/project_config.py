@@ -57,8 +57,14 @@ class EMRInfo(BaseModel):
     secret_access_key: str
     session_token: Optional[str] = None
 
+    def _bucket(self):
+        return self.bucket.replace("s3://", "").split("/")
+
     def bare_bucket(self):
-        return self.bucket.replace("s3://", "")
+        return self._bucket()[0]
+
+    def bare_path_prefix(self):
+        return "/".join(self._bucket()[1:])
 
 
 class DataprocInfo(BaseModel):
@@ -66,6 +72,15 @@ class DataprocInfo(BaseModel):
     project_id: str
     key_json: str
     location: str
+
+    def _bucket(self):
+        return self.bucket.replace("gs://", "").split("/")
+
+    def bare_bucket(self):
+        return self._bucket()[0]
+
+    def bare_path_prefix(self):
+        return "/".join(self._bucket()[1:])
 
 
 class ComposerInfo(BaseModel):
@@ -188,6 +203,9 @@ class FabricConfig(BaseModel):
         return [fabric for fabric in self.fabrics if
                 (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)]
 
+    def list_all_fabrics(self) -> List[str]:
+        return [fabric.id for fabric in self.fabrics]
+
 
 class JobsState(BaseModel):
     version: str
@@ -306,7 +324,7 @@ class SystemConfig(BaseModel):
         return f'{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}'
 
     def get_s3_base_path(self):
-        return f"{self.customer_name}/{self.control_plane_name}"
+        return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     @staticmethod
     def empty():

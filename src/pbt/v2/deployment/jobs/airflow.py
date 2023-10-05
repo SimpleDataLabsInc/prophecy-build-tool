@@ -11,7 +11,7 @@ from ...client.rest_client_factory import RestClientFactory
 from ...constants import FABRIC_UID
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
-from ...project_config import JobInfo, ProjectConfig
+from ...project_config import JobInfo, ProjectConfig, FabricInfo
 from ...project_models import StepMetadata, Operation, StepType, Status
 from ...utility import Either, generate_secure_content, calculate_checksum
 from ...utility import custom_print as log
@@ -150,8 +150,7 @@ class AirflowJobDeployment:
 
         self._airflow_clients = {}
         self.deployment_run_override_config = project_config.configs_override
-
-        self._rest_client_factory = RestClientFactory.get_instance(self._fabrics_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabrics_config)
         self._airflow_jobs: Dict[str, AirflowJob] = self._initialize_airflow_jobs()
 
         (self.valid_airflow_jobs, self._invalid_airflow_jobs,
@@ -220,8 +219,14 @@ class AirflowJobDeployment:
         jobs = {}
 
         for job_id, parsed_job in self._project.jobs.items():
-            if 'Databricks' not in parsed_job.get('scheduler',
-                                                  None) and self.deployment_run_override_config.is_job_to_run(job_id):
+
+            fabric_override = str(self.deployment_run_override_config.find_fabric_override_for_job(job_id))
+            job_fabric = str(parsed_job.get('fabricUID', None))
+            does_fabric_exist = self._fabrics_config.get_fabric(
+                job_fabric) is not None or self._fabrics_config.get_fabric(fabric_override) is not None
+
+            if 'Databricks' not in parsed_job.get('scheduler', None) and \
+                    self.deployment_run_override_config.is_job_to_run(job_id) and does_fabric_exist:
 
                 rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
                 rdc = self._project.load_airflow_folder(job_id)
@@ -432,13 +437,14 @@ class AirflowJobDeployment:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"Successfully unpaused dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"Successfully un-pause dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"Failed to pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"Failed to un-pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"Successfully added job {dag_name} for job_id {job_id}", step_id=self._ADD_JOBS_STEP_ID)
+            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}",
+                step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
                                                   self._project.release_tag,
@@ -452,23 +458,16 @@ class AirflowJobDeployment:
             return Either(left=e)
 
     def _deploy_skipped_jobs(self):
-        for job_id, messages in self._skip_jobs().items():
-            log(f"Skipping job_id: {job_id} encountered some error ", exception=messages,
+        for job_id, message in self._skip_jobs().items():
+            log(f"Skipping job_id: {job_id} encountered some error ", exception=message.left,
                 step_id=self._SKIP_JOBS_STEP_ID)
         if len(self._skip_jobs()) > 0:
             self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
 
     def _skip_jobs(self):
-        jobs_to_be_skipped = {}
-        for job_id, job_data in self._airflow_jobs.items():
-            job_validation = self._validate_airflow_job(job_id, job_data)
-
-            if job_validation.is_right:
-                continue
-
-            jobs_to_be_skipped[job_id] = job_validation
-
-        return jobs_to_be_skipped
+        return {job_id: self._validate_airflow_job(job_id, job_data)
+                for job_id, job_data in self._airflow_jobs.items()
+                if self._validate_airflow_job(job_id, job_data).is_left}
 
     def _deploy_rename_jobs(self):
         futures = []
@@ -631,7 +630,7 @@ class EMRPipelineConfigurations:
         self.project_config = project_config
         self._jobs_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
-        self._rest_client_factory = RestClientFactory.get_instance(self._fabric_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
 
     def _emr_fabrics(self):
         return self._fabric_config.emr_fabrics()
@@ -691,11 +690,13 @@ class EMRPipelineConfigurations:
 
         return responses
 
-    def _upload_configuration(self, fabric_info, configuration_content, configuration_path):
+    def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
+        upload_path = f"{fabric_info.emr.bare_path_prefix()}/{configuration_path}"
+        emr_info = fabric_info.emr
+
         try:
-            client = self._rest_client_factory.s3_client(str(fabric_info.fabric_id))
-            emr_info = fabric_info.emr
-            client.upload_content(emr_info.bucket, configuration_path, configuration_content)
+            client = self._rest_client_factory.s3_client(str(fabric_info.id))
+            client.upload_content(emr_info.bare_bucket(), upload_path, configuration_content)
 
             log(f"Uploaded pipeline configuration on path {configuration_path}",
                 step_id=self._STEP_ID)
@@ -703,7 +704,8 @@ class EMRPipelineConfigurations:
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {configuration_path}", exception=e,
+            log(f"Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}",
+                exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)
 
@@ -718,7 +720,7 @@ class DataprocPipelineConfigurations:
         self.project_config = project_config
         self._deployment_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
-        self._rest_client_factory = RestClientFactory.get_instance(self._fabric_config)
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
 
     def _dataproc_fabrics(self):
         return self._fabric_config.dataproc_fabrics()
@@ -775,18 +777,20 @@ class DataprocPipelineConfigurations:
 
         return responses
 
-    def _upload_configuration(self, fabric_info, configuration_content, configuration_path):
+    def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
+        upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
+        dataproc_info = fabric_info.dataproc
         try:
-            client = self._rest_client_factory.dataproc_client(str(fabric_info.fabric_id))
-            dataproc_info = fabric_info.data_proc
-            client.put_object(dataproc_info.bucket, configuration_path, configuration_content)
+            client = self._rest_client_factory.dataproc_client(str(fabric_info.id))
+            client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
 
-            log(f"Uploaded pipeline configuration on path {configuration_path}",
+            log(f"Uploaded pipeline configuration on path {upload_path}",
                 step_id=self._STEP_ID)
 
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {configuration_path}", exception=e,
+            log(f"Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}",
+                exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)
