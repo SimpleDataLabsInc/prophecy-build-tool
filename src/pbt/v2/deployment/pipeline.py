@@ -344,7 +344,14 @@ class PipelineUploadManager(PipelineUploader, ABC):
             if self.from_path is None:
                 raise Exception(f"Pipeline build failed {self.pipeline_id}")
 
-            file_name = os.path.basename(self.from_path)
+            file_name_with_extension = os.path.basename(self.from_path)
+
+            if file_name_with_extension.endswith("-1.0.jar"):
+                # scala based pipeline
+                file_name = file_name_with_extension.replace("-1.0.jar", ".jar")
+            else:
+                # python based pipeline they are correctly generated.
+                file_name = file_name_with_extension
 
             subscribed_project_id, subscribed_project_release_version, path = Project.is_cross_project_pipeline(
                 self.from_path)
