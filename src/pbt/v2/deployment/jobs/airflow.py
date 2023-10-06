@@ -430,7 +430,7 @@ class AirflowJobDeployment:
     def _add_job(self, job_id, job_data):
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
-        zip_folder(self._project.load_airflow_base_folder_path(job_id), zipped_dag_name)
+        zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
 
         client = self.get_airflow_client(fabric_id=job_data.fabric_id)
         try:
