@@ -37,13 +37,16 @@ class Project:
         self.pipeline_configurations = self._load_pipeline_configurations()
 
     def load_databricks_job(self, job_id: str) -> Optional[str]:
-        path = os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON)
-        content = self._read_file_content(path)
+        try:
+            path = os.path.join(self.project_path, job_id, "code", self._DATABRICKS_JOB_JSON)
+            content = self._read_file_content(path)
 
-        if content is not None:
-            return self._replace_placeholders(self._DATABRICKS_JOB_JSON, content)
+            if content is not None:
+                return self._replace_placeholders(self._DATABRICKS_JOB_JSON, content)
 
-        return content
+            return content
+        except Exception as e:
+            return None
 
     def load_airflow_base_folder_path(self, job_id):
         return os.path.join(self.project_path, job_id, "code")
