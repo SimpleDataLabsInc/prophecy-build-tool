@@ -456,7 +456,7 @@ class DatabricksJobsDeployment:
             except Exception as e:
                 log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exception=e,
                     step_id=self._PAUSE_JOBS_STEP_ID)
-                return Either(right=True)
+                return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
 
         with ThreadPoolExecutor(max_workers=3) as executor:
 
