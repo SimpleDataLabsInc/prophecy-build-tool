@@ -38,12 +38,10 @@ def get_zipped_dag_name(dag_name: str):
     return f"/tmp/{dag_name}.zip"
 
 
-def zip_folder(folder_path, output_path):
-    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(folder_path):
-            for file in files:
-                abs_file_path = os.path.join(root, file)
-                zipf.write(abs_file_path, abs_file_path[len(folder_path):])
+def zip_folder(rdc: dict, output_path):
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_STORED) as zipf:
+        for path, content in rdc.items():
+            zipf.writestr(path, content)
 
 
 class AirflowJob(JobData, ABC):
@@ -698,7 +696,7 @@ class EMRPipelineConfigurations:
             client = self._rest_client_factory.s3_client(str(fabric_info.id))
             client.upload_content(emr_info.bare_bucket(), upload_path, configuration_content)
 
-            log(f"Uploaded pipeline configuration on path {configuration_path}",
+            log(f"Uploaded pipeline configuration on path {upload_path} on fabric {fabric_info.id}",
                 step_id=self._STEP_ID)
 
             return Either(right=True)
