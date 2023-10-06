@@ -1,10 +1,11 @@
 import boto3
+from botocore.client import BaseClient
 
 
 class S3Client:
 
     def __init__(self, region, access_key, secret_key, aws_session_token=None):
-        self.s3 = boto3.client(
+        self.s3: BaseClient = boto3.client(
             "s3",
             region_name=region,
             aws_access_key_id=access_key,

@@ -1,3 +1,4 @@
+import threading
 from typing import Optional
 
 from .airflow import AirflowRestClient
@@ -10,6 +11,8 @@ from ..project_config import FabricInfo, FabricConfig
 
 class RestClientFactory:
     _instance = None
+
+    _s3_client_creation_lock = threading.Lock()
 
     def __init__(self, fabric_config: FabricConfig):
 
@@ -32,18 +35,23 @@ class RestClientFactory:
             return None
 
     def s3_client(self, fabric_id: str) -> S3Client:
-        if self._get_client(fabric_id) is not None:
-            return self._get_client(fabric_id)
+        self._s3_client_creation_lock.acquire()
+        try:
 
-        emr = self._get_fabric_info(fabric_id).emr
+            if self._get_client(fabric_id) is not None:
+                return self._get_client(fabric_id)
 
-        if emr is not None:
-            client = S3Client(emr.region, emr.access_key_id, emr.secret_access_key, emr.session_token)
-            self.fabric_id_to_rest_client[fabric_id] = client
-            return client
+            emr = self._get_fabric_info(fabric_id).emr
 
-        else:
-            raise ValueError("Fabric Id is not defined in the deployment state")
+            if emr is not None:
+                client = S3Client(emr.region, emr.access_key_id, emr.secret_access_key, emr.session_token)
+                self.fabric_id_to_rest_client[fabric_id] = client
+                return client
+
+            else:
+                raise ValueError("Fabric Id is not defined in the deployment state")
+        finally:
+            self._s3_client_creation_lock.release()
 
     def databricks_client(self, fabric_id: str) -> DatabricksClient:
         if self._get_client(fabric_id) is not None:
