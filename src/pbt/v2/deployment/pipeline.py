@@ -391,18 +391,19 @@ class PipelineUploadManager(PipelineUploader, ABC):
 
                     responses.append(pipeline_uploader.upload_pipeline())
 
-                    if all([response.is_right for response in responses]):
-                        log(step_status=Status.SUCCEEDED, step_id=self.pipeline_id)
-                        return Either(right=True)
-                    else:
-                        log(step_status=Status.FAILED, step_id=self.pipeline_id)
-                        return Either(left=responses)
 
                 except Exception as e:
                     log(f"Error while uploading pipeline {self.pipeline_id} for fabric {fabric_id}",
                         step_id=self.pipeline_id, exception=e)
                     log(step_status=Status.FAILED, step_id=self.pipeline_id)
-                    return Either(left=e)
+                    responses.append(Either(left=e))
+
+            if all([response.is_right for response in responses]):
+                log(step_status=Status.SUCCEEDED, step_id=self.pipeline_id)
+                return Either(right=True)
+            else:
+                log(step_status=Status.FAILED, step_id=self.pipeline_id)
+                return Either(left=responses)
 
         except Exception as e:
             log(f"Error while uploading pipeline {self.pipeline_id}", step_id=self.pipeline_id,
