@@ -626,6 +626,7 @@ class EMRPipelineConfigurations:
         self.airflow_jobs = airflow_jobs
         self.pipeline_configurations = project.pipeline_configurations
         self.project_config = project_config
+        self.project = project
         self._jobs_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
         self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
@@ -664,7 +665,7 @@ class EMRPipelineConfigurations:
             for pipeline_id, configurations in self.pipeline_configurations.items():
 
                 path = self.project_config.system_config.get_s3_base_path()
-                pipeline_path = f'{path}/{pipeline_id}'
+                pipeline_path = f'{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}'
 
                 for configuration_name, configuration_content in configurations.items():
                     configuration_path = f'{pipeline_path}/{configuration_name}.jsn'
@@ -715,6 +716,7 @@ class DataprocPipelineConfigurations:
                  project_config: ProjectConfig):
         self.airflow_jobs = airflow_jobs
         self.pipeline_configurations = project.pipeline_configurations
+        self.project = project
         self.project_config = project_config
         self._deployment_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
@@ -750,16 +752,16 @@ class DataprocPipelineConfigurations:
                     lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path:
                     self._upload_configuration(f_info, conf_content, conf_path)))
 
-                for pipeline_id, configurations in self.pipeline_configurations.items():
-                    path = self.project_config.system_config.get_s3_base_path()
-                    pipeline_path = f'{path}/{pipeline_id}'
-                    for configuration_name, configuration_content in configurations.items():
-                        configuration_path = f'{pipeline_path}/{configuration_name}.jsn'
+            for pipeline_id, configurations in self.pipeline_configurations.items():
+                path = self.project_config.system_config.get_s3_base_path()
+                pipeline_path = f'{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}'
+                for configuration_name, configuration_content in configurations.items():
+                    configuration_path = f'{pipeline_path}/{configuration_name}.jsn'
 
-                        for fabric_info in self._fabric_config.dataproc_fabrics():
+                    for fabric_info in self._fabric_config.dataproc_fabrics():
 
-                            if fabric_info.dataproc is not None:
-                                execute_job(fabric_info, configuration_content, configuration_path)
+                        if fabric_info.dataproc is not None:
+                            execute_job(fabric_info, configuration_content, configuration_path)
 
         responses = []
 

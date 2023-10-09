@@ -752,6 +752,7 @@ class PipelineConfigurations:
         self.databricks_jobs = databricks_jobs
         self.pipeline_configurations = project.pipeline_configurations
         self.project_config = project_config
+        self.project = project
 
     def summary(self) -> List[str]:
         summary = []
@@ -783,7 +784,7 @@ class PipelineConfigurations:
             for pipeline_id, configurations in self.pipeline_configurations.items():
 
                 path = self.project_config.system_config.get_dbfs_base_path()
-                pipeline_path = f'{path}/{pipeline_id}'
+                pipeline_path = f'{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}'
 
                 for configuration_name, configuration_content in configurations.items():
                     configuration_path = f'{pipeline_path}/{configuration_name}.json'

@@ -391,18 +391,18 @@ class PipelineUploadManager(PipelineUploader, ABC):
 
                     responses.append(pipeline_uploader.upload_pipeline())
 
-                    if all([response.is_right for response in responses]):
-                        log(step_status=Status.SUCCEEDED, step_id=self.pipeline_id)
-                        return Either(right=True)
-                    else:
-                        log(step_status=Status.FAILED, step_id=self.pipeline_id)
-                        return Either(left=responses)
-
                 except Exception as e:
                     log(f"Error while uploading pipeline {self.pipeline_id} for fabric {fabric_id}",
                         step_id=self.pipeline_id, exception=e)
                     log(step_status=Status.FAILED, step_id=self.pipeline_id)
-                    return Either(left=e)
+                    responses.append(Either(left=e))
+
+            if all([response.is_right for response in responses]):
+                log(step_status=Status.SUCCEEDED, step_id=self.pipeline_id)
+                return Either(right=True)
+            else:
+                log(step_status=Status.FAILED, step_id=self.pipeline_id)
+                return Either(left=responses)
 
         except Exception as e:
             log(f"Error while uploading pipeline {self.pipeline_id}", step_id=self.pipeline_id,
@@ -429,7 +429,8 @@ class EMRPipelineUploader(PipelineUploader, ABC):
 
     def upload_pipeline(self):
         base_path = self.project_config.system_config.get_s3_base_path()
-        upload_path = f"{self.emr_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}"
+        upload_path = f"{self.emr_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}".lstrip(
+            "/")
 
         try:
             client = self.rest_client_factory.s3_client(self.fabric_id)
@@ -440,11 +441,12 @@ class EMRPipelineUploader(PipelineUploader, ABC):
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
-                pipeline_name = self.pipeline_id.split("/")[0]
-                launcher_path = f"{upload_path}/{pipeline_name}/launcher.py"
+                pipeline_name = self.pipeline_id.split("/")[1]
+                launcher_path = f"{self.emr_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{pipeline_name}/launcher.py".lstrip(
+                    '/')
                 client.upload_content(self.emr_info.bare_bucket(), launcher_path, content)
 
-                log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {self.fabric_id}",
+                log(f"Uploading py pipeline launcher to to-path {launcher_path} for fabric {self.fabric_id}",
                     step_id=self.pipeline_id)
             return Either(right=True)
         except Exception as e:
@@ -526,7 +528,8 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
     def upload_pipeline(self):
         base_path = self.project_config.system_config.get_s3_base_path()
 
-        upload_path = f"{self.dataproc_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}"
+        upload_path = f"{self.dataproc_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{self.file_name}".lstrip(
+            "/")
 
         try:
             client = self.rest_client_factory.dataproc_client(self.fabric_id)
@@ -537,11 +540,12 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
-                pipeline_name = self.pipeline_id.split("/")[0]
-                launcher_path = f"{upload_path}/{pipeline_name}/launcher.py"
+                pipeline_name = self.pipeline_id.split("/")[1]
+                launcher_path = f"{self.dataproc_info.bare_path_prefix()}/{base_path}/{self.to_path}/pipeline/{pipeline_name}/launcher.py".lstrip(
+                    '/')
                 client.put_object(self.dataproc_info.bare_bucket(), launcher_path, content)
 
-                log(f"Uploading py pipeline launcher to to-path {upload_path} for fabric {self.fabric_id}",
+                log(f"Uploading py pipeline launcher to to-path {launcher_path} and bucket {self.dataproc_info.bare_bucket()} for fabric {self.fabric_id}",
                     step_id=self.pipeline_id)
             return Either(right=True)
 
