@@ -39,6 +39,7 @@ class DatabricksClient:
     def upload_content(self, content: str, path: str):
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_file.write(content.encode())
+            # copy-pasted from gpt.
             temp_file.flush()  # Ensure that the content is flushed to disk
             temp_file.seek(0)  # Reset file's pointer to the beginning
             #
