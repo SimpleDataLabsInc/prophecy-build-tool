@@ -39,6 +39,11 @@ class DatabricksClient:
     def upload_content(self, content: str, path: str):
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_file.write(content.encode())
+            temp_file.flush()  # Ensure that the content is flushed to disk
+            temp_file.seek(0)  # Reset file's pointer to the beginning
+            #
+            # print(temp_file.read().decode())
+
             self.upload_src_path(src_path=temp_file.name, destination_path=path)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),

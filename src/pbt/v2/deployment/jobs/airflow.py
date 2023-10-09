@@ -37,7 +37,8 @@ def sanitize_job(job_id) -> str:
 def get_zipped_dag_name(dag_name: str):
     return f"/tmp/{dag_name}.zip"
 
-def zip_folder(rdc:dict, output_path):
+
+def zip_folder(rdc: dict, output_path):
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_STORED) as zipf:
         for path, content in rdc.items():
             zipf.writestr(path, content)
