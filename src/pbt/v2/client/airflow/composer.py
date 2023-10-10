@@ -34,7 +34,7 @@ class GCSPathInfo:
 
         if match:
             bucket, path = match.groups()
-            gcs_path_info = GCSPathInfo(bucket, "/".join(path.split("/")))
+            gcs_path_info = GCSPathInfo(bucket.strip("/"), "/".join(path.split("/")).rstrip("/"))
         else:
             gcs_path_info = None
 
