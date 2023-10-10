@@ -48,7 +48,7 @@ class DatabricksClient:
             self.upload_src_path(src_path=temp_file.name, destination_path=path)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30))
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def upload_src_path(self, src_path: str, destination_path: str):
         self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
 
@@ -59,7 +59,7 @@ class DatabricksClient:
         self.dbfs.delete(path, recursive=True)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30))
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def create_secret_scope_if_not_exist(self, secret_scope: str):
 
         response = self.secret.list_scopes()
@@ -74,12 +74,12 @@ class DatabricksClient:
         self.secret.put_secret(scope, key, value, None)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30))
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def create_job(self, content: Dict[str, str]):
         return self.job.create_job(content)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30))
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def get_job(self, scheduler_job_id: str):
         return self.job.get_job(scheduler_job_id)
 
@@ -87,7 +87,7 @@ class DatabricksClient:
         self.job.delete_job(job_id)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30))
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def pause_job(self, scheduler_job_id: str) -> Either:
         response = self.job.get_job(scheduler_job_id)
 
@@ -108,7 +108,7 @@ class DatabricksClient:
             return Either(right=False)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30))
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def reset_job(self, scheduler_job_id: str, update_request: Dict[str, str]):
         new_settings = {'job_id': scheduler_job_id, 'new_settings': update_request}
 

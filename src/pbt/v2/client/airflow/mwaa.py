@@ -1,16 +1,16 @@
 import base64
+import datetime
+import json
 import re
 from abc import ABC
-import datetime
 
 import boto3
+import requests
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
 
 from . import AirflowRestClient
 from ...exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
 from ...project_models import DAG
-import requests
-import json
 
 
 class MWAARestClient(AirflowRestClient, ABC):
@@ -68,7 +68,8 @@ class MWAARestClient(AirflowRestClient, ABC):
             print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
             raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(5), wait=wait_fixed(10))
+    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(5), wait=wait_fixed(10),
+           reraise=True)
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
         dag_list = json.loads(response)

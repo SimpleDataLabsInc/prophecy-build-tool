@@ -178,7 +178,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
                 .with_scopes(self._SCOPES)
         return AuthorizedSession(credentials)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5), wait=wait_fixed(10))
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5), wait=wait_fixed(10), reraise=True)
     def _set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
         session = self._get_authenticated_session()
         response = session.request(method='PATCH', url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
