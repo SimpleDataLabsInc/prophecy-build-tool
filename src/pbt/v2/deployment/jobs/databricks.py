@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
 from requests import HTTPError
-from tenacity import RetryError
 
 from ...client.rest_client_factory import RestClientFactory
 from ...constants import COMPONENTS_LITERAL
@@ -356,23 +355,14 @@ class DatabricksJobsDeployment:
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
 
-        except RetryError as e:
-            underlying_exception = e.last_attempt.exception()
+        except HTTPError as e:
+            response = e.response.content.decode('utf-8')
 
-            if isinstance(underlying_exception, HTTPError):
-                response = underlying_exception.response.content.decode('utf-8')
-
-                if underlying_exception.response.status_code == 400 and f"Job {job_info.external_job_id} does not exist." in response:
-                    log_success(
-                        f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, "
-                        f"trying to recreate it")
-                    return self._deploy_add_job(job_id, self.valid_databricks_jobs.get(job_id),
-                                                step_id=self._REFRESH_JOBS_STEP_ID)
-                else:
-                    log_error(
-                        f'Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
-                        e)
-                    return Either(left=e)
+            if e.response.status_code == 400 and f"Job {job_info.external_job_id} does not exist." in response:
+                log_success(
+                    f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, trying to recreate it")
+                return self._deploy_add_job(job_id, self.valid_databricks_jobs.get(job_id),
+                                            step_id=self._REFRESH_JOBS_STEP_ID)
             else:
                 log_error(
                     f'Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
