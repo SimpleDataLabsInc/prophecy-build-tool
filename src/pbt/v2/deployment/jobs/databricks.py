@@ -360,8 +360,7 @@ class DatabricksJobsDeployment:
 
             if e.response.status_code == 400 and f"Job {job_info.external_job_id} does not exist." in response:
                 log_success(
-                    f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, "
-                    f"trying to recreate it")
+                    f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, trying to recreate it")
                 return self._deploy_add_job(job_id, self.valid_databricks_jobs.get(job_id),
                                             step_id=self._REFRESH_JOBS_STEP_ID)
             else:
