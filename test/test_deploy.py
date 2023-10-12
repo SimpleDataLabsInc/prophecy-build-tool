@@ -29,10 +29,10 @@ def test_deploy_config_update():
     os.environ["DATABRICKS_TOKEN"]="dapi4dab5e7c09b8653e82188700f20e8fe0"
     runner = CliRunner()
     result = runner.invoke(deploy, ["--path", path, "--release-version", "1.2",
-                                    # "--skip-builds" ,
                                     "--project-id", "12163",
-         "--only-update-configs", "config1,config2"])
-    print(result)
+         # "--only-update-configs", "config1,config2"
+                                    ])
+
     # assert "Found 2 jobs: test-job1234, job-another" in result.output
     # assert (
     #     "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "

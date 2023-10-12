@@ -249,6 +249,146 @@ class ProphecyBuildTool:
             print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
+    def deploy_configs(self,configs=None):
+        configs_list = list(i.strip() for i in configs.split(r",")) if configs else list()
+        print(f"Deploying only given configs: {str(configs_list)} for Project version: {self.project_release}")
+
+        self._verify_databricks_configs()
+        config = EnvironmentVariableConfigProvider().get_config()
+        self.api_client = _get_api_client(config)
+
+        self.dbfs_service = DbfsService(self.api_client)
+        for job_idx, (path_job, job) in enumerate(self.jobs.items()):
+            path_job_definition = self.get_databricks_job_json_path(path_job)
+            with open(path_job_definition, "r") as _in:
+                data = _in.read()
+                data = (
+                    data.replace("__PROJECT_RELEASE_VERSION_PLACEHOLDER__", self.project_release)
+                    .replace("__PROJECT_ID_PLACEHOLDER__", self.project_id)
+                    .replace("__PROPHECY_URL_PLACEHOLDER__", self.prophecy_url)
+                )
+            with open(path_job_definition, "w") as _out:
+                _out.write(data)
+            with open(path_job_definition, "r") as _in:
+                job_definition = json.load(_in)
+            components = job_definition["components"]
+            for component in components:
+                if "PipelineComponent" in component:
+                    pipeline_component = component["PipelineComponent"]
+                    if "pipelineId" in pipeline_component:
+                        pipeline_uri = pipeline_component["pipelineId"]
+                    else:
+                        pipeline_uri = pipeline_component["id"]
+                    uri_pattern = "([0-9]*)(pipelines/[-_.A-Za-z0-9 /]+)"
+                    pipeline_id = re.search(uri_pattern, pipeline_uri).group(2)
+
+                    if (
+                        "releaseVersion" in component["PipelineComponent"]
+                        or "path=" in pipeline_id
+                        or pipeline_id not in self.pipelines_build_path
+                    ):
+                        # Check if this shared pipelineComponent has configs
+                        dependent_pipeline_regex_pattern = (
+                            "(^[0-9]+?\/pipelines\/[-_.A-Za-z0-9 \/]+)$"
+                            "|^.*projectSubscriptionProjectId=([0-9]+).*path=([-_.A-Za-z0-9 \/]+).*$"
+                            "|^.*path=([-_.A-Za-z0-9 \/]+).*projectSubscriptionProjectId=([0-9]+).*$"
+                        )
+                        print(f"Parsing basepipeline: {pipeline_uri}")
+                        search_regex_id = re.search(dependent_pipeline_regex_pattern, pipeline_uri)
+                        if bool(search_regex_id) and "configPath" in component["PipelineComponent"]:
+                            generate_pipeline_config_from_pipeline_component = True
+                            shared_pipeline_id = ""
+                            if bool(search_regex_id.group(1)):
+                                shared_pipeline_id = search_regex_id.group(1)
+                            elif bool(search_regex_id.group(2)) and bool(search_regex_id.group(3)):
+                                shared_pipeline_id = f"{search_regex_id.group(2)}/{search_regex_id.group(3)}"
+                            elif bool(search_regex_id.group(4)) and bool(search_regex_id.group(5)):
+                                shared_pipeline_id = f"{search_regex_id.group(5)}/{search_regex_id.group(4)}"
+                            else:
+                                generate_pipeline_config_from_pipeline_component = False
+                            self.pipeline_to_dbfs_config_path[shared_pipeline_id] = component["PipelineComponent"][
+                                "configPath"
+                            ]
+
+                            print(f"Shared pipeline id for {pipeline_uri} is {shared_pipeline_id}")
+
+                        print(f"    Pipeline {pipeline_id} might be shared, checking if it exists in DBFS")
+
+                        # This jar is from a shared pipeline, check if jar exists in DBFS
+                        try:
+                            if self.dbfs_service.get_status(component["PipelineComponent"]["path"]):
+                                print("    Dependent package exists on DBFS already, continuing with next pipeline")
+                                continue
+                        except HTTPError as e:
+                            dependent_build_jar_found = False
+                            if e.response.status_code == 404:
+                                # Pipeline not found on DBFS. Check if it is present in dependency folder
+                                # and try to build it ourselves
+                                print(
+                                    f"    Pipeline {pipeline_id} not found in DFBS, "
+                                    f"searching in dependent project directory"
+                                )
+                                for project in self.dependent_projects.values():
+                                    if (
+                                        pipeline_id in project.pipelines
+                                        and self.project_language == project.project_language
+                                    ):
+                                        print("    Building dependent project's pipeline:")
+                                        (
+                                            dependent_build_status,
+                                            dependent_build_paths,
+                                        ) = project.build(
+                                            {
+                                                k: v
+                                                for (k, v) in project.pipelines.items()
+                                                if pipeline_id in project.pipelines
+                                            },
+                                            False,
+                                        )
+                                        if dependent_build_status:
+                                            dependent_build_jar_found = True
+                                            self.dependent_pipelines_build_path[pipeline_id] = dependent_build_paths[
+                                                pipeline_id
+                                            ]
+                            if not dependent_build_jar_found:
+                                pipelines_upload_failures_job[pipeline_id].append(e.response.text)
+                                pipelines_upload_failures[pipeline_id].append(e.response.text)
+                        except Exception as ex:
+                            self.pipelines_build_path[pipeline_id]["uploaded"] = False
+                            pipelines_upload_failures_job[pipeline_id].append(str(ex))
+                            pipelines_upload_failures[pipeline_id].append(str(ex))
+                    if pipeline_id in self.pipelines_build_path or pipeline_id in self.dependent_pipelines_build_path:
+                        pipelines_build_path = (
+                            self.pipelines_build_path
+                            if pipeline_id in self.pipelines_build_path
+                            else self.dependent_pipelines_build_path
+                        )
+                        source_path = pipelines_build_path[pipeline_id]["source_absolute"]
+                        target_path = component["PipelineComponent"]["path"]
+                        if (
+                            not pipelines_build_path[pipeline_id]["uploaded"]
+                            or target_path not in self.uploaded_target_paths
+                        ):
+                            print(
+                                "    Uploading %s to %s"
+                                % (
+                                    pipelines_build_path[pipeline_id]["source"],
+                                    target_path,
+                                )
+                            )
+
+                            try:
+                                self.dbfs_service.put(target_path, overwrite=True, src_path=source_path)
+                                pipelines_build_path[pipeline_id]["uploaded"] = True
+                                self.uploaded_target_paths.add(target_path)
+                            # except HTTPError as e:
+                                # pipelines_upload_failures_job[pipeline_id].append(e.response.text)
+                                # pipelines_upload_failures[pipeline_id].append(e.response.text)
+                            except Exception as ex:
+                                pipelines_build_path[pipeline_id]["uploaded"] = False
+                                # pipelines_upload_failures_job[pipeline_id].append(str(ex))
+                                # pipelines_upload_failures[pipeline_id].append(str(ex))
+
     def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None, only_update_configs=None):
         # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
         # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
@@ -297,8 +437,6 @@ class ProphecyBuildTool:
             print("[INFO]: Generating depending pipelines for all jobs as '--job-ids' flag is passed.")
             pipelines_to_build = self.generate_pipeline_deps()
             self.build(pipelines_to_build)
-        elif only_update_configs:
-            print("[ONLY_CONFIG_UPDATES]: Skipping builds for all pipelines as '--only-update-configs' flag is passed.")
         else:
             print("[SKIP]: Skipping builds for all pipelines as '--skip-builds' flag is passed.")
 
@@ -340,16 +478,6 @@ class ProphecyBuildTool:
             generate_pipeline_config_from_pipeline_component = False
 
             for component in components:
-                if "ScriptComponent" in component:
-                    script_component = component["ScriptComponent"]
-                    content = script_component["content"]
-                    path = script_component["path"]
-                    temp_file = tempfile.NamedTemporaryFile(delete=False)
-                    temp_file.write(content.encode("ascii"))
-                    temp_file.close()
-                    print(f"Uploading script to path: {path}")
-                    self.dbfs_service.put(path, overwrite=True, src_path=temp_file.name)
-                    os.unlink(temp_file.name)
                 if "PipelineComponent" in component:
                     pipeline_component = component["PipelineComponent"]
                     if "pipelineId" in pipeline_component:

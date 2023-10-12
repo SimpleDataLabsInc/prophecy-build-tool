@@ -116,8 +116,10 @@ def deploy(
         only_update_configs,
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
-    pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids, only_update_configs=only_update_configs)
-
+    if not only_update_configs:
+        pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids, only_update_configs=only_update_configs)
+    else:
+        pbt.deploy_configs(configs=only_update_configs)
 
 @cli.command()
 @click.option(
