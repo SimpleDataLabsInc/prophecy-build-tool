@@ -38,17 +38,23 @@ class FabricProviderType(enum.Enum):
     Dataproc = "Dataproc"
 
 
-class RuntimeMode(enum.Enum):
-    Regular = "Regular"
-    Partial = "Partial"
-    RegularWithTests = "RegularWithTests"
-    PartialWithTests = "PartialWithTests"
-    Test = "Test"
-
-
 class DeploymentMode(enum.Enum):
     FullProject = "FullProject"
     SelectiveJob = "SelectiveJob"
+
+class BucketAndPathExtractor:
+    def __init__(self, bucket:str, prefix:str):
+        self.bucket = bucket
+        self.prefix = prefix
+
+    def _bucket(self):
+        return self.bucket.replace(self.prefix, "").split("/")
+
+    def bare_bucket(self):
+        return self._bucket()[0]
+
+    def bare_path_prefix(self):
+        return "/".join(self._bucket()[1:])
 
 
 class EMRInfo(BaseModel):
@@ -58,14 +64,15 @@ class EMRInfo(BaseModel):
     secret_access_key: str
     session_token: Optional[str] = None
 
-    def _bucket(self):
-        return self.bucket.replace("s3://", "").split("/")
+    def bucket_path_extractor(self):
+        return BucketAndPathExtractor(self.bucket, "s3://")
 
     def bare_bucket(self):
-        return self._bucket()[0]
+        return self.bucket_path_extractor().bare_bucket()
 
     def bare_path_prefix(self):
-        return "/".join(self._bucket()[1:])
+        return self.bucket_path_extractor().bare_path_prefix()
+    
 
 
 class DataprocInfo(BaseModel):
@@ -74,14 +81,14 @@ class DataprocInfo(BaseModel):
     key_json: str
     location: str
 
-    def _bucket(self):
-        return self.bucket.replace("gs://", "").split("/")
-
+    def bucket_path_extractor(self):
+        return BucketAndPathExtractor(self.bucket, "gs://")
+    
     def bare_bucket(self):
-        return self._bucket()[0]
+        return self.bucket_path_extractor().bare_bucket()
 
     def bare_path_prefix(self):
-        return "/".join(self._bucket()[1:])
+        return self.bucket_path_extractor().bare_path_prefix()
 
 
 class ComposerInfo(BaseModel):
@@ -134,6 +141,13 @@ class JobInfo(BaseModel):
     def with_release_tag(self, release_tag):
         self.release_tag = release_tag
 
+    def is_exactly_same_as(self, job_response):
+        return self.external_job_id == job_response.external_job_id and self.fabric_id == job_response.fabric_id and \
+            self.id == job_response.id and self.name == job_response.name and self.type == job_response.type
+
+    def pause(self, flag: bool):
+        self.is_paused = flag
+
     @staticmethod
     def create_db_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
                       is_paused: bool = False):
@@ -148,14 +162,6 @@ class JobInfo(BaseModel):
                        fabric_id=fabric_id,
                        external_job_id=external_job_id,
                        release_tag=release_tag, is_paused=is_paused)
-
-    def is_exactly_same_as(self, job_response):
-        return self.external_job_id == job_response.external_job_id and self.fabric_id == job_response.fabric_id and \
-            self.id == job_response.id and self.name == job_response.name and self.type == job_response.type
-
-    def pause(self, flag: bool):
-        self.is_paused = flag
-
 
 class ProjectAndGitTokens(BaseModel):
     project_id: str
