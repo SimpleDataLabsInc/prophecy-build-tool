@@ -53,3 +53,8 @@ class InvalidFabricException(PBTException):
 class ProjectBuildFailedException(PBTException):
     def __init__(self, message):
         self.message = message
+
+
+class ConfigFileNotFoundException(PBTException):
+    def __init__(self, message):
+        self.message = message

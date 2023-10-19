@@ -270,7 +270,7 @@ class AirflowJobDeployment:
 
     def _validate_airflow_job(self, job_id: str, job_data: AirflowJob):
 
-        is_prophecy_managed_fabric = self._fabrics_config.is_fabric_prophecy_managed(
+        is_prophecy_managed_fabric = self._fabrics_config.is_prophecy_managed(
             job_data.fabric_id)
         rdc = job_data.rdc
 
@@ -295,7 +295,7 @@ class AirflowJobDeployment:
         for job_id, job_data in self.valid_airflow_jobs.items():
 
             is_job_enabled = job_data.is_enabled
-            is_prophecy_managed_fabric = self._fabrics_config.is_fabric_prophecy_managed(
+            is_prophecy_managed_fabric = self._fabrics_config.is_prophecy_managed(
                 job_data.fabric_id)
 
             if is_job_enabled and is_prophecy_managed_fabric and job_data.has_dbt_component:
@@ -341,7 +341,7 @@ class AirflowJobDeployment:
     def _jobs_to_be_deleted(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.airflow_jobs
             if not any(
                 airflow_job.id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
@@ -356,7 +356,7 @@ class AirflowJobDeployment:
     def _jobs_with_fabric_changed(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.airflow_jobs
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_airflow_jobs.items()  # Check only from valid airflow jobs.
@@ -365,7 +365,7 @@ class AirflowJobDeployment:
 
     def _rename_jobs(self) -> List[JobInfo]:
         return [
-            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.airflow_jobs
 
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id == job_data.fabric_id and
@@ -381,7 +381,7 @@ class AirflowJobDeployment:
     # jobs which are enabled in state config but disabled in code.
     # and always get jobs from deployment state.
     def _pause_jobs(self) -> Dict[str, JobInfo]:
-        old_enabled_job = {job.id: job for job in self._jobs_state.get_airflow_jobs if job.is_paused is False}
+        old_enabled_job = {job.id: job for job in self._jobs_state.airflow_jobs if job.is_paused is False}
 
         old_enabled_job_which_are_disabled_in_new = {
             job_id: job_info

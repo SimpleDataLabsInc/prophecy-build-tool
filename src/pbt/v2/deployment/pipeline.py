@@ -38,7 +38,7 @@ class PipelineDeployment:
         self.project = project
         self.project_config = project_config
         self.deployment_mode = project_config.configs_override.mode
-        self.are_tests_enabled = project_config.configs_override.are_tests_enabled
+        self.are_tests_enabled = project_config.configs_override.tests_enabled
 
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case deployment doesn't have any pipelines.

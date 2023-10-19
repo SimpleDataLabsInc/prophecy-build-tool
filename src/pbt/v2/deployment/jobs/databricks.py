@@ -225,7 +225,7 @@ class DatabricksJobsDeployment:
 
     def _refresh_jobs(self) -> Dict[str, JobInfo]:
         return {
-            job_info.id: job_info for job_info in self.deployment_state.get_databricks_jobs
+            job_info.id: job_info for job_info in self.deployment_state.databricks_jobs
             if any(
                 job_info.id == job_id and job_info.fabric_id == job_data.fabric_id
                 for job_id, job_data in self.valid_databricks_jobs.items()
@@ -235,7 +235,7 @@ class DatabricksJobsDeployment:
     def _pause_jobs(self) -> List[JobInfo]:
 
         return [
-            databricks_job for databricks_job in self.deployment_state.get_databricks_jobs
+            databricks_job for databricks_job in self.deployment_state.databricks_jobs
             if any(
                 databricks_job.id == job_id and databricks_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_databricks_jobs.items()
@@ -246,12 +246,12 @@ class DatabricksJobsDeployment:
 
         return {
             job_id: job_data for job_id, job_data in self.valid_databricks_jobs.items()
-            if self.deployment_state.contains_jobs(job_id, str(job_data.fabric_id)) is False
+            if self.deployment_state.contains_job(job_id, str(job_data.fabric_id)) is False
         }
 
     def _delete_jobs(self) -> Dict[str, JobInfo]:
         return {
-            job.id: job for job in self.deployment_state.get_databricks_jobs
+            job.id: job for job in self.deployment_state.databricks_jobs
             if not any(job.id == job_id for job_id in
                        self.valid_databricks_jobs.keys())
         }
@@ -268,8 +268,8 @@ class DatabricksJobsDeployment:
             log(f"Created job {job_id} in fabric {fabric_id} response {response['job_id']}",
                 step_id=step_id)
 
-            job_info = JobInfo.create_db_job(job_data.name, job_id, fabric_id, response['job_id'],
-                                             self.project.release_tag, job_data.is_paused)
+            job_info = JobInfo.create_job_info(job_data.name, job_id, fabric_id, response['job_id'],
+                                               self.project.release_tag, job_data.is_paused)
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
 
