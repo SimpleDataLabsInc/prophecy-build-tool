@@ -246,7 +246,8 @@ class ProphecyBuildTool:
         if not overall_build_status and exit_on_build_failure:
             sys.exit(1)
         else:
-            print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
+            if not exit_on_build_failure:
+                print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
     def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
