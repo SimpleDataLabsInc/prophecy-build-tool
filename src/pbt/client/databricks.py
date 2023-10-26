@@ -11,7 +11,7 @@ from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
 from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
 
-from ..utility import Either
+from src.pbt.utils.utility import Either
 
 
 class DatabricksClient:
@@ -37,20 +37,11 @@ class DatabricksClient:
         return cls(host, token)
 
     def upload_content(self, content: str, path: str):
+        tempp_file = None
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_file.write(content.encode())
-            # copy-pasted from gpt.
-            temp_file.flush()  # Ensure that the content is flushed to disk
-            temp_file.seek(0)  # Reset file's pointer to the beginning
-            #
-            # print(temp_file.read().decode())
-
-            self.upload_src_path(src_path=temp_file.name, destination_path=path)
-
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
-    def upload_src_path(self, src_path: str, destination_path: str):
-        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
+            tempp_file = tempp_file
+        self.upload_src_path(src_path=tempp_file.name, destination_path=path)
 
     def path_exist(self, path: str):
         return self.dbfs.get_status(path) is not None
@@ -58,20 +49,25 @@ class DatabricksClient:
     def delete(self, path: str):
         self.dbfs.delete(path, recursive=True)
 
+    def create_secret(self, scope: str, key: str, value: str):
+        self.secret.put_secret(scope, key, value, None)
+
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    def upload_src_path(self, src_path: str, destination_path: str):
+        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
+
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
            wait=wait_exponential(multiplier=2, max=30), reraise=True)
     def create_secret_scope_if_not_exist(self, secret_scope: str):
 
         response = self.secret.list_scopes()
 
-        if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
+        if not any(scope['name'] == secret_scope for scope in response['scopes']):
             self.secret.create_scope(secret_scope, initial_manage_principal="users", scope_backend_type=None,
                                      backend_azure_keyvault=None)
         else:
             return True
-
-    def create_secret(self, scope: str, key: str, value: str):
-        self.secret.put_secret(scope, key, value, None)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
            wait=wait_exponential(multiplier=2, max=30), reraise=True)

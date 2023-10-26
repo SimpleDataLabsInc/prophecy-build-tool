@@ -6,7 +6,7 @@ import os
 from enum import Enum
 from typing import Optional, Any
 
-from .project_models import LogEvent, StepMetadata, Status
+from .project_models import LogEvent, StepMetadata, Status, LogLevel
 
 
 def calculate_checksum(input_str, salt=None):
@@ -56,7 +56,7 @@ class Either:
 def custom_print(message: Optional[Any] = None, exception=None,
                  step_id=None,
                  step_metadata: Optional[StepMetadata] = None,
-                 step_status: Optional[Status] = None):
+                 step_status: Optional[Status] = None, level: Optional[LogLevel] = None):
     if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM':
         # Custom print: Print all variables.
         if step_metadata is not None:
@@ -64,15 +64,20 @@ def custom_print(message: Optional[Any] = None, exception=None,
         elif step_status is not None:
             log_event = LogEvent.from_status(step_status, step_id)
         else:
-            log_event = LogEvent.from_log(step_id, message, exception)
+            log_event = LogEvent.from_log(step_id, message, exception, level)
 
         print(log_event.to_json(), flush=True)
     else:
         # Regular print: Skip stepName.
-        print(message, exception)
+        from rich import print
 
+        if os.environ.get('PRINT_MODE', 'REGULAR') != 'CUSTOM':
 
-# If the item is a dictionary
+            if message is not None:
+                if exception is not None:
+                    print(f"\n[bold red]{message}/[bold red]", exception)
+                else:
+                    print(f"\n[bold blue]{message}/[bold blue]")
 
 
 def remove_null_items_recursively(item):

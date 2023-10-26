@@ -1,24 +1,29 @@
 import copy
 import os
+from abc import ABC
 from typing import List
 
 import yaml
 
+from src.pbt.entities.project import Project
 from .gems import GemsDeployment
-from src.pbt.utils.constants import NEW_JOB_STATE_FILE
+from ..constants import NEW_JOB_STATE_FILE
 from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
     DataprocPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
     DBTComponents
 from ..deployment.pipeline import PipelineDeployment
-from src.pbt.entities.project import Project
-from src.pbt.utils.project_config import ProjectConfig
-from src.pbt.utils.project_models import StepMetadata, Operation, StepType, Status
-from src.pbt.utils.utility import custom_print as log, Either
-from src.pbt.utils.utility import remove_null_items_recursively
+from ..project_config import ProjectConfig
+from ..project_models import StepMetadata, Operation, StepType, Status
+from ..utility import custom_print as log, Either
+from ..utility import remove_null_items_recursively
 
 
-class ProjectDeployment:
+class ProjectDeployment(ABC):
+    pass
+
+
+class ProjectDeploymentApp(ProjectDeployment, ABC):
     def __init__(self, project: Project, project_config: ProjectConfig):
         self.project = project
         self.project_config = project_config
@@ -171,7 +176,7 @@ class ProjectDeployment:
 
         new_state_config.update_state(databricks_responses + airflow_responses)
         path = os.path.join(os.getcwd(), NEW_JOB_STATE_FILE)
-        yaml_str = yaml.dump(remove_null_items_recursively(new_state_config.dict()), sort_keys = False)
+        yaml_str = yaml.dump(remove_null_items_recursively(new_state_config.dict()), sort_keys=False)
 
         with open(path, 'w') as file:
             file.write(yaml_str)
@@ -187,3 +192,11 @@ class ProjectDeployment:
             raise Exception("Airflow jobs deployment failed.")
 
         return databricks_responses + airflow_responses
+
+
+class ProjectDeploymentCli(ProjectDeployment, ABC):
+    def __init__(self, project: Project, project_config: ProjectConfig):
+        self.project = project
+        self.project_config = project_config
+
+    def deploy(self):

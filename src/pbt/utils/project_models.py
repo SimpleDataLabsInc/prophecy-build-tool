@@ -120,13 +120,19 @@ class LogEvent:
         return LogEvent(step_metadata.id, LogType.Header, step_metadata.to_json())
 
     @staticmethod
-    def from_log(step_id: str, log: str, ex: Optional[Exception] = None):
+    def from_log(step_id: str, log: str, ex: Optional[Exception] = None, level: Optional[LogLevel] = None):
+        log_level = level if level is not None else LogLevel.INFO
         if ex is not None:
             captured_trace = traceback.format_exc(limit=200)
             log = f"{log} exception message: {str(ex)}: Stacktrace: {'  '.join(captured_trace.splitlines())}"
-            log_line = LogLine(step_id, log, level=LogLevel.ERROR).to_json()
+
+            if log_level is not None:
+                log_line = LogLine(step_id, log, level=log_level).to_json()
+            else:
+                log_line = LogLine(step_id, log, level=LogLevel.ERROR).to_json()
+
         else:
-            log_line = LogLine(step_id, log, level=LogLevel.INFO).to_json()
+            log_line = LogLine(step_id, log, level=level).to_json()
 
         return LogEvent(step_id, LogType.LogLine, log_line)
 

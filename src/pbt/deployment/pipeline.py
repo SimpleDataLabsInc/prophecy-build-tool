@@ -9,17 +9,18 @@ from typing import Optional, List, Dict
 
 from requests import HTTPError
 
-from . import JobData
-from src.pbt.v2.client import NexusClient
-from src.pbt.v2.client import RestClientFactory
-from src.pbt.utils.constants import SCALA_LANGUAGE
-from ..deployment.jobs.airflow import AirflowJobDeployment
-from ..deployment.jobs.databricks import DatabricksJobsDeployment
-from src.pbt.entities.project import Project
-from src.pbt.utils.exceptions import ProjectBuildFailedException
-from src.pbt.utils.project_config import ProjectConfig, EMRInfo, DataprocInfo, DeploymentMode
-from src.pbt.utils.project_models import StepMetadata, Operation, StepType, Status, LogLevel
-from src.pbt.utils.utility import custom_print as log, Either
+from .jobs import JobData
+from .jobs.airflow import AirflowJobDeployment
+from .jobs.databricks import DatabricksJobsDeployment
+from ..client.nexus import NexusClient
+from ..client.rest_client_factory import RestClientFactory
+from ..entities.project import Project
+from ..utils.constants import SCALA_LANGUAGE
+from ..utils.exceptions import ProjectBuildFailedException
+from ..utils.project_config import ProjectConfig, DeploymentMode, DataprocInfo, EMRInfo
+from ..utils.project_models import StepMetadata, Operation, StepType, Status, LogLevel
+from ..utils.utility import Either
+from ..utils.utility import custom_print as log
 
 
 class PipelineDeployment:
@@ -364,6 +365,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
             for fabric_id in self.all_fabrics:
                 try:
                     fabric_info = self.project_config.fabric_config.get_fabric(fabric_id)
+                    fabric_name = fabric_info.name
                     db_info = fabric_info.databricks
                     emr_info = fabric_info.emr
                     dataproc_info = fabric_info.dataproc
@@ -372,17 +374,17 @@ class PipelineUploadManager(PipelineUploader, ABC):
                         pipeline_uploader = DatabricksPipelineUploader(self.project, self.project_config,
                                                                        self.pipeline_id, to_path, self.from_path,
                                                                        file_name,
-                                                                       fabric_id)
+                                                                       fabric_id, fabric_name)
 
                     elif emr_info is not None:
                         pipeline_uploader = EMRPipelineUploader(self.project, self.project_config,
                                                                 self.pipeline_id, self.from_path, to_path,
-                                                                file_name, fabric_id, emr_info)
+                                                                file_name, fabric_id, fabric_name, emr_info)
 
                     elif dataproc_info is not None:
                         pipeline_uploader = DataprocPipelineUploader(self.project, self.project_config,
                                                                      self.pipeline_id, self.from_path, to_path,
-                                                                     file_name, fabric_id, dataproc_info)
+                                                                     file_name, fabric_id, fabric_name, dataproc_info)
                     else:
                         log(f"Fabric {fabric_id} is not supported for pipeline upload", step_id=self.pipeline_id)
                         pipeline_uploader = DummyPipelineUploader()
@@ -411,7 +413,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
 
 class EMRPipelineUploader(PipelineUploader, ABC):
     def __init__(self, project: Project, project_config: ProjectConfig, pipeline_id: str,
-                 from_path: str, to_path: str, file_name: str, fabric_id: str, emr_info: EMRInfo):
+                 from_path: str, to_path: str, file_name: str, fabric_id: str, fabric_name: str, emr_info: EMRInfo):
         self.project = project
         self.project_config = project_config
         self.pipeline_id = pipeline_id
@@ -457,7 +459,7 @@ class EMRPipelineUploader(PipelineUploader, ABC):
 
 class DatabricksPipelineUploader(PipelineUploader, ABC):
     def __init__(self, project: Project, project_config: ProjectConfig, pipeline_id: str,
-                 to_path: str, file_path: str, file_name: str, fabric_id: str):
+                 to_path: str, file_path: str, file_name: str, fabric_id: str, fabric_name: str):
         self.project = project
         self.project_config = project_config
         self.file_name = file_name
@@ -508,7 +510,8 @@ class DummyPipelineUploader(PipelineUploader, ABC):
 
 class DataprocPipelineUploader(PipelineUploader, ABC):
     def __init__(self, project: Project, project_config: ProjectConfig, pipeline_id: str,
-                 from_path: str, to_path: str, file_name: str, fabric_id: str, dataproc_info: DataprocInfo):
+                 from_path: str, to_path: str, file_name: str, fabric_id: str, fabric_name: str,
+                 dataproc_info: DataprocInfo):
         self.project = project
         self.project_config = project_config
         self.pipeline_id = pipeline_id

@@ -182,3 +182,7 @@ def test_deploy_path_pipeline_with_all_invalid_job_ids_filter():
         "[ERROR]: No Job IDs matches with passed --job_id filter ['invalid1', 'invalid2']\nAvailable Job IDs are: "
         "dict_keys(['jobs/test-job', 'jobs/job-another']" in result.output
     )
+
+def test_delta():
+    from rich import print
+    print(f"\n[bold blue] Uploaded pipeline to s3 from path ")

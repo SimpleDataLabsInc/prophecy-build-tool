@@ -4,10 +4,10 @@ import subprocess
 import threading
 from typing import List
 
-from ..entities.project import Project
-from ..project_config import ProjectConfig
-from ..project_models import StepMetadata, StepType, Operation, Status
-from ..utility import custom_print as log, Either
+from src.pbt.entities.project import Project
+from src.pbt.utils.project_config import ProjectConfig
+from src.pbt.utils.project_models import StepMetadata, StepType, Operation, Status
+from src.pbt.utils.utility import custom_print as log, Either
 
 GEMS = "Gems"
 

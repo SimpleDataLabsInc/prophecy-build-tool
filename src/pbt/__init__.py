@@ -8,7 +8,7 @@ import pkg_resources
 from rich import print
 
 from .prophecy_build_tool import ProphecyBuildTool
-from .v2.pbt_cli import PBTCli
+from src.pbt.cli.pbt_cli import PBTCli
 
 
 @click.group()

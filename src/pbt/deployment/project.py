@@ -5,17 +5,17 @@ from typing import List
 import yaml
 
 from .gems import GemsDeployment
-from src.pbt.utils.constants import NEW_JOB_STATE_FILE
+from ..constants import NEW_JOB_STATE_FILE
 from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
     DataprocPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
     DBTComponents
 from ..deployment.pipeline import PipelineDeployment
 from src.pbt.entities.project import Project
-from src.pbt.utils.project_config import ProjectConfig
-from src.pbt.utils.project_models import StepMetadata, Operation, StepType, Status
-from src.pbt.utils.utility import custom_print as log, Either
-from src.pbt.utils.utility import remove_null_items_recursively
+from ..project_config import ProjectConfig
+from ..project_models import StepMetadata, Operation, StepType, Status
+from ..utility import custom_print as log, Either
+from ..utility import remove_null_items_recursively
 
 
 class ProjectDeployment:

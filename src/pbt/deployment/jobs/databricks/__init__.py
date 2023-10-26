@@ -1,33 +1,25 @@
 import json
 from abc import ABC
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
 from requests import HTTPError
-
-from src.pbt.v2.client import RestClientFactory
-from src.pbt.utils.constants import COMPONENTS_LITERAL
-from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
-from src.pbt.entities.project import Project
-from src.pbt.utils.exceptions import InvalidFabricException
-from src.pbt.utils.project_config import JobInfo, ProjectConfig
-from src.pbt.utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status, \
-    LogLevel
-from src.pbt.utils.utility import custom_print as log, Either
 from rich import print
+
+from .. import get_futures_and_update_steps, JobData, EntityIdToFabricId, JobInfoAndOperation, OperationType
+from ....client.rest_client_factory import RestClientFactory
+from ....entities.project import Project
+from ....utils.constants import COMPONENTS_LITERAL
+from ....utils.exceptions import InvalidFabricException
+from ....utils.project_config import ProjectConfig, JobInfo
+from ....utils.project_models import Operation, StepMetadata, StepType, DbtComponentsModel, LogLevel, \
+    ScriptComponentsModel
+from ....utils.utility import Either, custom_print as log
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
 FABRIC_ID = "fabric_id"
 DBT_COMPONENT = "DBTComponent"
-
-
-def update_step_state(responses: List, step_id: str):
-    if responses is not None and len(responses) > 0:
-        if any(response.is_left for response in responses):
-            log(step_status=Status.FAILED, step_id=step_id)
-        else:
-            log(step_status=Status.SUCCEEDED, step_id=step_id)
 
 
 class DatabricksJobs(JobData, ABC):
@@ -185,7 +177,7 @@ class DatabricksJobsDeployment:
     def deploy_cli(self):
         print("Deploying Databricks jobs...")
         self._deploy_cli_add_jobs() + \
-            self._deploy_cli_refresh_jobs()
+        self._deploy_cli_refresh_jobs()
 
     def get_databricks_client(self, fabric_id):
         return self._rest_client_factory.databricks_client(fabric_id)
@@ -197,6 +189,7 @@ class DatabricksJobsDeployment:
     def _deploy_cli_refresh_jobs(self):
         for job_id, job_data in self._refresh_jobs().items():
             fabric_id = job_data.fabric_id
+
     @property
     def databricks_job_json_for_refresh_and_new_jobs(self) -> Dict[str, DatabricksJobs]:
         return self._databricks_jobs_data(self._add_and_refresh_job_ids())
@@ -300,56 +293,6 @@ class DatabricksJobsDeployment:
                 step_id=step_id)
             return Either(left=e)
 
-    def _deploy_add_jobs(self):
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = []
-
-            for job_id, job_data in self._add_jobs().items():
-                fabric_id = job_data.fabric_id
-
-                if fabric_id is not None:
-                    futures.append(executor.submit(
-                        lambda j_id=job_id, j_data=job_data: self._deploy_add_job(j_id, j_data,
-                                                                                  self._ADD_JOBS_STEP_ID)))
-                else:
-                    log(f"In valid fabric {fabric_id}, skipping job creation for job_id {job_id}",
-                        step_id=self._ADD_JOBS_STEP_ID)
-
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_step_state(responses, self._operation_to_step_id[Operation.Add])
-
-        return responses
-
-    def _deploy_refresh_jobs(self):
-        futures = []
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-
-            for job_id, job_info in self._refresh_jobs().items():
-                fabric_id = job_info.fabric_id
-
-                if fabric_id is not None:
-                    futures.append(executor.submit(
-                        lambda j_id=job_id, j_info=job_info: self._reset_and_patch_job(j_id, j_info)))
-                else:
-                    log(f"In valid fabric {fabric_id}, skipping job refresh for job_id {job_id}")
-
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_step_state(responses, self._operation_to_step_id[Operation.Refresh])
-
-        return responses
-
     def _reset_and_patch_job(self, job_id, job_info):
         fabric_id = job_info.fabric_id
         fabric_name = self.fabric_configs.get_fabric(fabric_id).name
@@ -398,23 +341,6 @@ class DatabricksJobsDeployment:
                 e)
             return Either(left=e)
 
-    def _deploy_delete_jobs(self):
-        futures = []
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            for job_id, job_info in self._delete_jobs().items():
-                futures.append(executor.submit(lambda j_info=job_info: self._delete_job(j_info)))
-
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_step_state(responses, self._operation_to_step_id[Operation.Remove])
-
-        return responses
-
     def _delete_job(self, job_info: JobInfo):
         fabric_id = job_info.fabric_id
         fabric_name = self.fabric_configs.get_fabric(fabric_id).name
@@ -460,42 +386,7 @@ class DatabricksJobsDeployment:
                 e)
             return Either(left=e)
 
-    def _deploy_pause_jobs(self):
-        futures = []
-
-        def pause_job(fabric_id, job_info):
-            external_job_id = job_info.external_job_id
-
-            try:
-                client = self.get_databricks_client(fabric_id)
-                client.pause_job(external_job_id)
-                log(f"Paused job {external_job_id} in fabric {fabric_id}", step_id=self._PAUSE_JOBS_STEP_ID)
-                return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
-            except Exception as e:
-                log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exception=e,
-                    step_id=self._PAUSE_JOBS_STEP_ID)
-                return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-
-            for jobs_info in self._pause_jobs():
-                fabric = jobs_info.fabric_id
-
-                if fabric is not None:
-                    futures.append(executor.submit(lambda f=fabric, j_info=jobs_info: pause_job(f, j_info)))
-                else:
-                    log(f"In valid fabric {fabric} for job_id {jobs_info.id} ", step_id=self._PAUSE_JOBS_STEP_ID)
-
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_step_state(responses, self._operation_to_step_id[Operation.Pause])
-        return responses
-
-
+    
 class DBTComponents:
     _DBT_SECRETS_COMPONENT_STEP_NAME = "DBTSecretsComponents"
     _DBT_PROFILES_COMPONENT_STEP_NAME = "DBTProfileComponents"
@@ -561,11 +452,7 @@ class DBTComponents:
                         futures.append(executor.submit(
                             lambda model=dbt_component_model, comp=components: self._upload_dbt_profile(model, comp)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_step_state(responses, self._DBT_PROFILES_COMPONENT_STEP_NAME)
+        (responses, x) = get_futures_and_update_steps(futures, self._DBT_PROFILES_COMPONENT_STEP_NAME)
 
         return responses
 
@@ -595,13 +482,7 @@ class DBTComponents:
                                 lambda model=dbt_component_model, component=dbt_component: self._upload_dbt_secret(
                                     model, component)))
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_step_state(responses, self._DBT_SECRETS_COMPONENT_STEP_NAME)
-
+        (responses, x) = get_futures_and_update_steps(futures, self._DBT_SECRETS_COMPONENT_STEP_NAME)
         return responses
 
     def _upload_dbt_secret(self, dbt_component_model, dbt_component):
@@ -700,12 +581,7 @@ class ScriptComponents:
                                                                                                                    fabric_id,
                                                                                                                    j_id)))
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_step_state(responses, self._STEP_ID)
+        (responses, x) = get_futures_and_update_steps(futures, self._STEP_ID)
 
         return responses
 
@@ -788,13 +664,7 @@ class PipelineConfigurations:
                     for fabric_id in self.project_config.fabric_config.db_fabrics():
                         execute_job(fabric_id, configuration_content, configuration_path)
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_step_state(responses, self._STEP_ID)
-
+        (responses, x) = get_futures_and_update_steps(futures, self._STEP_ID)
         return responses
 
     def _upload_configuration(self, fabric_id, configuration_content, configuration_path):

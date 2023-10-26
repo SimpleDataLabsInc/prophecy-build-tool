@@ -6,16 +6,16 @@ from typing import Dict, Optional, List
 
 import yaml
 
-from .databricks import update_step_state
-from src.pbt.v2.client import create_airflow_client, get_fabric_provider_type
-from src.pbt.v2.client import RestClientFactory
-from src.pbt.utils.constants import FABRIC_UID
-from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from src.pbt.entities.project import Project
-from src.pbt.utils.project_config import JobInfo, ProjectConfig, FabricInfo
-from src.pbt.utils.project_models import StepMetadata, Operation, StepType
-from src.pbt.utils.utility import Either, generate_secure_content, calculate_checksum
-from src.pbt.utils.utility import custom_print as log
+from .. import EntityIdToFabricId, JobData, get_futures_and_update_steps, JobInfoAndOperation, OperationType, \
+    update_step_state
+from ....client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
+from ....client.rest_client_factory import RestClientFactory
+from ....utils.constants import FABRIC_UID
+from ....utils.project_config import JobInfo, ProjectConfig, FabricInfo
+from ....utils.project_models import StepMetadata, Operation, StepType
+from ....utils.utility import Either, generate_secure_content, calculate_checksum
+from ....utils.utility import custom_print as log
 
 
 def does_dag_file_exist(rdc: Dict[str, str]) -> bool:
@@ -163,11 +163,11 @@ class AirflowJobDeployment:
     def summary(self):
         summary = []
 
-        summary.extend([f"Airflow job to remove {job.id}" for job in self._list_remove_jobs()])
-        summary.extend([f"Airflow job to add {job}" for job in self._add_jobs().keys()])
-        summary.extend([f"Airflow job to pause {job}" for job in self._pause_jobs().keys()])
-        summary.extend([f"Airflow job to rename {job.id}" for job in self._rename_jobs()])
-        summary.extend([f"Airflow job to skip {job}" for job in self._skip_jobs().keys()])
+        summary.extend([f"Airflow job to remove {job.id}" for job in self.list_remove_jobs()])
+        summary.extend([f"Airflow job to add {job}" for job in self.get_add_jobs().keys()])
+        summary.extend([f"Airflow job to pause {job}" for job in self.get_pause_jobs().keys()])
+        summary.extend([f"Airflow job to rename {job.id}" for job in self.get_rename_jobs()])
+        summary.extend([f"Airflow job to skip {job}" for job in self.skip_jobs().keys()])
 
         return summary
 
@@ -183,11 +183,11 @@ class AirflowJobDeployment:
 
     def headers(self):
         job_types = {
-            Operation.Remove: self._list_remove_jobs(),
-            Operation.Add: self._add_jobs(),
-            Operation.Pause: self._pause_jobs(),
-            Operation.Rename: self._rename_jobs(),
-            Operation.Skipped: self._skip_jobs()
+            Operation.Remove: self.list_remove_jobs(),
+            Operation.Add: self.get_add_jobs(),
+            Operation.Pause: self.get_pause_jobs(),
+            Operation.Rename: self.get_rename_jobs(),
+            Operation.Skipped: self.skip_jobs()
         }
 
         all_headers = []
@@ -304,23 +304,19 @@ class AirflowJobDeployment:
 
         return prophecy_managed_dbt_jobs
 
-    def _list_remove_jobs(self) -> List[JobInfo]:
+    def list_remove_jobs(self) -> List[JobInfo]:
         return self._jobs_to_be_deleted() + self._jobs_with_fabric_changed()
 
     def _deploy_remove_jobs(self):
         futures = []
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for job_info in self._list_remove_jobs():
-                futures.append(executor.submit(lambda j_info=job_info: self._remove_job(j_info)))
+            for job_info in self.list_remove_jobs():
+                futures.append(executor.submit(lambda j_info=job_info: self.remove_job(j_info)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_step_state(responses, self._operation_to_step_id[Operation.Remove])
+        (responses, x) = get_futures_and_update_steps(futures, self._operation_to_step_id[Operation.Remove])
         return responses
 
-    def _remove_job(self, job_info: JobInfo):
+    def remove_job(self, job_info: JobInfo):
         client = self.get_airflow_client(job_info.fabric_id)
 
         try:
@@ -364,7 +360,7 @@ class AirflowJobDeployment:
             )
         ]
 
-    def _rename_jobs(self) -> List[JobInfo]:
+    def get_rename_jobs(self) -> List[JobInfo]:
         return [
             airflow_job for airflow_job in self._jobs_state.airflow_jobs
 
@@ -376,12 +372,12 @@ class AirflowJobDeployment:
         ]
 
     def _all_removed_airflow_jobs(self) -> List[JobInfo]:
-        return self._rename_jobs() + self._jobs_with_fabric_changed() + self._jobs_to_be_deleted()
+        return self.get_rename_jobs() + self._jobs_with_fabric_changed() + self._jobs_to_be_deleted()
 
     # Here we are looking for the flipped state of the job.
     # jobs which are enabled in state config but disabled in code.
     # and always get jobs from deployment state.
-    def _pause_jobs(self) -> Dict[str, JobInfo]:
+    def get_pause_jobs(self) -> Dict[str, JobInfo]:
         old_enabled_job = {job.id: job for job in self._jobs_state.airflow_jobs if job.is_paused is False}
 
         old_enabled_job_which_are_disabled_in_new = {
@@ -406,7 +402,7 @@ class AirflowJobDeployment:
 
     # always add new jobs only if they are enabled.
     # this is equivalent to refresh because airflow merge based on it's dag_name.
-    def _add_jobs(self) -> Dict[str, AirflowJob]:
+    def get_add_jobs(self) -> Dict[str, AirflowJob]:
         return {
             job_id: job_data for job_id, job_data in self.valid_airflow_jobs.items()
             if job_data.is_enabled is True
@@ -416,8 +412,8 @@ class AirflowJobDeployment:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for job_id, job_data in self._add_jobs().items():
-                futures.append(executor.submit(lambda j_id=job_id, j_data=job_data: self._add_job(j_id, j_data)))
+            for job_id, job_data in self.get_add_jobs().items():
+                futures.append(executor.submit(lambda j_id=job_id, j_data=job_data: self.add_job(j_id, j_data)))
 
         responses = []
         for future in as_completed(futures):
@@ -426,7 +422,7 @@ class AirflowJobDeployment:
         update_step_state(responses, self._operation_to_step_id[Operation.Add])
         return responses
 
-    def _add_job(self, job_id, job_data):
+    def add_job(self, job_id, job_data):
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
@@ -457,13 +453,13 @@ class AirflowJobDeployment:
             return Either(left=e)
 
     def _deploy_skipped_jobs(self):
-        for job_id, message in self._skip_jobs().items():
+        for job_id, message in self.skip_jobs().items():
             log(f"Skipping job_id: {job_id} encountered some error ", exception=message.left,
                 step_id=self._SKIP_JOBS_STEP_ID)
-        if len(self._skip_jobs()) > 0:
+        if len(self.skip_jobs()) > 0:
             update_step_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
 
-    def _skip_jobs(self):
+    def skip_jobs(self):
         return {job_id: self._validate_airflow_job(job_id, job_data)
                 for job_id, job_data in self._airflow_jobs.items()
                 if self._validate_airflow_job(job_id, job_data).is_left}
@@ -471,8 +467,8 @@ class AirflowJobDeployment:
     def _deploy_rename_jobs(self):
         futures = []
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for job_info in self._rename_jobs():
-                futures.append(executor.submit(lambda j_info=job_info: self._delete_job_for_renamed_job(j_info)))
+            for job_info in self.get_rename_jobs():
+                futures.append(executor.submit(lambda j_info=job_info: self.delete_job_for_renamed_job(j_info)))
 
         responses = []
         for future in as_completed(futures):
@@ -481,7 +477,7 @@ class AirflowJobDeployment:
         update_step_state(responses, self._operation_to_step_id[Operation.Rename])
         return responses
 
-    def _delete_job_for_renamed_job(self, jobs_info: JobInfo):
+    def delete_job_for_renamed_job(self, jobs_info: JobInfo):
         try:
             client = create_airflow_client(jobs_info.fabric_id, self._project_config)
             client.delete_dag(sanitize_job(jobs_info.external_job_id))
@@ -497,8 +493,8 @@ class AirflowJobDeployment:
     def _deploy_pause_jobs(self):
         futures = []
         with ThreadPoolExecutor(max_workers=10) as executor:
-            for job_id, job_data in self._pause_jobs().items():
-                futures.append(executor.submit(lambda j_id=job_id, j_data=job_data: self._pause_job(j_id, j_data)))
+            for job_id, job_data in self.get_pause_jobs().items():
+                futures.append(executor.submit(lambda j_id=job_id, j_data=job_data: self.pause_job(j_id, j_data)))
 
         responses = []
         for future in as_completed(futures):
@@ -507,7 +503,7 @@ class AirflowJobDeployment:
         update_step_state(responses, self._operation_to_step_id[Operation.Pause])
         return responses
 
-    def _pause_job(self, job_id: str, job_info: JobInfo):
+    def pause_job(self, job_id: str, job_info: JobInfo):
         client = self.get_airflow_client(job_info.fabric_id)
 
         if len(job_info.external_job_id) > 0:

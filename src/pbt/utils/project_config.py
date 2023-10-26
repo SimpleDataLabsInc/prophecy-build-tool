@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
 from .constants import PROPHECY_ARTIFACTS, DBFS_FILE_STORE
-from .deployment import OperationType, JobInfoAndOperation
+from src.pbt.v2.deployment import OperationType, JobInfoAndOperation
 from .exceptions import ConfigFileNotFoundException
 from .utility import Either
 
@@ -19,8 +19,7 @@ class SchedulerType(enum.Enum):
     EMR = "EMR"
 
     @staticmethod
-    def from_fabric_provider(provider_type: str):
-        # Convert the provider_type to its equivalent Enum if exists, otherwise None
+    def from_type(provider_type: str):
         return SchedulerType[provider_type]
 
 
@@ -154,7 +153,7 @@ class JobInfo(BaseModel):
     def create_job_info(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
                         is_paused: bool = False, fabric_provider_type: str = "Databricks"):
         return JobInfo(name=name,
-                       type=SchedulerType.from_fabric_provider(fabric_provider_type),
+                       type=SchedulerType.from_type(fabric_provider_type),
                        id=id,
                        fabric_id=fabric_id,
                        external_job_id=external_job_id,

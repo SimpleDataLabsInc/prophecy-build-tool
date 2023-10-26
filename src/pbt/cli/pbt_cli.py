@@ -1,8 +1,8 @@
 from typing import Optional
 
-from .deployment.project import ProjectDeployment
-from .entities.project import Project
-from .project_config import ProjectConfig
+from src.pbt.v2.deployment.project import ProjectDeployment
+from src.pbt.entities.project import Project
+from src.pbt.utils.project_config import ProjectConfig
 
 
 class PBTCli(object):
