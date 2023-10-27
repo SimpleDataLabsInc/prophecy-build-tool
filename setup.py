@@ -26,7 +26,7 @@ setuptools.setup(
     install_requires=[
         "requests>=2.28.0",
         "PyYAML>=6.0",
-        "databricks_cli>=0.17.7",
+        "databricks-cli>=0.17.7",
         "rich>=12.5.1",
         "wheel",
         "build",
