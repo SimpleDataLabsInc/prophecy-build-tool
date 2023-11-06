@@ -69,9 +69,6 @@ def test_test_with_pipeline_filter_all_invalid_pipelines():
     result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'invalid1,invalid2,invalid3'])
     print(result.output)
     assert "Testing given pipelines: ['invalid1', 'invalid2', 'invalid3']" in result.output
-
-    assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Unit test for pipeline: pipelines/report_top_customers succeeded" in result.output
     assert "Pipelines found: 0" in result.output
 
 
