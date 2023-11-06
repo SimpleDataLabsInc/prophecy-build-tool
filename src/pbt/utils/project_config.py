@@ -1,5 +1,7 @@
 import enum
 import os
+from asyncio import Future
+from concurrent.futures import as_completed
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -389,6 +391,16 @@ class ProjectConfig:
         fabric_config = os.path.join(conf_folder, "fabrics.yml")
 
         return ProjectConfig.from_path(jobs_state, system_config, config_override, fabric_config)
+
+
+def await_futures_and_update_states(futures: List[Future], step_id: str):
+    responses = []
+
+    for future in as_completed(futures):
+        responses.append(future.result())
+
+    update_state(responses, step_id)
+    return responses
 
 
 def update_state(responses: List, step_id: str):

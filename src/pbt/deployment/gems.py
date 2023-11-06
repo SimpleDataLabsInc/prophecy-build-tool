@@ -55,7 +55,7 @@ class GemsDeployment:
                 log(step_id=GEMS, step_status=Status.FAILED)
                 return [Either(left=e)]
         else:
-            return []
+            return [Either(right=True)]
 
 
 class PackageBuilder:

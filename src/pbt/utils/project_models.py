@@ -41,6 +41,17 @@ class LogLevel(enum.Enum):
     TRACE = "TRACE"
 
 
+class Colors:
+    HEADER = '\033[95m'  # Purple
+    OKBLUE = '\033[94m'  # Blue
+    MAGENTA = '\033[35m'
+    OKCYAN = '\033[96m'  # Cyan
+    OKGREEN = '\033[92m'  # Green
+    WARNING = '\033[93m'  # Yellow
+    FAIL = '\033[91m'  # Red
+    ENDC = '\033[0m'  # Reset color
+
+
 def to_dict_recursive(obj):
     if isinstance(obj, enum.Enum):
         return obj.name

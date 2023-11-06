@@ -15,8 +15,8 @@ from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdT
 from ...entities.project import Project
 from ...utility import custom_print as log, Either
 from ...utils.constants import FABRIC_UID
-from ...utils.project_config import JobInfo, ProjectConfig, FabricInfo, update_state
-from ...utils.project_models import StepMetadata, Operation, StepType
+from ...utils.project_config import JobInfo, ProjectConfig, FabricInfo, update_state, await_futures_and_update_states
+from ...utils.project_models import StepMetadata, Operation, StepType, Colors, LogLevel
 
 
 def generate_secure_content(content: str, salt: str) -> str:
@@ -234,10 +234,11 @@ class AirflowJobDeployment:
         return all_headers
 
     def deploy(self):
-        responses = self._deploy_remove_jobs() + \
-                    self._deploy_pause_jobs() + \
-                    self._deploy_add_jobs() + \
-                    self._deploy_rename_jobs()
+        if len(self.headers()) > 0:
+            log(f"{Colors.MAGENTA}Adding/Updating databricks jobs{Colors.ENDC}")
+
+        responses = self._deploy_remove_jobs() + self._deploy_pause_jobs() + \
+            self._deploy_add_jobs() + self._deploy_rename_jobs()
 
         self._deploy_skipped_jobs()
 
@@ -459,19 +460,21 @@ class AirflowJobDeployment:
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
-
+        fabric_name = self._project_config.fabric_config.get_fabric(job_data.fabric_id).name
         client = self.get_airflow_client(fabric_id=job_data.fabric_id)
         try:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"Successfully un-pause dag {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"{Colors.OKGREEN}Successfully un-pause dag `{dag_name}` for job `{job_id}` and fabric-id {job_data.fabric_id}{Colors.ENDC}",
+                    step_id=self._ADD_JOBS_STEP_ID, level=LogLevel.TRACE)
+                log(f"{Colors.OKGREEN}Successfully un-paused dag `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"Failed to un-pause dag with name {dag_name} for job {job_id} and fabric {job_data.fabric_id}",
+                log(f"{Colors.WARNING}Failed to un-pause dag with name `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}",
+            log(f"{Colors.OKGREEN}Successfully added job `{dag_name}` for job_id `{job_id}` on fabric `{fabric_name}`{Colors.ENDC}",
                 step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_job(job_data.name, job_id, job_data.fabric_id, dag_name,
@@ -481,7 +484,7 @@ class AirflowJobDeployment:
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
-            log(f"Failed to upload_dag for job_id: {job_id} with dag_name {dag_name}", e,
+            log(f"{Colors.FAIL}Failed to upload_dag for job_id:`{job_id}` with dag_name `{dag_name}`{Colors.ENDC}", e,
                 step_id=self._ADD_JOBS_STEP_ID)
             return Either(left=e)
 
@@ -503,22 +506,19 @@ class AirflowJobDeployment:
             for job_info in self._rename_jobs():
                 futures.append(executor.submit(lambda j_info=job_info: self._delete_job_for_renamed_job(j_info)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-        update_state(responses, self._operation_to_step_id[Operation.Rename])
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Rename])
 
     def _delete_job_for_renamed_job(self, jobs_info: JobInfo):
         try:
             client = create_airflow_client(jobs_info.fabric_id, self._project_config)
             client.delete_dag(sanitize_job(jobs_info.external_job_id))
 
-            log(f"Successfully deleted dag for job_id: {jobs_info.id}", step_id=self._RENAME_JOBS_STEP_ID)
+            log(f"{Colors.OKGREEN}Successfully deleted dag for job_id: {jobs_info.id}{Colors.ENDC}",
+                step_id=self._RENAME_JOBS_STEP_ID)
 
             return Either(right=JobInfoAndOperation(jobs_info, OperationType.DELETED))
         except Exception as e:
-            log(f"Failed to delete dag for job_id: {jobs_info.id} with job name {jobs_info.external_job_id} in fabric {jobs_info.fabric_id}, Please delete the Dag manually from Dag location if required.",
+            log(f"{Colors.WARNING}Failed to delete dag for job_id: {jobs_info.id} with job name {jobs_info.external_job_id} in fabric {jobs_info.fabric_id}, Please delete the Dag manually from Dag location if required.{Colors.ENDC}",
                 exception=e, step_id=self._RENAME_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(jobs_info, OperationType.DELETED))
 
@@ -528,11 +528,7 @@ class AirflowJobDeployment:
             for job_id, job_data in self._pause_jobs().items():
                 futures.append(executor.submit(lambda j_id=job_id, j_data=job_data: self._pause_job(j_id, j_data)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-        update_state(responses, self._operation_to_step_id[Operation.Pause])
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Pause])
 
     def _pause_job(self, job_id: str, job_info: JobInfo):
         client = self.get_airflow_client(job_info.fabric_id)
@@ -545,10 +541,12 @@ class AirflowJobDeployment:
         job_info.pause(True)
         try:
             client.pause_dag(dag_name)
-            log(f"Successfully paused job {dag_name} for job_id {job_id}", step_id=self._PAUSE_JOBS_STEP_ID)
+            log(f"{Colors.OKGREEN}Successfully paused job {dag_name} for job_id {job_id}{Colors.ENDC}",
+                step_id=self._PAUSE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
         except Exception as e:
-            log(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", exception=e,
+            log(f"{Colors.WARNING}Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}{Colors.ENDC}",
+                exception=e,
                 step_id=self._PAUSE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
 
@@ -592,6 +590,9 @@ class AirflowGitSecrets:
 
         if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
 
+            if len(self.fabric_config.project_git_tokens) > 0:
+                log(f"{Colors.MAGENTA} Uploading project git tokens {Colors.ENDC}")
+
             job_data = list(self.airflow_jobs.prophecy_managed_dbt_jobs.values())[0]
 
             with ThreadPoolExecutor(max_workers=10) as executor:
@@ -600,7 +601,7 @@ class AirflowGitSecrets:
                     project_id = project_git_tokens.project_id
 
                     if len(git_tokens) == 0:
-                        log(f"No git tokens found for project_id: {project_id}, Ignoring",
+                        log(f"{Colors.WARNING}No git tokens found for project_id: {project_id}, Ignoring{Colors.ENDC}",
                             step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
                     else:
@@ -609,12 +610,7 @@ class AirflowGitSecrets:
                                 lambda p_id=project_id, j_data=job_data, token=git_tokens: self._create_git_secrets(
                                     p_id, j_data, token)))
 
-            responses = []
-            for future in as_completed(futures):
-                responses.append(future.result())
-
-            update_state(responses, self._AIRFLOW_GIT_SECRETS_STEP_ID)
-            return responses
+            return await_futures_and_update_states(futures, self._AIRFLOW_GIT_SECRETS_STEP_ID)
         else:
             # log("No dbt jobs found, Ignoring", step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
             return []
@@ -626,11 +622,11 @@ class AirflowGitSecrets:
         try:
             client.create_secret(
                 generate_secure_content(f'{execution_db_suffix}_{project_id}', 'gitSecretSalt'), git_tokens)
-            log(f'Successfully created git secrets for project {project_id}',
+            log(f'{Colors.OKGREEN}Successfully created git secrets for project {project_id}{Colors.ENDC}',
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
         except Exception as e:
-            log(f'Failed in creating git secrets for project {project_id}', exception=e,
+            log(f'{Colors.WARNING}Failed in creating git secrets for project {project_id}{Colors.ENDC}', exception=e,
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
 
 
@@ -672,6 +668,8 @@ class EMRPipelineConfigurations:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.headers()) > 0:
+                log(f"{Colors.MAGENTA} Uploading EMR pipeline configurations {Colors.ENDC}")
 
             def execute_job(_fabric_info, _config_content, _config_path):
                 futures.append(executor.submit(
@@ -691,14 +689,7 @@ class EMRPipelineConfigurations:
                         if fabric_info.emr is not None:
                             execute_job(fabric_info, configuration_content, configuration_path)
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-            # copy paste for now, will refactor later
-        update_state(responses, self._STEP_ID)
-        return responses
+        return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
         upload_path = f"{fabric_info.emr.bare_path_prefix()}/{configuration_path}"
@@ -708,13 +699,13 @@ class EMRPipelineConfigurations:
             client = self._rest_client_factory.s3_client(str(fabric_info.id))
             client.upload_content(emr_info.bare_bucket(), upload_path, configuration_content)
 
-            log(f"Uploaded pipeline configuration on path {upload_path} on fabric {fabric_info.id}",
+            log(f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_path} on fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID)
 
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}",
+            log(f"{Colors.FAIL}Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)
@@ -757,6 +748,8 @@ class DataprocPipelineConfigurations:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.headers()) > 0:
+                log(f"{Colors.MAGENTA} Uploading dataproc configurations {Colors.ENDC}")
 
             def execute_job(fabric_info, configuration_content, configuration_path):
                 futures.append(executor.submit(
@@ -774,14 +767,7 @@ class DataprocPipelineConfigurations:
                         if fabric_info.dataproc is not None:
                             execute_job(fabric_info, configuration_content, configuration_path)
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-            # copy paste for now, will refactor later
-        update_state(responses, self._STEP_ID)
-        return responses
+        return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
         upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
@@ -790,13 +776,13 @@ class DataprocPipelineConfigurations:
             client = self._rest_client_factory.dataproc_client(str(fabric_info.id))
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
 
-            log(f"Uploaded pipeline configuration on path {upload_path}",
+            log(f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_path}{Colors.ENDC}",
                 step_id=self._STEP_ID)
 
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}",
+            log(f"{Colors.FAIL}Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)

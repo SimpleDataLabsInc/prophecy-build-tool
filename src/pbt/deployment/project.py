@@ -57,7 +57,7 @@ class ProjectDeployment:
 
         header_components = (
             summary_header,
-            self._gems.headers(),
+            # self._gems.headers(),
             self._script_component.headers(),
             self._dbt_component.headers(),
             self._airflow_git_secrets.headers(),
@@ -153,7 +153,7 @@ class ProjectDeployment:
         return airflow_jobs_responses
 
     def deploy(self, job_ids):
-        self._deploy_gems()
+        # self._deploy_gems()
         self._deploy_scripts()
         self._deploy_dbt_components()
         self._deploy_airflow_git_secrets()

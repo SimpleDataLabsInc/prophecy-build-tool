@@ -2,7 +2,7 @@ import os
 from enum import Enum
 from typing import Optional, Any
 
-from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel
+from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel, Colors
 
 
 # class mimicking Either behaviour to capture both success and failure
@@ -29,15 +29,22 @@ def custom_print(message: Optional[Any] = None, exception=None,
         # Custom print: Print all variables.
         if step_metadata is not None:
             log_event = LogEvent.from_step_metadata(step_metadata)
+            # print(log_event.to_json(), flush=True)
         elif step_status is not None:
             log_event = LogEvent.from_status(step_status, step_id)
+            # print(log_event.to_json(), flush=True)
         else:
             log_event = LogEvent.from_log(step_id, message, exception)
 
         print(log_event.to_json(), flush=True)
-    else:
+    elif level != LogLevel.TRACE:
         # Regular print: Skip stepName.
-        print(message, exception)
+        if not message:
+            print("")
+        elif not exception:
+            print(message)
+        else:
+            print(message, f"\t\t\t --- {Colors.OKCYAN}{exception}{Colors.ENDC}")
 
 
 # If the item is a dictionary

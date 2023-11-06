@@ -17,4 +17,5 @@ class S3Client:
         self.s3.upload_file(file_path, bucket, key)
 
     def upload_content(self, bucket, path, content):
+
         self.s3.put_object(Bucket=bucket, Key=path, Body=content)

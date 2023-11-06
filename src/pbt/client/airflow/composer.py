@@ -198,4 +198,4 @@ class ComposerRestClient(AirflowRestClient, ABC):
         try:
             self.storage_handler.bucket(bucket).blob(key).upload_from_string(content)
         except Exception as e:
-            raise DagUploadFailedException(f"Failed to content from bucket: {bucket} ", e)
+            raise DagUploadFailedException(f"Failed to upload content to bucket: {bucket} ", e)

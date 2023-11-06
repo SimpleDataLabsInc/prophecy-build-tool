@@ -52,8 +52,8 @@ class DatabricksClient:
     def upload_src_path(self, src_path: str, destination_path: str):
         self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
 
-    def path_exist(self, path: str):
-        return self.dbfs.get_status(path) is not None
+    def path_exist(self, path: str) -> bool:
+        return self.dbfs.get_status(DbfsPath(path)) is not None
 
     def delete(self, path: str):
         self.dbfs.delete(path, recursive=True)

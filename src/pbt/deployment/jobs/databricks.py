@@ -1,6 +1,6 @@
 import json
 from abc import ABC
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
 from requests import HTTPError
@@ -11,8 +11,9 @@ from ...entities.project import Project
 from ...utility import custom_print as log, Either
 from ...utils.constants import COMPONENTS_LITERAL
 from ...utils.exceptions import InvalidFabricException
-from ...utils.project_config import JobInfo, ProjectConfig, update_state
-from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType
+from ...utils.project_config import JobInfo, ProjectConfig, await_futures_and_update_states
+from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, \
+    LogLevel, Colors
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
@@ -166,10 +167,11 @@ class DatabricksJobsDeployment:
         return all_headers
 
     def deploy(self) -> List[Either]:
-        responses = self._deploy_add_jobs() + \
-                    self._deploy_refresh_jobs() + \
-                    self._deploy_delete_jobs() + \
-                    self._deploy_pause_jobs()
+        if len(self.headers()) > 0:
+            log(f"{Colors.MAGENTA}Adding/Updating databricks jobs{Colors.ENDC}")
+
+        responses = self._deploy_add_jobs() + self._deploy_refresh_jobs() + \
+            self._deploy_delete_jobs() + self._deploy_pause_jobs()
 
         return responses
 
@@ -265,7 +267,7 @@ class DatabricksJobsDeployment:
         try:
             client = self.get_databricks_client(fabric_id)
             response = client.create_job(job_data.databricks_json)
-            log(f"Created job {job_id} in fabric {fabric_id} response {response['job_id']}",
+            log(f"{Colors.OKGREEN}Created job {job_id} in fabric {fabric_id} response {response['job_id']}{Colors.ENDC}",
                 step_id=step_id)
 
             job_info = JobInfo.create_job(job_data.name, job_id, fabric_id, response['job_id'],
@@ -275,7 +277,7 @@ class DatabricksJobsDeployment:
 
         except Exception as e:
 
-            log(f"Error creating job {job_id} in fabric {fabric_id}", exception=e,
+            log(f"{Colors.FAIL}Error creating job {job_id} in fabric {fabric_id}{Colors.ENDC}", exception=e,
                 step_id=step_id)
             return Either(left=e)
 
@@ -292,18 +294,10 @@ class DatabricksJobsDeployment:
                         lambda j_id=job_id, j_data=job_data: self._deploy_add_job(j_id, j_data,
                                                                                   self._ADD_JOBS_STEP_ID)))
                 else:
-                    log(f"In valid fabric {fabric_id}, skipping job creation for job_id {job_id}",
+                    log(f"{Colors.WARNING}Invalid fabric {fabric_id}, skipping job creation for job_id {job_id}{Colors.ENDC}",
                         step_id=self._ADD_JOBS_STEP_ID)
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._operation_to_step_id[Operation.Add])
-
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Add])
 
     def _deploy_refresh_jobs(self):
         futures = []
@@ -317,20 +311,13 @@ class DatabricksJobsDeployment:
                     futures.append(executor.submit(
                         lambda j_id=job_id, j_info=job_info: self._reset_and_patch_job(j_id, j_info)))
                 else:
-                    log(f"In valid fabric {fabric_id}, skipping job refresh for job_id {job_id}")
+                    log(f"${Colors.OKCYAN}Invalid fabric {fabric_id}, skipping job refresh for job_id {job_id}{Colors.ENDC}")
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._operation_to_step_id[Operation.Refresh])
-
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Refresh])
 
     def _reset_and_patch_job(self, job_id, job_info):
         fabric_id = job_info.fabric_id
+        fabric_name = self.fabric_configs.get_fabric(fabric_id).name
 
         def log_error(message, exc, step_id=self._REFRESH_JOBS_STEP_ID):
             log(message, exception=exc, step_id=step_id)
@@ -344,14 +331,17 @@ class DatabricksJobsDeployment:
             client.reset_job(job_info.external_job_id, job_data.databricks_json)
 
             if job_data.acl:
-                log_success(f"Refreshed job {job_id} with external job id {job_info.external_job_id} patching job acl")
+                log_success(
+                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id} patching job acl{Colors.ENDC}")
                 try:
                     client.patch_job_acl(job_info.external_job_id, job_data.acl)
                 except Exception as e:
-                    log_error(f"Error patching job acl for job {job_id} in fabric {fabric_id}", e)
+                    log_error(
+                        f"{Colors.FAIL}Error patching job acl for job {job_id} in fabric {fabric_name}{Colors.ENDC}", e)
                     return Either(left=e)
             else:
-                log_success(f"Refreshed job {job_id} with external job id {job_info.external_job_id}, no acl found")
+                log_success(
+                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id}, no acl found{Colors.ENDC}")
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
 
@@ -360,18 +350,18 @@ class DatabricksJobsDeployment:
 
             if e.response.status_code == 400 and f"Job {job_info.external_job_id} does not exist." in response:
                 log_success(
-                    f"Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_id}, trying to recreate it")
+                    f"{Colors.OKGREEN}Job {job_id} external_job_id {job_info.external_job_id} deleted in fabric {fabric_name}, trying to recreate it{Colors.ENDC}")
                 return self._deploy_add_job(job_id, self.valid_databricks_jobs.get(job_id),
                                             step_id=self._REFRESH_JOBS_STEP_ID)
             else:
                 log_error(
-                    f'Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {job_info.fabric_id}',
+                    f'{Colors.FAIL}Error while refreshing job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric_name}{Colors.ENDC}',
                     e)
                 return Either(left=e)
 
         except Exception as e:
             log_error(
-                f'Error while resetting job with {job_info.external_job_id} and job-id {job_id} for fabric {fabric_id}',
+                f'{Colors.FAIL}Error while resetting job with {job_info.external_job_id} and job-id {job_id} for fabric {fabric_name}{Colors.ENDC}',
                 e)
             return Either(left=e)
 
@@ -382,21 +372,13 @@ class DatabricksJobsDeployment:
             for job_id, job_info in self._delete_jobs().items():
                 futures.append(executor.submit(lambda j_info=job_info: self._delete_job(j_info)))
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._operation_to_step_id[Operation.Remove])
-
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Remove])
 
     def _delete_job(self, job_info: JobInfo):
         fabric = job_info.fabric_id
 
         if fabric is None:
-            msg = f"Invalid fabric {fabric} not deleting job {job_info.id} and databricks id {job_info.external_job_id}"
+            msg = f"{Colors.WARNING}Invalid fabric {fabric} not deleting job {job_info.id} and databricks id {job_info.external_job_id}{Colors.ENDC}"
             log(msg, step_id=self._DELETE_JOBS_STEP_ID)
             return Either(left=InvalidFabricException(msg))
 
@@ -410,7 +392,7 @@ class DatabricksJobsDeployment:
             client = self.get_databricks_client(fabric)
             client.delete_job(job_info.external_job_id)
             log_success(
-                f'Successfully deleted job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}')
+                f'{Colors.OKGREEN}Successfully deleted job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}{Colors.ENDC}')
             return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
 
         except HTTPError as e:
@@ -418,17 +400,17 @@ class DatabricksJobsDeployment:
             response = e.response.content.decode('utf-8')
 
             if e.response.status_code == 400 and "does not exist." in response:
-                log_success("Job already deleted, skipping")
+                log_success(f"{Colors.OKGREEN}Job already deleted, skipping{Colors.ENDC}")
                 return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
             log_error(
-                f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}',
+                f'{Colors.WARNING}Error on deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}{Colors.ENDC}',
                 e)
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
 
         except Exception as e:
             log_error(
-                f'Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}',
+                f'{Colors.FAIL}Error while deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}{Colors.ENDC}',
                 e)
             return Either(left=e)
 
@@ -441,10 +423,12 @@ class DatabricksJobsDeployment:
             try:
                 client = self.get_databricks_client(fabric_id)
                 client.pause_job(external_job_id)
-                log(f"Paused job {external_job_id} in fabric {fabric_id}", step_id=self._PAUSE_JOBS_STEP_ID)
+                log(f"{Colors.OKBLUE}Paused job {external_job_id} in fabric {fabric_id}{Colors.ENDC}",
+                    step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
             except Exception as e:
-                log(f"Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this ", exception=e,
+                log(f"{Colors.WARNING}Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this {Colors.ENDC}",
+                    exception=e,
                     step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
 
@@ -456,16 +440,10 @@ class DatabricksJobsDeployment:
                 if fabric is not None:
                     futures.append(executor.submit(lambda f=fabric, j_info=jobs_info: pause_job(f, j_info)))
                 else:
-                    log(f"In valid fabric {fabric} for job_id {jobs_info.id} ", step_id=self._PAUSE_JOBS_STEP_ID)
+                    log(f"{Colors.WARNING}Invalid fabric {fabric} for job_id {jobs_info.id} {Colors.ENDC}",
+                        step_id=self._PAUSE_JOBS_STEP_ID)
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._operation_to_step_id[Operation.Pause])
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Pause])
 
 
 class DBTComponents:
@@ -525,6 +503,8 @@ class DBTComponents:
         futures = []
 
         with ThreadPoolExecutor(max_workers=3) as executor:
+            if len(self._dbt_profiles_to_build_headers()) > 0:
+                log(f"{Colors.MAGENTA}Uploading profiles{Colors.ENDC}")
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for components in dbt_component_model.components:
 
@@ -533,24 +513,18 @@ class DBTComponents:
                         futures.append(executor.submit(
                             lambda model=dbt_component_model, comp=components: self._upload_dbt_profile(model, comp)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._DBT_PROFILES_COMPONENT_STEP_NAME)
-        return responses
+        return await_futures_and_update_states(futures, self._DBT_PROFILES_COMPONENT_STEP_NAME)
 
     def _upload_dbt_profile(self, dbt_component_model: DbtComponentsModel, components: Dict[str, str]):
         try:
             client = self.databricks_jobs.get_databricks_client(dbt_component_model.fabric_id)
             client.upload_content(components['profileContent'], components['profilePath'])
 
-            log(f"Successfully uploaded dbt profile {components['profilePath']}",
+            log(f"{Colors.OKBLUE}Successfully uploaded dbt profile {components['profilePath']}{Colors.ENDC}",
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(right=True)
         except Exception as e:
-            log(f"Error while uploading dbt profile {components['profilePath']}", exception=e,
+            log(f"{Colors.FAIL}Error while uploading dbt profile {components['profilePath']}{Colors.ENDC}", exception=e,
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(left=e)
 
@@ -558,6 +532,8 @@ class DBTComponents:
         futures = []
 
         with ThreadPoolExecutor(max_workers=3) as executor:
+            if len(self._dbt_secrets_headers()) > 0:
+                log(f"{Colors.MAGENTA}Uploading dbt secrets{Colors.ENDC}")
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for dbt_component in dbt_component_model.components:
                     if dbt_component.get('sqlFabricId', None) is not None and dbt_component.get('secretKey',
@@ -567,14 +543,7 @@ class DBTComponents:
                                 lambda model=dbt_component_model, component=dbt_component: self._upload_dbt_secret(
                                     model, component)))
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._DBT_SECRETS_COMPONENT_STEP_NAME)
-        return responses
+        return await_futures_and_update_states(futures, self._DBT_SECRETS_COMPONENT_STEP_NAME)
 
     def _upload_dbt_secret(self, dbt_component_model, dbt_component):
         try:
@@ -587,14 +556,15 @@ class DBTComponents:
 
             sql_client.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
 
-            log(f"Successfully uploaded dbt secret for component {dbt_component['nodeName']}",
+            log(f"{Colors.OKBLUE}Successfully uploaded dbt secret for component {dbt_component['nodeName']}{Colors.ENDC}",
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
 
             return Either(right=True)
 
         except Exception as e:
 
-            log(f"Error while uploading dbt secret  for component {dbt_component['nodeName']}", exception=e,
+            log(f"{Colors.FAIL}Error on uploading dbt secret for component {dbt_component['nodeName']} {Colors.ENDC}",
+                exception=e,
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
 
             return Either(left=e)
@@ -640,6 +610,7 @@ class ScriptComponents:
         self.databricks_jobs = databricks_jobs
         self.project = project
         self.script_jobs = self._script_components_from_jobs()
+        self.fabric_config = project_config.fabric_config
         self.deployment_state = project_config.jobs_state
 
     def summary(self) -> List[str]:
@@ -663,6 +634,9 @@ class ScriptComponents:
     def deploy(self):
         futures = []
 
+        if (len(self.headers()) > 0):
+            log(f"{Colors.MAGENTA}Uploading script components from job{Colors.ENDC}")
+
         with ThreadPoolExecutor(max_workers=10) as executor:
             for job_id, script_components in self._script_components_from_jobs().items():
 
@@ -672,27 +646,28 @@ class ScriptComponents:
                                                                                                                    fabric_id,
                                                                                                                    j_id)))
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        # copy paste for now, will refactor later
-        update_state(responses, self._STEP_ID)
-        return responses
+        return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_content(self, script: dict, fabric_id: str, job_id: str):
         node_name = script.get('nodeName')
-
+        fabric_name = self.fabric_config.get_fabric(fabric_id).name
         try:
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             client.upload_content(content=script.get('content', None), path=script.get('path', None))
 
-            log(f"Uploaded script component {node_name} to fabric {fabric_id} for job {job_id} to path {script.get('path', None)}",
+            log(f"Uploaded script component {node_name} to fabric-id {fabric_id} for job {job_id} to path {script.get('path', None)}",
+                step_id=self._STEP_ID, level=LogLevel.TRACE)
+
+            log(f"{Colors.OKBLUE}Uploaded script component `{node_name}` to fabric `{fabric_name}` for job `{job_id}` to path `{script.get('path', None)}` {Colors.ENDC}",
                 step_id=self._STEP_ID)
             return Either(right=True)
         except Exception as e:
-            log(f"Error uploading script component {node_name} to fabric {fabric_id}", step_id=self._STEP_ID,
+            log(f"{Colors.FAIL}Error uploading script component `{node_name}` to fabric-id `{fabric_id}` {Colors.ENDC}",
+                step_id=self._STEP_ID,
+                exception=e, level=LogLevel.TRACE)
+
+            log(f"{Colors.FAIL}Error uploading script component `{node_name}` to fabric `{fabric_name}` {Colors.ENDC}",
+                step_id=self._STEP_ID,
                 exception=e)
             return Either(left=e)
 
@@ -743,6 +718,8 @@ class PipelineConfigurations:
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.pipeline_configurations.items()) > 0:
+                log(f"{Colors.MAGENTA} Uploading pipeline configutaions {Colors.ENDC}")
 
             def execute_job(_fabric_id, config_content, config_path):
                 futures.append(executor.submit(
@@ -760,26 +737,20 @@ class PipelineConfigurations:
                     for fabric_id in self.project_config.fabric_config.db_fabrics():
                         execute_job(fabric_id, configuration_content, configuration_path)
 
-        responses = []
-
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-            # copy paste for now, will refactor later
-        update_state(responses, self._STEP_ID)
-        return responses
+        return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(self, fabric_id, configuration_content, configuration_path):
         try:
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             client.upload_content(configuration_content, configuration_path)
 
-            log(f"Uploaded pipeline configuration on path {configuration_path}",
+            log(f"{Colors.OKBLUE}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID)
 
             return Either(right=True)
 
         except Exception as e:
-            log(f"Failed to upload pipeline configuration for path {configuration_path}", exception=e,
+            log(f"{Colors.FAIL}Failed to upload pipeline configuration for path {configuration_path}{Colors.ENDC}",
+                exception=e,
                 step_id=self._STEP_ID)
             return Either(left=e)
