@@ -565,7 +565,8 @@ class ProphecyBuildTool:
             pipeline_filter = [x.strip() for x in pipelines.split(",")]
             pipelines = {k: v for k, v in self.pipelines.items() if k.split("/")[1] in pipeline_filter}
             pipelines_count = len(pipelines)
-            print(f"\n[INFO]: Testing given pipelines: {pipelines}")
+            print(f"\n[INFO]: Testing given pipelines: {pipeline_filter}")
+            print(f"\n[INFO]: Pipelines found: {pipelines_count}")
 
         if self._verify_unit_test_env():
             unit_test_results = {}
