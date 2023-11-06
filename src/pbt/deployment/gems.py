@@ -5,8 +5,8 @@ import threading
 from typing import List
 
 from ..entities.project import Project
-from ..project_config import ProjectConfig
-from ..project_models import StepMetadata, StepType, Operation, Status
+from ..utils.project_config import ProjectConfig
+from ..utils.project_models import StepMetadata, StepType, Operation, Status
 from ..utility import custom_print as log, Either
 
 GEMS = "Gems"

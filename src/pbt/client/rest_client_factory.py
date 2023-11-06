@@ -6,7 +6,7 @@ from .airflow.composer import ComposerRestClient
 from .airflow.mwaa import MWAARestClient
 from .databricks import DatabricksClient
 from .s3 import S3Client
-from ..project_config import FabricInfo, FabricConfig
+from src.pbt.utils.project_config import FabricInfo, FabricConfig
 
 
 class RestClientFactory:

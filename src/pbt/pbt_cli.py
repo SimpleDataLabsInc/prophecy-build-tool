@@ -2,7 +2,7 @@ from typing import Optional
 
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
-from .project_config import ProjectConfig
+from .utils.project_config import ProjectConfig
 
 
 class PBTCli(object):

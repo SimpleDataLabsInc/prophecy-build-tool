@@ -6,13 +6,13 @@ from typing import Dict, List, Optional
 from requests import HTTPError
 
 from ...client.rest_client_factory import RestClientFactory
-from ...constants import COMPONENTS_LITERAL
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
-from ...exceptions import InvalidFabricException
-from ...project_config import JobInfo, ProjectConfig
-from ...project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
 from ...utility import custom_print as log, Either
+from ...utils.constants import COMPONENTS_LITERAL
+from ...utils.exceptions import InvalidFabricException
+from ...utils.project_config import JobInfo, ProjectConfig, update_state
+from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
@@ -225,7 +225,7 @@ class DatabricksJobsDeployment:
 
     def _refresh_jobs(self) -> Dict[str, JobInfo]:
         return {
-            job_info.id: job_info for job_info in self.deployment_state.get_databricks_jobs
+            job_info.id: job_info for job_info in self.deployment_state.databricks_jobs
             if any(
                 job_info.id == job_id and job_info.fabric_id == job_data.fabric_id
                 for job_id, job_data in self.valid_databricks_jobs.items()
@@ -235,7 +235,7 @@ class DatabricksJobsDeployment:
     def _pause_jobs(self) -> List[JobInfo]:
 
         return [
-            databricks_job for databricks_job in self.deployment_state.get_databricks_jobs
+            databricks_job for databricks_job in self.deployment_state.databricks_jobs
             if any(
                 databricks_job.id == job_id and databricks_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_databricks_jobs.items()
@@ -246,12 +246,12 @@ class DatabricksJobsDeployment:
 
         return {
             job_id: job_data for job_id, job_data in self.valid_databricks_jobs.items()
-            if self.deployment_state.contains_jobs(job_id, str(job_data.fabric_id)) is False
+            if self.deployment_state.contains_job(job_id, str(job_data.fabric_id)) is False
         }
 
     def _delete_jobs(self) -> Dict[str, JobInfo]:
         return {
-            job.id: job for job in self.deployment_state.get_databricks_jobs
+            job.id: job for job in self.deployment_state.databricks_jobs
             if not any(job.id == job_id for job_id in
                        self.valid_databricks_jobs.keys())
         }
@@ -268,8 +268,8 @@ class DatabricksJobsDeployment:
             log(f"Created job {job_id} in fabric {fabric_id} response {response['job_id']}",
                 step_id=step_id)
 
-            job_info = JobInfo.create_db_job(job_data.name, job_id, fabric_id, response['job_id'],
-                                             self.project.release_tag, job_data.is_paused)
+            job_info = JobInfo.create_job(job_data.name, job_id, fabric_id, response['job_id'],
+                                          self.project.release_tag, job_data.is_paused)
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
 
@@ -301,7 +301,7 @@ class DatabricksJobsDeployment:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        self._update_state(responses, self._operation_to_step_id[Operation.Add])
+        update_state(responses, self._operation_to_step_id[Operation.Add])
 
         return responses
 
@@ -325,7 +325,7 @@ class DatabricksJobsDeployment:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        self._update_state(responses, self._operation_to_step_id[Operation.Refresh])
+        update_state(responses, self._operation_to_step_id[Operation.Refresh])
 
         return responses
 
@@ -388,7 +388,7 @@ class DatabricksJobsDeployment:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        self._update_state(responses, self._operation_to_step_id[Operation.Remove])
+        update_state(responses, self._operation_to_step_id[Operation.Remove])
 
         return responses
 
@@ -464,15 +464,8 @@ class DatabricksJobsDeployment:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        self._update_state(responses, self._operation_to_step_id[Operation.Pause])
+        update_state(responses, self._operation_to_step_id[Operation.Pause])
         return responses
-
-    def _update_state(self, responses: List, step_id: str):
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=step_id)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=step_id)
 
 
 class DBTComponents:
@@ -545,12 +538,7 @@ class DBTComponents:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
-
+        update_state(responses, self._DBT_PROFILES_COMPONENT_STEP_NAME)
         return responses
 
     def _upload_dbt_profile(self, dbt_component_model: DbtComponentsModel, components: Dict[str, str]):
@@ -585,12 +573,7 @@ class DBTComponents:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
-
+        update_state(responses, self._DBT_SECRETS_COMPONENT_STEP_NAME)
         return responses
 
     def _upload_dbt_secret(self, dbt_component_model, dbt_component):
@@ -695,12 +678,7 @@ class ScriptComponents:
             responses.append(future.result())
 
         # copy paste for now, will refactor later
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=self._STEP_ID)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
-
+        update_state(responses, self._STEP_ID)
         return responses
 
     def _upload_content(self, script: dict, fabric_id: str, job_id: str):
@@ -788,12 +766,7 @@ class PipelineConfigurations:
             responses.append(future.result())
 
             # copy paste for now, will refactor later
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=self._STEP_ID)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
-
+        update_state(responses, self._STEP_ID)
         return responses
 
     def _upload_configuration(self, fabric_id, configuration_content, configuration_path):

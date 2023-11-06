@@ -1,3 +1,6 @@
+import base64
+import binascii
+import hashlib
 import os
 import zipfile
 from abc import ABC
@@ -8,13 +11,40 @@ import yaml
 
 from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
-from ...constants import FABRIC_UID
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
-from ...project_config import JobInfo, ProjectConfig, FabricInfo
-from ...project_models import StepMetadata, Operation, StepType, Status
-from ...utility import Either, generate_secure_content, calculate_checksum
-from ...utility import custom_print as log
+from ...utility import custom_print as log, Either
+from ...utils.constants import FABRIC_UID
+from ...utils.project_config import JobInfo, ProjectConfig, FabricInfo, update_state
+from ...utils.project_models import StepMetadata, Operation, StepType
+
+
+def generate_secure_content(content: str, salt: str) -> str:
+    iterations = 10000
+    key_length = 128
+
+    password = content.encode('utf-8')
+    salt_bytes = salt.encode('utf-8')
+
+    derived_key = hashlib.pbkdf2_hmac('sha256', password, salt_bytes, iterations, dklen=key_length // 8)
+    hash_bytes = binascii.hexlify(derived_key)
+
+    return base64.b64encode(hash_bytes).decode('utf-8').replace('\\W+', '_')
+
+
+def calculate_checksum(input_str, salt=None):
+    salt = salt or "better_salt_than_never"
+
+    md = hashlib.sha256()
+    input_bytes = input_str.encode('utf-8')
+    salt_bytes = salt.encode('utf-8')
+
+    md.update(input_bytes)
+    md.update(salt_bytes)
+
+    digest_bytes = md.digest()
+
+    return ''.join(f'{byte:02x}' for byte in digest_bytes)
 
 
 def does_dag_file_exist(rdc: Dict[str, str]) -> bool:
@@ -270,7 +300,7 @@ class AirflowJobDeployment:
 
     def _validate_airflow_job(self, job_id: str, job_data: AirflowJob):
 
-        is_prophecy_managed_fabric = self._fabrics_config.is_fabric_prophecy_managed(
+        is_prophecy_managed_fabric = self._fabrics_config.is_prophecy_managed(
             job_data.fabric_id)
         rdc = job_data.rdc
 
@@ -295,7 +325,7 @@ class AirflowJobDeployment:
         for job_id, job_data in self.valid_airflow_jobs.items():
 
             is_job_enabled = job_data.is_enabled
-            is_prophecy_managed_fabric = self._fabrics_config.is_fabric_prophecy_managed(
+            is_prophecy_managed_fabric = self._fabrics_config.is_prophecy_managed(
                 job_data.fabric_id)
 
             if is_job_enabled and is_prophecy_managed_fabric and job_data.has_dbt_component:
@@ -316,7 +346,7 @@ class AirflowJobDeployment:
         for future in as_completed(futures):
             responses.append(future.result())
 
-        self._update_state(responses, self._operation_to_step_id[Operation.Remove])
+        update_state(responses, self._operation_to_step_id[Operation.Remove])
         return responses
 
     def _remove_job(self, job_info: JobInfo):
@@ -341,7 +371,7 @@ class AirflowJobDeployment:
     def _jobs_to_be_deleted(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.airflow_jobs
             if not any(
                 airflow_job.id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
@@ -356,7 +386,7 @@ class AirflowJobDeployment:
     def _jobs_with_fabric_changed(self) -> List[JobInfo]:
 
         return [
-            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.airflow_jobs
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id != job_data.fabric_id
                 for job_id, job_data in self.valid_airflow_jobs.items()  # Check only from valid airflow jobs.
@@ -365,7 +395,7 @@ class AirflowJobDeployment:
 
     def _rename_jobs(self) -> List[JobInfo]:
         return [
-            airflow_job for airflow_job in self._jobs_state.get_airflow_jobs
+            airflow_job for airflow_job in self._jobs_state.airflow_jobs
 
             if any(
                 airflow_job.id == job_id and airflow_job.fabric_id == job_data.fabric_id and
@@ -381,7 +411,7 @@ class AirflowJobDeployment:
     # jobs which are enabled in state config but disabled in code.
     # and always get jobs from deployment state.
     def _pause_jobs(self) -> Dict[str, JobInfo]:
-        old_enabled_job = {job.id: job for job in self._jobs_state.get_airflow_jobs if job.is_paused is False}
+        old_enabled_job = {job.id: job for job in self._jobs_state.airflow_jobs if job.is_paused is False}
 
         old_enabled_job_which_are_disabled_in_new = {
             job_id: job_info
@@ -422,7 +452,7 @@ class AirflowJobDeployment:
         for future in as_completed(futures):
             responses.append(future.result())
 
-        self._update_state(responses, self._operation_to_step_id[Operation.Add])
+        update_state(responses, self._operation_to_step_id[Operation.Add])
         return responses
 
     def _add_job(self, job_id, job_data):
@@ -444,10 +474,10 @@ class AirflowJobDeployment:
             log(f"Successfully added job {dag_name} for job_id {job_id} on fabric {job_data.fabric_id}",
                 step_id=self._ADD_JOBS_STEP_ID)
 
-            job_info = JobInfo.create_airflow_job(job_data.name, job_id, job_data.fabric_id, dag_name,
-                                                  self._project.release_tag,
-                                                  job_data.is_disabled,
-                                                  get_fabric_provider_type(job_data.fabric_id, self._project_config))
+            job_info = JobInfo.create_job(job_data.name, job_id, job_data.fabric_id, dag_name,
+                                          self._project.release_tag,
+                                          job_data.is_disabled,
+                                          get_fabric_provider_type(job_data.fabric_id, self._project_config))
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
@@ -460,7 +490,7 @@ class AirflowJobDeployment:
             log(f"Skipping job_id: {job_id} encountered some error ", exception=message.left,
                 step_id=self._SKIP_JOBS_STEP_ID)
         if len(self._skip_jobs()) > 0:
-            self._update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
+            update_state([Either(right=True)], self._operation_to_step_id[Operation.Skipped])
 
     def _skip_jobs(self):
         return {job_id: self._validate_airflow_job(job_id, job_data)
@@ -476,7 +506,7 @@ class AirflowJobDeployment:
         responses = []
         for future in as_completed(futures):
             responses.append(future.result())
-        self._update_state(responses, self._operation_to_step_id[Operation.Rename])
+        update_state(responses, self._operation_to_step_id[Operation.Rename])
         return responses
 
     def _delete_job_for_renamed_job(self, jobs_info: JobInfo):
@@ -501,7 +531,7 @@ class AirflowJobDeployment:
         responses = []
         for future in as_completed(futures):
             responses.append(future.result())
-        self._update_state(responses, self._operation_to_step_id[Operation.Pause])
+        update_state(responses, self._operation_to_step_id[Operation.Pause])
         return responses
 
     def _pause_job(self, job_id: str, job_info: JobInfo):
@@ -521,13 +551,6 @@ class AirflowJobDeployment:
             log(f"Failed to pause_dag for job_id: {job_id} with dag_name {dag_name}", exception=e,
                 step_id=self._PAUSE_JOBS_STEP_ID)
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
-
-    def _update_state(self, responses: List, step_id: str):
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=step_id)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=step_id)
 
 
 class AirflowGitSecrets:
@@ -590,7 +613,7 @@ class AirflowGitSecrets:
             for future in as_completed(futures):
                 responses.append(future.result())
 
-            self._update_state(responses, self._AIRFLOW_GIT_SECRETS_STEP_ID)
+            update_state(responses, self._AIRFLOW_GIT_SECRETS_STEP_ID)
             return responses
         else:
             # log("No dbt jobs found, Ignoring", step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
@@ -609,13 +632,6 @@ class AirflowGitSecrets:
         except Exception as e:
             log(f'Failed in creating git secrets for project {project_id}', exception=e,
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID)
-
-    def _update_state(self, responses: List, step_id: str):
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=step_id)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=step_id)
 
 
 class EMRPipelineConfigurations:
@@ -681,12 +697,7 @@ class EMRPipelineConfigurations:
             responses.append(future.result())
 
             # copy paste for now, will refactor later
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=self._STEP_ID)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
-
+        update_state(responses, self._STEP_ID)
         return responses
 
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
@@ -769,12 +780,7 @@ class DataprocPipelineConfigurations:
             responses.append(future.result())
 
             # copy paste for now, will refactor later
-        if responses is not None and len(responses) > 0:
-            if any(response.is_left for response in responses):
-                log(step_status=Status.FAILED, step_id=self._STEP_ID)
-            else:
-                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
-
+        update_state(responses, self._STEP_ID)
         return responses
 
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):

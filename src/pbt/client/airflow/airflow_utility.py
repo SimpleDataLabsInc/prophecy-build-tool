@@ -1,7 +1,7 @@
 from .composer import ComposerRestClient
 from .mwaa import MWAARestClient
-from ...exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
-from ...project_config import ProjectConfig, FabricType, FabricProviderType
+from src.pbt.utils.exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
+from src.pbt.utils.project_config import ProjectConfig, FabricType, FabricProviderType
 
 
 def create_airflow_client(fabric_id: str, project_config: ProjectConfig):

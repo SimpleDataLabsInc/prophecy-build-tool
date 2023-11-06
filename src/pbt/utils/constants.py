@@ -27,6 +27,7 @@ JSON_EXTENSION = ".json"
 
 DBT_COMPONENT = "DBTComponent"
 SCRIPT_COMPONENT = "ScriptComponent"
+PIPELINE_COMPONENT = "PipelineComponent"
 COMPONENTS_LITERAL = "components"
 
 FABRIC_ID = "fabric_id"

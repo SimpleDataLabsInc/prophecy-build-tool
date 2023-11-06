@@ -5,15 +5,15 @@ from typing import List
 import yaml
 
 from .gems import GemsDeployment
-from ..constants import NEW_JOB_STATE_FILE
+from ..utils.constants import NEW_JOB_STATE_FILE
 from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
     DataprocPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
     DBTComponents
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
-from ..project_config import ProjectConfig
-from ..project_models import StepMetadata, Operation, StepType, Status
+from ..utils.project_config import ProjectConfig
+from ..utils.project_models import StepMetadata, Operation, StepType, Status
 from ..utility import custom_print as log, Either
 from ..utility import remove_null_items_recursively
 
