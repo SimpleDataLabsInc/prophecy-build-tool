@@ -3,12 +3,6 @@ from src.pbt import test
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
-PROJECT_PATH_NEW = str(os.getcwd()) + "/test/resources/ProjectCreatedOn160523"
-if os.environ.get("DATABRICKS_HOST") is None:
-    os.environ["DATABRICKS_HOST"] = "test"
-if os.environ.get("DATABRICKS_TOKEN") is None:
-    os.environ["DATABRICKS_TOKEN"] = "test"
-
 
 def test_test_path_default():
     runner = CliRunner()
