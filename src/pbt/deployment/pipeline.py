@@ -493,7 +493,6 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
                     exception=e, step_id=self.pipeline_id)
                 return Either(left=e)
 
-
         except Exception as e:
             log(f"Unknown Exception while uploading pipeline to databricks from-path {self.file_path} to to-path {upload_path} for fabric {self.fabric_name}, ignoring exception",
                 exception=e, step_id=self.pipeline_id)

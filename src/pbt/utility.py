@@ -62,4 +62,3 @@ def remove_null_items_recursively(item):
     # If the item is neither a dictionary, a list, nor an enum
     else:
         return item
-

@@ -56,7 +56,7 @@ class Project:
                 return self._replace_placeholders(self._DATABRICKS_JOB_JSON, content)
 
             return content
-        except Exception as e:
+        except Exception:
             return None
 
     def load_airflow_base_folder_path(self, job_id):

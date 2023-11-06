@@ -12,7 +12,7 @@ from ...utility import custom_print as log, Either
 from ...utils.constants import COMPONENTS_LITERAL
 from ...utils.exceptions import InvalidFabricException
 from ...utils.project_config import JobInfo, ProjectConfig, update_state
-from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Status
+from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
