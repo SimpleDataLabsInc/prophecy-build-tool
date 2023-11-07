@@ -5,7 +5,7 @@ import requests
 
 from requests.auth import HTTPBasicAuth
 
-from src.pbt.utils.exceptions import ArtifactDownloadFailedException
+from ..utils.exceptions import ArtifactDownloadFailedException
 
 
 class NexusClient:

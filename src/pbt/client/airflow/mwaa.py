@@ -9,8 +9,8 @@ import requests
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
 
 from . import AirflowRestClient
-from src.pbt.utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
-from src.pbt.utils.project_models import DAG
+from ...utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
+from ...utils.project_models import DAG
 
 
 class MWAARestClient(AirflowRestClient, ABC):

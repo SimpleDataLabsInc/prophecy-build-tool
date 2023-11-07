@@ -5,17 +5,17 @@ from typing import List
 import yaml
 
 from .gems import GemsDeployment
-from ..utils.constants import NEW_JOB_STATE_FILE
 from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
     DataprocPipelineConfigurations
 from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
     DBTComponents
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
+from ..utility import custom_print as log, Either, is_online_mode
+from ..utility import remove_null_items_recursively
+from ..utils.constants import NEW_JOB_STATE_FILE
 from ..utils.project_config import ProjectConfig
 from ..utils.project_models import StepMetadata, Operation, StepType, Status
-from ..utility import custom_print as log, Either
-from ..utility import remove_null_items_recursively
 
 
 class ProjectDeployment:
@@ -153,7 +153,9 @@ class ProjectDeployment:
         return airflow_jobs_responses
 
     def deploy(self, job_ids):
-        # self._deploy_gems()
+        if not is_online_mode():
+            self._deploy_gems()
+
         self._deploy_scripts()
         self._deploy_dbt_components()
         self._deploy_airflow_git_secrets()

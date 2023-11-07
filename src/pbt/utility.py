@@ -2,7 +2,7 @@ import os
 from enum import Enum
 from typing import Optional, Any
 
-from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel, Colors
+from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel
 
 
 # class mimicking Either behaviour to capture both success and failure
@@ -25,26 +25,23 @@ def custom_print(message: Optional[Any] = None, exception=None,
                  step_id=None,
                  step_metadata: Optional[StepMetadata] = None,
                  step_status: Optional[Status] = None, level: LogLevel = LogLevel.INFO):
-    if os.environ.get('PRINT_MODE', 'REGULAR') == 'CUSTOM':
+    if is_online_mode():
         # Custom print: Print all variables.
         if step_metadata is not None:
             log_event = LogEvent.from_step_metadata(step_metadata)
-            # print(log_event.to_json(), flush=True)
         elif step_status is not None:
             log_event = LogEvent.from_status(step_status, step_id)
-            # print(log_event.to_json(), flush=True)
         else:
             log_event = LogEvent.from_log(step_id, message, exception)
 
         print(log_event.to_json(), flush=True)
-    elif level != LogLevel.TRACE:
+    else:
         # Regular print: Skip stepName.
-        if not message:
-            print("")
-        elif not exception:
-            print(message)
-        else:
-            print(message, f"\t\t\t --- {Colors.OKCYAN}{exception}{Colors.ENDC}")
+        print(message, exception)
+
+
+def is_online_mode() -> bool:
+    return os.environ.get("PRINT_MODE", "REGULAR") == "CUSTOM"
 
 
 # If the item is a dictionary

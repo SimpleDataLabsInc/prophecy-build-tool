@@ -11,7 +11,8 @@ from .constants import PROPHECY_ARTIFACTS, DBFS_FILE_STORE
 from .exceptions import ConfigFileNotFoundException
 from .project_models import Status
 from ..deployment import OperationType, JobInfoAndOperation
-from ..utility import Either, custom_print as log
+from ..entities.project import Project
+from ..utility import Either, custom_print as log, is_online_mode
 
 
 class SchedulerType(enum.Enum):
@@ -336,61 +337,72 @@ class SystemConfig(BaseModel):
         return SystemConfig()
 
 
+def load_jobs_state(job_state_path: str):
+    if job_state_path is not None and len(job_state_path) > 0:
+        with open(job_state_path, "r") as job_state:
+            data = job_state.read()
+            return parse_yaml_raw_as(JobsState, data)
+    elif is_online_mode():
+        return JobsState.em
+    else:
+        raise ConfigFileNotFoundException("Job state config path is not provided")
+
+
+def load_system_config(system_config_path: str):
+    if system_config_path is not None and len(system_config_path) > 0:
+        with open(system_config_path, "r") as system_config:
+            data = system_config.read()
+            return parse_yaml_raw_as(SystemConfig, data)
+    else:
+        raise ConfigFileNotFoundException("System config path is not provided")
+
+
+def load_configs_override(configs_override_path):
+    if configs_override_path is not None and len(configs_override_path) > 0:
+        with open(configs_override_path, "r") as config_override:
+            data = config_override.read()
+            return parse_yaml_raw_as(ConfigsOverride, data)
+    else:
+        return ConfigsOverride.empty()
+
+
+def load_fabric_config(fabric_config_path):
+    if fabric_config_path is not None and len(fabric_config_path) > 0:
+        with open(fabric_config_path, "r") as fabric_config:
+            data = fabric_config.read()
+            return parse_yaml_raw_as(FabricConfig, data)
+    else:
+        raise ConfigFileNotFoundException("Fabric config path is not provided")
+
+
 class ProjectConfig:
     def __init__(self, jobs_state: JobsState, fabric_config: FabricConfig, system_config: SystemConfig,
                  config_override: ConfigsOverride):
-
         self.jobs_state = jobs_state
         self.fabric_config = fabric_config
         self.system_config = system_config
         self.configs_override = config_override
 
     @staticmethod
-    def from_path(job_state_path: str, system_config_path: str, configs_override_path: str,
-                  fabric_config_path: str):
-        def load_jobs_state():
-            if job_state_path is not None and len(job_state_path) > 0:
-                with open(job_state_path, "r") as job_state:
-                    data = job_state.read()
-                    return parse_yaml_raw_as(JobsState, data)
-            else:
-                raise ConfigFileNotFoundException("Job state config path is not provided")
-
-        def load_system_config():
-            if system_config_path is not None and len(system_config_path) > 0:
-                with open(system_config_path, "r") as system_config:
-                    data = system_config.read()
-                    return parse_yaml_raw_as(SystemConfig, data)
-            else:
-                raise ConfigFileNotFoundException("System config path is not provided")
-
-        def load_configs_override():
-            if configs_override_path is not None and len(configs_override_path) > 0:
-                with open(configs_override_path, "r") as config_override:
-                    data = config_override.read()
-                    return parse_yaml_raw_as(ConfigsOverride, data)
-            else:
-                return ConfigsOverride.empty()
-
-        def load_fabric_config():
-            if fabric_config_path is not None and len(fabric_config_path) > 0:
-                with open(fabric_config_path, "r") as fabric_config:
-                    data = fabric_config.read()
-                    return parse_yaml_raw_as(FabricConfig, data)
-            else:
-                raise ConfigFileNotFoundException("Fabric config path is not provided")
-
-        return ProjectConfig(load_jobs_state(), load_fabric_config(), load_system_config(), load_configs_override())
+    def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
+                  fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool):
+        jobs = load_jobs_state(job_state_path)
+        fabrics = load_fabric_config(fabric_config_path),
+        system = load_system_config(system_config_path)
+        configs = load_configs_override(configs_override_path)
+        return ProjectConfig(jobs, fabrics, system, configs)
 
     # best used when invoking from execution.
     @classmethod
-    def from_conf_folder(cls, conf_folder):
-        jobs_state = os.path.join(conf_folder, "jobs_state.yml")
+    def from_conf_folder(cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool):
+        jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
-        config_override = os.path.join(conf_folder, "config_override.yml")
+        config_override = os.path.join(conf_folder, "override.yml")
         fabric_config = os.path.join(conf_folder, "fabrics.yml")
 
-        return ProjectConfig.from_path(jobs_state, system_config, config_override, fabric_config)
+        return ProjectConfig.from_path(project, jobs_state, system_config, config_override, fabric_config, fabric_ids,
+                                       job_ids,
+                                       skip_builds)
 
 
 def await_futures_and_update_states(futures: List[Future], step_id: str):

@@ -11,7 +11,7 @@ from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
 from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
 
-from src.pbt.utility import Either
+from ..utility import Either
 
 
 class DatabricksClient:

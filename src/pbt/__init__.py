@@ -7,8 +7,9 @@ import click
 import pkg_resources
 from rich import print
 
+from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
-from src.pbt.pbt_cli import PBTCli
+from .utility import is_online_mode
 
 
 @click.group()
@@ -115,18 +116,20 @@ def deploy(
 
 @cli.command()
 @click.option(
-    "--project-dir",
+    "--path",
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
 @click.option(
     "--project-id",
     help="Path to the directory containing the pbt_project.yml file",
-    required=True,
+    default="",
+    required=False,
 )
 @click.option(
     "--conf-dir",
     help="Path to the configuration file folders",
+    default="",
     required=False,
 )
 @click.option(
@@ -137,13 +140,32 @@ def deploy(
 @click.option(
     "--release-version",
     help="Release version",
-    required=True,
+    required=False,
 )
-def deploy_v2(project_dir, project_id: str, conf_dir: Optional[str],
-              release_tag: Optional[str], release_version: str):
+@click.option(
+    "--fabric-ids",
+    help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
+    default="",
+)
+@click.option(
+    "--job-ids",
+    help="Job IDs(comma separated) which can be used to filter jobs for deployment",
+    default="",
+)
+@click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
+def deploy_v2(path: str,
+              project_id: str,
+              conf_dir: Optional[str],
+              release_tag: Optional[str],
+              release_version: str,
+              fabric_ids: str,
+              job_ids: str,
+              skip_builds: bool):
     if conf_dir is not None:
-        pbt = PBTCli.from_conf_folder(project_dir, project_id, conf_dir, release_tag, release_version)
-        pbt.headers()
+        pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
+                                      skip_builds)
+        if not is_online_mode():
+            pbt.headers()
         pbt.deploy([])
     else:
         raise Exception("Not implemented")
