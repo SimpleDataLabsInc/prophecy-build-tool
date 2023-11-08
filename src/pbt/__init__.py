@@ -123,7 +123,7 @@ def deploy(
 @click.option(
     "--project-id",
     help="Path to the directory containing the pbt_project.yml file",
-    default="",
+    default="1",
     required=False,
 )
 @click.option(
@@ -135,11 +135,13 @@ def deploy(
 @click.option(
     "--release-tag",
     help="Release tag",
+    default="1.0",
     required=False,
 )
 @click.option(
     "--release-version",
     help="Release version",
+    default="1.0",
     required=False,
 )
 @click.option(
@@ -161,14 +163,27 @@ def deploy_v2(path: str,
               fabric_ids: str,
               job_ids: str,
               skip_builds: bool):
-    if conf_dir is not None:
-        pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
-                                      skip_builds)
-        if not is_online_mode():
-            pbt.headers()
-        pbt.deploy([])
-    else:
-        raise Exception("Not implemented")
+    pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
+                                  skip_builds)
+    if not is_online_mode():
+        pbt.headers()
+    pbt.deploy([])
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--driver-library-path",
+    help="Jar path of prophecy-python-libs and other required dependencies",
+    required=False,
+)
+def test2(path, driver_library_path):
+    pbt = PBTCli.from_conf_folder(path, "", "", "", "")
+    pbt.test(driver_library_path)
 
 
 @cli.command()

@@ -1,6 +1,7 @@
+import json
 import os
 import re
-from typing import Optional
+from typing import Optional, List
 
 import yaml
 
@@ -10,6 +11,16 @@ from ..utils.constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
 SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
+
+
+def is_cross_project_pipeline(pipeline):
+    match = re.compile(SUBSCRIBED_ENTITY_URI_REGEX).search(pipeline)
+
+    if match:
+        git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
+        return project_subscription_project_id, tag.split('/')[1], path
+    else:
+        return None, None, None
 
 
 def _read_file_content(file_path: str) -> Optional[str]:
@@ -22,8 +33,11 @@ class Project:
     _DATABRICKS_JOB_JSON = "databricks-job.json"
     _CODE_FOLDER = "code"
 
-    def __init__(self, project_path: str, project_id: Optional[str] = None,
-                 release_tag: Optional[str] = None, release_version: Optional[str] = None):
+    def __init__(self, project_path: str,
+                 project_id: Optional[str] = None,
+                 release_tag: Optional[str] = None,
+                 release_version: Optional[str] = None,
+                 dependant_project_list: Optional[str] = None):
 
         self.project_id = project_id
         self.project_path = project_path
@@ -33,7 +47,7 @@ class Project:
 
         self.pbt_project_dict = {}
         self.project_language = None
-        self.jobs = None
+        self.jobs = {}
         self.pipelines = {}
         self.pipeline_id_to_name = {}
         self.gems = {}
@@ -42,6 +56,18 @@ class Project:
         self._load_project_config()
         self._extract_project_info()
         self.pipeline_configurations = self._load_pipeline_configurations()
+
+        self.dependant_project = None
+
+        if dependant_project_list is not None:
+            project_paths = dependant_project_list.split(",")
+            dependant_projects = []
+            for path in project_paths:
+                dependant_projects.append(Project(path, ""))
+
+            self.dependant_project = DependantProjectCli(dependant_projects)
+        else:
+            self.dependant_project = DependantProjectAPP(project_path, self)
 
     @property
     def name(self) -> str:
@@ -79,16 +105,12 @@ class Project:
         return os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
 
     def load_pipeline_folder(self, pipeline):
-        (project_subscription_id, version, pipeline_path) = self.is_cross_project_pipeline(pipeline)
+        try:
+            base_path = os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
 
-        if project_subscription_id is not None:
-            sub_path = f".prophecy/{project_subscription_id}/{pipeline_path}"
-        else:
-            sub_path = pipeline
-
-        base_path = os.path.join(self.project_path, sub_path, self._CODE_FOLDER)
-
-        return self._read_directory(base_path)
+            return self._read_directory(base_path)
+        except Exception:
+            return self.dependant_project.load_pipeline_folder(pipeline)
 
     @staticmethod
     def get_pipeline_whl_or_jar(base_path: str):
@@ -99,34 +121,23 @@ class Project:
                     return full_path
 
     def get_py_pipeline_main_file(self, pipeline_id):
-        subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
-
-        if subscribed_project_id is None:
-            path = pipeline_id
-        else:
-            path = ".prophecy/{}/{}".format(subscribed_project_id, pipeline_path)
-
-        main_file = os.path.join(self.project_path, path, self._CODE_FOLDER, "main.py")
-        data = _read_file_content(main_file)
-
-        return data
+        try:
+            main_file = os.path.join(self.project_path, pipeline_id, self._CODE_FOLDER, "main.py")
+            data = _read_file_content(main_file)
+            return data
+        except Exception:
+            return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
 
     def get_pipeline_absolute_path(self, pipeline_id):
         return os.path.join(os.path.join(self.project_path, pipeline_id), "code")
 
     def get_pipeline_name(self, pipeline_id):
-        subscribed_project_id, release_tag, pipeline_path = self.is_cross_project_pipeline(pipeline_id)
-
-        # pipeline belongs to same deployment.
-        if subscribed_project_id is None:
+        try:
             pipeline_path = pipeline_id
             pipelines = self.pipelines
-
-        else:
-            subscribed_project = self._load_subscribed_project_yml(subscribed_project_id)
-            pipelines = subscribed_project.get('pipelines', {})
-
-        return pipelines.get(pipeline_path, {}).get('name', pipeline_path.split('/')[-1])
+            return pipelines.get(pipeline_path, {}).get('name', pipeline_path.split('/')[-1])
+        except Exception:
+            return self.dependant_project.get_pipeline_name(pipeline_id)
 
     def _read_directory(self, base_path: str):
         rdc = {}
@@ -195,20 +206,130 @@ class Project:
     def non_empty_gems_directory(self):
         return os.path.exists(os.path.join(self.project_path, "gems"))
 
-    @staticmethod
-    def is_cross_project_pipeline(pipeline):
-
-        match = re.compile(SUBSCRIBED_ENTITY_URI_REGEX).search(pipeline)
-
-        if match:
-            git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
-            return project_subscription_project_id, tag.split('/')[1], path
-        else:
-            return None, None, None
-
     def get_package_path(self, _pipeline_id) -> (str, str):
         pipeline_path = os.path.join(self.project_path, _pipeline_id, "code")
         for root, dirs, files in os.walk(pipeline_path):
             for file in files:
                 if file.endswith(".jar") or file.endswith(".whl"):
                     return root, file
+
+    def fabrics(self) -> List[str]:
+        return [content.get('fabricUID', None) for id, content in self.jobs.items() if
+                content.get('fabricUID', None) is not None]
+
+    def _stripPrefix(self, value, prefix):
+        if value.startswith(prefix):
+            return value[len(prefix):]
+        return value
+
+    def _find_path(self):
+        for job_id, content in self.jobs.items():
+            db_jobs = self.load_databricks_job(job_id)
+            if db_jobs is not None:
+                json_content = json.loads(db_jobs)
+                for component in json_content['components']:
+                    for c_name, c_content in component.items():
+                        path = c_content['path']
+
+                        if path.startswith("dbfs:/FileStore/prophecy/artifacts/"):
+                            return path
+
+        return None
+
+    def find_customer_name(self) -> str:
+        path = self._find_path()
+        if path is not None:
+            return path.split("/")[5]
+        else:
+            return "dev"
+
+    def find_control_plane_name(self):
+        path = self._find_path()
+        if path is not None:
+            return path.split("/")[6]
+        else:
+            return "execution"
+
+    def load_main_file(self, path):
+        main_file = os.path.join(self.project_path, path, self._CODE_FOLDER, "main.py")
+        return _read_file_content(main_file)
+
+    def is_cross_project_pipeline(self, from_path):
+        for pipeline_id, content in self.pipelines.items():
+            if pipeline_id == from_path:
+                return None, None, None
+        return self.dependant_project.is_cross_project_pipeline(from_path)
+
+
+class DependantProjectCli:
+    def __init__(self, dependant_projects: List[Project]):
+        self.dependant_projects = dependant_projects
+
+    def is_cross_project_pipeline(self, pipeline_id):
+        for project in self.dependant_projects:
+            for pipeline, content in project.pipelines.items():
+                if pipeline == pipeline_id:
+                    return True
+
+        return False
+
+    def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
+        for project in self.dependant_projects:
+            for pipeline, content in project.pipelines.items():
+                if pipeline == pipeline_id:
+                    return project.get_py_pipeline_main_file(pipeline)
+
+        return None
+
+    def get_pipeline_name(self, pipeline_id: str) -> Optional[str]:
+        for project in self.dependant_projects:
+            for pipeline, content in project.pipelines.items():
+                if pipeline == pipeline_id:
+                    return content['name']
+
+        return None
+
+    def load_pipeline_folder(self, pipeline_id: str):
+        for project in self.dependant_projects:
+            for pipeline, content in project.pipelines.items():
+                if pipeline == pipeline_id:
+                    return project.load_pipeline_folder(pipeline)
+
+        return {}
+
+
+class DependantProjectAPP:
+    def __init__(self, path: str, main_project: Project):
+        self.path = path
+        self.project = main_project
+
+    def is_cross_project_pipeline(self, pipeline_id):
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
+        if pid is not None and tag is not None and path is not None:
+            return True
+        else:
+            return False
+
+    def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
+        if pid is not None:
+            path = ".prophecy/{}/{}".format(pid, path)
+            return self.project.load_main_file(path)
+        else:
+            return None
+
+    def get_pipeline_name(self, pipeline_id: str) -> Optional[str]:
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
+        if pid is not None:
+            path = ".prophecy/{}".format(pid)
+            return Project(path, pid).get_pipeline_name(path)
+        else:
+            return None
+
+    def load_pipeline_folder(self, pipeline_id: str):
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
+        if pid is not None:
+            path = ".prophecy/{}".format(pid)
+            return Project(path, pid).load_pipeline_folder(path)
+        else:
+            return None

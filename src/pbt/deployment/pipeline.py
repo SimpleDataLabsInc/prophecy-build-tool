@@ -17,7 +17,7 @@ from ..deployment.jobs.databricks import DatabricksJobsDeployment
 from ..entities.project import Project
 from ..utility import custom_print as log, Either
 from ..utils.constants import SCALA_LANGUAGE
-from ..utils.exceptions import ProjectBuildFailedException
+from ..utils.exceptions import ProjectBuildFailedException, PipelineBuildFailedException
 from ..utils.project_config import ProjectConfig, EMRInfo, DataprocInfo, DeploymentMode
 from ..utils.project_models import StepMetadata, Operation, StepType, Status, LogLevel, Colors
 
@@ -64,30 +64,92 @@ class PipelineDeployment:
         return headers
 
     def build_and_upload(self):
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = []
-            responses = []
-            if len(self._pipeline_components_from_jobs().items()) > 0:
-                log(f"{Colors.OKCYAN}Building Pipelines {len(self._pipeline_to_list_fabrics)}{Colors.ENDC}\n")
+        max_workers = 1
+        use_threads = False
+        responses = []
+        if len(self._pipeline_components_from_jobs().items()) > 0:
+            log(f"{Colors.OKCYAN}Building Pipelines {len(self._pipeline_to_list_fabrics)}{Colors.ENDC}\n")
 
-            for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
-                log(f"{Colors.OKGREEN}Building pipeline {pipeline_id}{Colors.ENDC}", step_id=pipeline_id)
-                log(step_id=pipeline_id, step_status=Status.RUNNING)
+        pipeline_jobs = self._pipeline_components_from_jobs().items()
 
-                pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
-                                                             self.project_config,
-                                                             are_tests_enabled=self.are_tests_enabled,
-                                                             fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
-                futures.append(executor.submit(lambda p=pipeline_builder: p.build_and_upload_pipeline()))
+        if use_threads and len(pipeline_jobs) > 1:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(self.build_and_upload_pipeline, pipeline_id, pipeline_name): (
+                    pipeline_id, pipeline_name) for pipeline_id, pipeline_name in pipeline_jobs}
+                for future in as_completed(futures):
+                    pipeline_id, pipeline_name = futures[future]
+                    try:
+                        response = future.result()
+                        responses.append(response)
+                    except Exception as exc:
+                        log(f"{Colors.FAIL}Pipeline {pipeline_id} generated an exception: {exc}{Colors.ENDC}",
+                            step_id=pipeline_id)
+        else:  # Serial execution
+            for pipeline_id, pipeline_name in pipeline_jobs:
+                try:
+                    response = self.build_and_upload_pipeline(pipeline_id, pipeline_name)
+                    responses.append(response)
+                except Exception as exc:
+                    log(f"{Colors.FAIL}Pipeline {pipeline_id} generated an exception: {exc}{Colors.ENDC}",
+                        step_id=pipeline_id)
 
-            for future in as_completed(futures):
-                response = future.result()
-                responses.append(response)
+        return responses
 
-            return responses
+    def build_and_upload_pipeline(self, pipeline_id, pipeline_name):
+        log(f"{Colors.OKGREEN}Building pipeline {pipeline_id}{Colors.ENDC}", step_id=pipeline_id)
+        log(step_id=pipeline_id, step_status=Status.RUNNING)
+
+        pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
+                                                     self.project_config,
+                                                     are_tests_enabled=self.are_tests_enabled,
+                                                     fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
+        return pipeline_builder.build_and_upload_pipeline()
 
     def deploy(self):
         return self.build_and_upload()
+
+    def test(self):
+        log(f"{Colors.OKBLUE}Testing pipelines{Colors.ENDC}")
+
+        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+            log(f"{Colors.OKGREEN} Testing pipeline `{pipeline_id}` {Colors.ENDC}", step_id=pipeline_id)
+            log(step_id=pipeline_id, step_status=Status.RUNNING)
+
+            pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
+                                                         self.project_config,
+                                                         are_tests_enabled=True,
+                                                         fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
+            return_code = pipeline_builder.test()
+            if return_code == 0:
+                log(f"{Colors.OKGREEN} Pipeline test succeeded : `{pipeline_id}` {Colors.ENDC}")
+            else:
+                log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
+
+    def build(self, ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
+        log(f"{Colors.OKBLUE}Building pipelines{Colors.ENDC}")
+
+        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+            log(f"{Colors.OKGREEN} Building pipeline `{pipeline_id}` {Colors.ENDC}", step_id=pipeline_id)
+            log(step_id=pipeline_id, step_status=Status.RUNNING)
+
+            code = self.project.load_pipeline_folder(pipeline_id)
+
+            if len(code) == 0 and ignore_parse_errors:
+                log(f"{Colors.WARNING} Pipeline code is not present {Colors.ENDC}")
+                break
+
+            pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
+                                                         self.project_config,
+                                                         are_tests_enabled=False,
+                                                         fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
+            return_code = pipeline_builder.build()
+            if return_code == 0:
+                log(f"{Colors.OKGREEN} Build for pipeline {pipeline_id} succeeded {Colors.ENDC}")
+            elif ignore_build_errors:
+                log(f"{Colors.WARNING} Build for pipeline {pipeline_id} failed {Colors.ENDC}")
+            else:
+                log(f"{Colors.FAIL} Build for pipeline {pipeline_id} failed {Colors.ENDC}")
+                raise PipelineBuildFailedException(f"Build failed for pipeline {pipeline_id}")
 
     @property
     def _pipeline_to_list_fabrics(self) -> Dict[str, List[str]]:
@@ -148,6 +210,20 @@ class PackageBuilderAndUploader:
             with open(file_path, 'w') as f:
                 f.write(file_content)
         self._base_path = temp_dir
+
+    def test(self):
+
+        if self._project_langauge == SCALA_LANGUAGE:
+            return self.mvn_test()
+        else:
+            return self.wheel_test()
+
+    def build(self):
+
+        if self._project_langauge == SCALA_LANGUAGE:
+            return self.mvn_build()
+        else:
+            return self.wheel_build()
 
     def build_and_upload_pipeline(self):
         pipeline_from_nexus = self._download_pipeline_from_nexus()
@@ -238,7 +314,21 @@ class PackageBuilderAndUploader:
 
         log(f"{Colors.OKCYAN}Running mvn command {command}{Colors.ENDC}", step_id=self._pipeline_id)
 
-        self._build(command)
+        return self._build(command)
+
+    def mvn_test(self):
+        mvn = "mvn"
+        command = [mvn, "package", "-Dfabric=default"]
+        log(f"{Colors.OKCYAN}Running mvn command {command}{Colors.ENDC}", step_id=self._pipeline_id)
+
+        return self._build(command)
+
+    def wheel_test(self):
+        test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py"]
+        log(f"Running python test {test_command}", step_id=self._pipeline_id)
+        response_code = self._build(test_command)
+
+        return response_code
 
     def wheel_build(self):
         if self._are_tests_enabled:
@@ -253,7 +343,7 @@ class PackageBuilderAndUploader:
 
         log(f"{Colors.OKCYAN}Running python command {command}{Colors.ENDC}", step_id=self._pipeline_id)
 
-        self._build(command)
+        return self._build(command)
 
     # maybe we can try another iteration with yield ?
     def _build(self, command: list):
@@ -339,8 +429,8 @@ class PipelineUploadManager(PipelineUploader, ABC):
                 # python based pipeline they are correctly generated.
                 file_name = file_name_with_extension
 
-            subscribed_project_id, subscribed_project_release_version, path = Project.is_cross_project_pipeline(
-                from_path)
+            subscribed_project_id, subscribed_project_release_version, path = self.project.is_cross_project_pipeline(
+                self.pipeline_id)
 
             if subscribed_project_id is not None:
                 to_path = f"{subscribed_project_id}/{subscribed_project_release_version}"
@@ -401,6 +491,28 @@ class PipelineUploadManager(PipelineUploader, ABC):
 
     def exists(self) -> bool:
         response = True
+        # if from_path is None:
+        #     raise Exception(f"Pipeline build failed {self.pipeline_id}")
+        #
+        # file_name_with_extension = os.path.basename(from_path)
+        #
+        # if file_name_with_extension.endswith("-1.0.jar"):
+        #     # scala based pipeline
+        #     file_name = file_name_with_extension.replace("-1.0.jar", ".jar")
+        # else:
+        #     # python based pipeline they are correctly generated.
+        #     file_name = file_name_with_extension
+        #
+        # subscribed_project_id, subscribed_project_release_version, path = self.project.is_cross_project_pipeline(
+        #     self.pipeline_id)
+        #
+        # if subscribed_project_id is not None:
+        #     to_path = f"{subscribed_project_id}/{subscribed_project_release_version}"
+        # else:
+        #     to_path = f"{self.project.project_id}/{self.project.release_version}"
+        #
+        # responses = []
+
         for fabric_id in self.all_fabrics:
             fabric_info = self.project_config.fabric_config.get_fabric(fabric_id)
             fabric_name = fabric_info.name

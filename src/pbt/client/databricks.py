@@ -1,5 +1,5 @@
 import tempfile
-from typing import Dict
+from typing import Dict, Optional
 
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.dbfs.api import DbfsApi
@@ -117,6 +117,17 @@ class DatabricksClient:
     def patch_job_acl(self, scheduler_job_id: str, acl):
         print(f'patching job acl {scheduler_job_id} and acl {acl}')
         self.permission.patch_job(scheduler_job_id, acl)
+
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
+           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    def find_job(self, job_name) -> Optional[str]:
+        try:
+            jobs = self.job.list_jobs(name=job_name)['jobs']
+            if len(jobs) > 0:
+                return jobs[0]['job_id']
+            return None
+        except Exception:
+            return None
 
 
 class PermissionsApi(object):

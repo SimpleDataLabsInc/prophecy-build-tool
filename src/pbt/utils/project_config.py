@@ -120,6 +120,10 @@ class DatabricksInfo(BaseModel):
     url: str
     token: str
 
+    @staticmethod
+    def create(host: str, token: str):
+        return DatabricksInfo(url=host, token=token)
+
 
 class FabricInfo(BaseModel):
     id: str
@@ -131,6 +135,11 @@ class FabricInfo(BaseModel):
     databricks: Optional[DatabricksInfo] = None
     emr: Optional[EMRInfo] = None
     dataproc: Optional[DataprocInfo] = None
+
+    @staticmethod
+    def create_db_fabric(id: str, host: str, token: str):
+        return FabricInfo(id=id, name="", type=FabricType.Spark, provider=FabricProviderType.Databricks,
+                          databricks=DatabricksInfo.create(host, token))
 
 
 class JobInfo(BaseModel):
@@ -174,6 +183,10 @@ class FabricConfig(BaseModel):
     fabrics: List[FabricInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
 
+    @staticmethod
+    def empty():
+        return FabricConfig()
+
     def get_fabric(self, fabric_id: str) -> Optional[FabricInfo]:
         return next((fabric for fabric in self.fabrics if fabric.id == fabric_id), None)
 
@@ -216,6 +229,11 @@ class FabricConfig(BaseModel):
 class JobsState(BaseModel):
     version: str
     jobs: List[JobInfo] = []
+
+    @staticmethod
+    def empty():
+        state = JobsState(version="1.0")
+        return state
 
     @property
     def jobs_to_process(self) -> List[JobInfo]:
@@ -289,6 +307,10 @@ class JobAndFabric(BaseModel):
     job_id: str
     fabric_id: str
 
+    @staticmethod
+    def create(job: str, fabric: str):
+        return JobAndFabric(job_id=job, fabric_id=fabric)
+
 
 class ConfigsOverride(BaseModel):
     tests_enabled: Optional[bool] = False
@@ -296,7 +318,7 @@ class ConfigsOverride(BaseModel):
     jobs_and_fabric: Optional[List[JobAndFabric]] = None
 
     def find_fabric_override_for_job(self, job_id: str) -> Optional[str]:
-        if self.mode == DeploymentMode.SelectiveJob and self.jobs_and_fabric is not None:
+        if self.mode == DeploymentMode.SelectiveJob:
             return next(
                 (entity.fabric_id for entity in self.jobs_and_fabric if entity.job_id == job_id),
                 None
@@ -304,7 +326,7 @@ class ConfigsOverride(BaseModel):
         return None
 
     def is_job_to_run(self, job_id) -> bool:
-        if self.mode == DeploymentMode.SelectiveJob and self.jobs_and_fabric is not None:
+        if self.mode == DeploymentMode.SelectiveJob:
             return any(job_and_fabric.job_id == job_id for job_and_fabric in self.jobs_and_fabric)
         return True
 
@@ -342,8 +364,6 @@ def load_jobs_state(job_state_path: str):
         with open(job_state_path, "r") as job_state:
             data = job_state.read()
             return parse_yaml_raw_as(JobsState, data)
-    elif is_online_mode():
-        return JobsState.em
     else:
         raise ConfigFileNotFoundException("Job state config path is not provided")
 
@@ -377,20 +397,67 @@ def load_fabric_config(fabric_config_path):
 
 class ProjectConfig:
     def __init__(self, jobs_state: JobsState, fabric_config: FabricConfig, system_config: SystemConfig,
-                 config_override: ConfigsOverride):
+                 config_override: ConfigsOverride, based_on_file: bool = True, skip_builds: bool = False):
         self.jobs_state = jobs_state
         self.fabric_config = fabric_config
         self.system_config = system_config
         self.configs_override = config_override
+        self.based_on_file = based_on_file
+        self.skip_builds = skip_builds
 
     @staticmethod
     def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
                   fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool):
-        jobs = load_jobs_state(job_state_path)
-        fabrics = load_fabric_config(fabric_config_path),
-        system = load_system_config(system_config_path)
-        configs = load_configs_override(configs_override_path)
-        return ProjectConfig(jobs, fabrics, system, configs)
+
+        if is_online_mode():
+            jobs = load_jobs_state(job_state_path)
+            fabrics = load_fabric_config(fabric_config_path),
+            system = load_system_config(system_config_path)
+            configs = load_configs_override(configs_override_path)
+            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
+        else:
+            based_on_file = True
+            try:
+                jobs = load_jobs_state(job_state_path)
+            except Exception:
+                jobs = JobsState.empty()
+                based_on_file = False
+
+            try:
+                fabrics_config = load_fabric_config(fabric_config_path),
+            except Exception:
+                based_on_file = False
+                fabrics_config = FabricConfig.empty()
+                # only cli case for databricks
+                host = os.environ.get("DATABRICKS_HOST")
+                token = os.environ.get("DATABRICKS_TOKEN")
+                if not fabric_ids:
+                    allowed_fabrics = project.fabrics()
+                else:
+                    allowed_fabrics = fabric_ids.split(",")
+
+                fabric_list = [FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in
+                               allowed_fabrics]
+
+                fabrics_config.fabrics = fabric_list
+
+            try:
+                system = load_system_config(system_config_path)
+            except Exception:
+                system = SystemConfig.empty()
+                system.customer_name = project.find_customer_name()
+                system.control_plane_name = project.find_control_plane_name()
+
+            try:
+                configs = load_configs_override(configs_override_path)
+            except Exception:
+                configs = ConfigsOverride.empty()
+                configs.mode = DeploymentMode.FullProject  # only build what's needed.
+                if not job_ids:
+                    allowed_jobs = job_ids.split(",")
+                    configs.jobs_and_fabric = [JobAndFabric.create(f"jobs/{job}", "") for job in allowed_jobs]
+
+            return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file, skip_builds=skip_build)
 
     # best used when invoking from execution.
     @classmethod

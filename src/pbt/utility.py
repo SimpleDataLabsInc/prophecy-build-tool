@@ -37,7 +37,12 @@ def custom_print(message: Optional[Any] = None, exception=None,
         print(log_event.to_json(), flush=True)
     else:
         # Regular print: Skip stepName.
-        print(message, exception)
+        if exception is not None:
+            print(message, exception)
+        elif message is not None:
+            print(message)
+        else:
+            print()
 
 
 def is_online_mode() -> bool:

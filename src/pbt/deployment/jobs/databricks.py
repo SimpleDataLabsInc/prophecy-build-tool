@@ -8,7 +8,7 @@ from requests import HTTPError
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
-from ...utility import custom_print as log, Either
+from ...utility import custom_print as log, Either, is_online_mode
 from ...utils.constants import COMPONENTS_LITERAL
 from ...utils.exceptions import InvalidFabricException
 from ...utils.project_config import JobInfo, ProjectConfig, await_futures_and_update_states
@@ -263,17 +263,31 @@ class DatabricksJobsDeployment:
     def _deploy_add_job(self, job_id, job_data, step_id):
 
         fabric_id = job_data.fabric_id
+        fabric_name = self.project_config.fabric_config.get_fabric(fabric_id).name
 
         try:
             client = self.get_databricks_client(fabric_id)
-            response = client.create_job(job_data.databricks_json)
-            log(f"{Colors.OKGREEN}Created job {job_id} in fabric {fabric_id} response {response['job_id']}{Colors.ENDC}",
-                step_id=step_id)
+            operation = OperationType.CREATED
 
-            job_info = JobInfo.create_job(job_data.name, job_id, fabric_id, response['job_id'],
+            scheduler_job_id = None
+            if not is_online_mode() and not self.project_config.based_on_file:
+                scheduler_job_id = client.find_job(job_data.name)
+                if scheduler_job_id:
+                    client.reset_job(scheduler_job_id, job_data.databricks_json)
+                    log(f"{Colors.OKGREEN}Refreshed job {job_id} in fabric {fabric_name} response {scheduler_job_id}{Colors.ENDC}",
+                        step_id=step_id)
+                    operation = OperationType.REFRESH
+
+            if not scheduler_job_id:
+                response = client.create_job(job_data.databricks_json)
+                log(f"{Colors.OKGREEN}Created job {job_id} in fabric {fabric_name} response {response['job_id']}{Colors.ENDC}",
+                    step_id=step_id)
+                scheduler_job_id = response['job_id']
+
+            job_info = JobInfo.create_job(job_data.name, job_id, fabric_id, scheduler_job_id,
                                           self.project.release_tag, job_data.is_paused)
 
-            return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
+            return Either(right=JobInfoAndOperation(job_info, operation))
 
         except Exception as e:
 

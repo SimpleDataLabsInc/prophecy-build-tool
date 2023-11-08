@@ -83,13 +83,13 @@ class ProjectDeployment:
         return headers
 
     def build(self):
-        self._pipelines.build_and_upload()
+        self._pipelines.build()
 
     def validate(self):
         pass
 
     def test(self, pipeline_name: List):
-        pass
+        self._pipelines.test()
 
     def _deploy_gems(self):
         gems_responses = self._gems.deploy()
@@ -153,7 +153,7 @@ class ProjectDeployment:
         return airflow_jobs_responses
 
     def deploy(self, job_ids):
-        if not is_online_mode():
+        if is_online_mode():
             self._deploy_gems()
 
         self._deploy_scripts()
@@ -162,7 +162,9 @@ class ProjectDeployment:
         self._deploy_pipeline_configs()
         self._deploy_emr_pipeline_config()
         self._deploy_dataproc_pipeline_config()
-        self._deploy_pipelines()
+
+        if not self.project_config.skip_builds:
+            self._deploy_pipelines()
 
         databricks_responses = self._deploy_databricks_jobs()
         airflow_responses = self._deploy_airflow_jobs()
