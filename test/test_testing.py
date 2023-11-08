@@ -4,6 +4,7 @@ import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 
+
 def test_test_path_default():
     runner = CliRunner()
     result = runner.invoke(test, ["--path", PROJECT_PATH])
@@ -48,6 +49,7 @@ def test_test_with_pipeline_filter():
 
     assert "Unit Testing pipeline pipelines/farmers-markets-irs" not in result.output
 
+
 def test_test_with_pipeline_filter_one_invalid_pipeline():
     runner = CliRunner()
     result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'report_top_customers,invalid'])
@@ -58,11 +60,10 @@ def test_test_with_pipeline_filter_one_invalid_pipeline():
     assert "Unit test for pipeline: pipelines/report_top_customers succeeded" in result.output
     assert "Pipelines found: 1" in result.output
 
+
 def test_test_with_pipeline_filter_all_invalid_pipelines():
     runner = CliRunner()
     result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'invalid1,invalid2,invalid3'])
     print(result.output)
     assert "Testing given pipelines: ['invalid1', 'invalid2', 'invalid3']" in result.output
     assert "Pipelines found: 0" in result.output
-
-

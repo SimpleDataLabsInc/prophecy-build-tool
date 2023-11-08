@@ -560,7 +560,7 @@ class ProphecyBuildTool:
         if not pipelines:  # if pipelines not provided test all pipelines
             pipelines = self.pipelines
             pipelines_count = self.pipelines_count
-            print(f"\n[INFO]: Testing All pipelines")
+            print("\n[INFO]: Testing All pipelines")
         else:
             pipeline_filter = [x.strip() for x in pipelines.split(",")]
             pipelines = {k: v for k, v in self.pipelines.items() if k.split("/")[1] in pipeline_filter}
