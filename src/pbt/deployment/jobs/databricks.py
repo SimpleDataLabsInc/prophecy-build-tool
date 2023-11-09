@@ -168,7 +168,7 @@ class DatabricksJobsDeployment:
 
     def deploy(self) -> List[Either]:
         if len(self.headers()) > 0:
-            log(f"{Colors.MAGENTA}Adding/Updating databricks jobs{Colors.ENDC}")
+            log(f"{Colors.OKBLUE}\nAdding/Updating databricks jobs{Colors.ENDC}\n")
 
         responses = self._deploy_add_jobs() + self._deploy_refresh_jobs() + \
             self._deploy_delete_jobs() + self._deploy_pause_jobs()

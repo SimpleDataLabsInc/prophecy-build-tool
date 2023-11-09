@@ -235,7 +235,7 @@ class AirflowJobDeployment:
 
     def deploy(self):
         if len(self.headers()) > 0:
-            log(f"{Colors.MAGENTA}Adding/Updating databricks jobs{Colors.ENDC}")
+            log(f"{Colors.OKBLUE}\n\nAdding/Updating databricks jobs{Colors.ENDC}\n\n")
 
         responses = self._deploy_remove_jobs() + self._deploy_pause_jobs() + \
             self._deploy_add_jobs() + self._deploy_rename_jobs()

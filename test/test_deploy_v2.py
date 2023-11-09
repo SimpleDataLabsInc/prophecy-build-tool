@@ -1,9 +1,13 @@
-from click.testing import CliRunner
-from src.pbt import deploy_v2
 import os
+
+from click.testing import CliRunner
+
+from src.pbt import deploy_v2
 
 PROJECT_PATH = str(os.getcwd()) + "/resources/HelloWorld"
 PROJECT_PATH_NEW = str(os.getcwd()) + "/resources/ProjectCreatedOn160523"
+PROJECT_PATH_SUB = str(os.getcwd()) + "/resources/SubProject"
+PROJECT_PATH_Base = str(os.getcwd()) + "/resources/BaseDirectory"
 if os.environ.get("DATABRICKS_HOST") is None:
     os.environ["DATABRICKS_HOST"] = "test"
 if os.environ.get("DATABRICKS_TOKEN") is None:
@@ -19,6 +23,12 @@ def test_deploy_path_default():
 def test_deploy_path_default_new_project():
     runner = CliRunner()
     result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH_NEW, "--release-version", "1.0", "--project-id", "1"])
+    print(result.output)
+
+
+def test_deploy_with_dependant_path():
+    runner = CliRunner()
+    result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH_SUB, "--release-version", "1.0", "--project-id", "1", "--dependent-projects-path", PROJECT_PATH_Base ])
     print(result.output)
 #
 #

@@ -1,17 +1,9 @@
 jobs:
-- external_job_id: '872727052341413'
-  fabric_id: '2730'
-  id: jobs/AutomatedPBT-truescala
-  is_paused: true
-  name: AutomatedPBT-truescala
-  release_tag: '1.0'
-  skip_processing: false
-  type: Databricks
-- external_job_id: '113763100021925'
-  fabric_id: '2730'
-  id: jobs/AutomatedPBTNo-truescala
-  is_paused: true
-  name: AutomatedPBTNo-truescala
+- external_job_id: '990342977646618'
+  fabric_id: '466'
+  id: jobs/Job01
+  is_paused: false
+  name: Job01
   release_tag: '1.0'
   skip_processing: false
   type: Databricks

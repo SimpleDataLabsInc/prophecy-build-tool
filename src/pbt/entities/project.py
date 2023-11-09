@@ -59,7 +59,7 @@ class Project:
 
         self.dependant_project = None
 
-        if dependant_project_list is not None:
+        if dependant_project_list is not None and len(dependant_project_list) > 0:
             project_paths = dependant_project_list.split(",")
             dependant_projects = []
             for path in project_paths:
@@ -105,11 +105,12 @@ class Project:
         return os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
 
     def load_pipeline_folder(self, pipeline):
-        try:
-            base_path = os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
+        base_path = os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
 
-            return self._read_directory(base_path)
-        except Exception:
+        content = self._read_directory(base_path)
+        if len(content) > 0:
+            return content
+        else:
             return self.dependant_project.load_pipeline_folder(pipeline)
 
     @staticmethod
@@ -255,9 +256,8 @@ class Project:
         return _read_file_content(main_file)
 
     def is_cross_project_pipeline(self, from_path):
-        for pipeline_id, content in self.pipelines.items():
-            if pipeline_id == from_path:
-                return None, None, None
+        if from_path in self.pipelines:
+            return None, None, None
         return self.dependant_project.is_cross_project_pipeline(from_path)
 
 
@@ -266,34 +266,33 @@ class DependantProjectCli:
         self.dependant_projects = dependant_projects
 
     def is_cross_project_pipeline(self, pipeline_id):
-        for project in self.dependant_projects:
-            for pipeline, content in project.pipelines.items():
-                if pipeline == pipeline_id:
-                    return True
-
-        return False
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
+        if pid is not None and tag is not None and path is not None:
+            return True
+        else:
+            return False
 
     def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         for project in self.dependant_projects:
-            for pipeline, content in project.pipelines.items():
-                if pipeline == pipeline_id:
-                    return project.get_py_pipeline_main_file(pipeline)
+            if path in project.pipelines:
+                return project.get_py_pipeline_main_file(path)
 
         return None
 
     def get_pipeline_name(self, pipeline_id: str) -> Optional[str]:
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         for project in self.dependant_projects:
-            for pipeline, content in project.pipelines.items():
-                if pipeline == pipeline_id:
-                    return content['name']
+            if path in project.pipelines:
+                return project.pipelines[path]['name']
 
         return None
 
     def load_pipeline_folder(self, pipeline_id: str):
+        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         for project in self.dependant_projects:
-            for pipeline, content in project.pipelines.items():
-                if pipeline == pipeline_id:
-                    return project.load_pipeline_folder(pipeline)
+            if path in project.pipelines:
+                return project.load_pipeline_folder(path)
 
         return {}
 

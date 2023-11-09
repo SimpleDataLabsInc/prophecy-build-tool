@@ -42,7 +42,7 @@ def custom_print(message: Optional[Any] = None, exception=None,
         elif message is not None:
             print(message)
         else:
-            print()
+            a=1
 
 
 def is_online_mode() -> bool:

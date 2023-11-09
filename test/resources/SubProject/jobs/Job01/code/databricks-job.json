@@ -1,0 +1,69 @@
+{
+  "fabric_id" : "466",
+  "components" : [ {
+    "PipelineComponent" : {
+      "path" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/1767/0.1/pipeline/FirstPipeline-1.0-py3-none-any.whl",
+      "nodeName" : "Pipeline_0",
+      "id" : "U4V-Pi_EbCnWulINhGezd$$945F0P_2NNMZLj3lpzZjD",
+      "language" : "python",
+      "releaseVersion" : "BaseProject/0.1",
+      "configPath" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/configurations/1767/pipelines/FirstPipeline",
+      "pipelineId" : "gitUri=http://gitserver:3000/Jf9ltE5z_team_199/NpYHJr6Q_project_1767.git&subPath=&tag=BaseProject/0.1&projectSubscriptionProjectId=1767&path=pipelines/FirstPipeline"
+    }
+  } ],
+  "request" : {
+    "format" : "MULTI_TASK",
+    "name" : "Job01",
+    "job_clusters" : [ {
+      "job_cluster_key" : "Job01_default_Small",
+      "new_cluster" : {
+        "spark_version" : "11.3.x-scala2.12",
+        "node_type_id" : "i3.xlarge",
+        "driver_node_type_id" : "i3.xlarge",
+        "num_workers" : 1,
+        "spark_conf" : {
+          "spark.prophecy.metadata.fabric.id" : "466",
+          "spark.prophecy.metadata.job.uri" : "__PROJECT_ID_PLACEHOLDER__/jobs/Job01",
+          "spark.prophecy.metadata.is.interactive.run" : "false",
+          "spark.prophecy.project.id" : "__PROJECT_ID_PLACEHOLDER__",
+          "spark.prophecy.metadata.user.id" : 112,
+          "spark.prophecy.execution.service.url" : "wss://execution.dev.cloud.prophecy.io/execution/eventws",
+          "spark.prophecy.packages.path" : "{\"\":\"dbfs:/FileStore/prophecy/artifacts/dev/execution/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/.jar\"}",
+          "spark.prophecy.metadata.job.branch" : "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
+          "spark.prophecy.metadata.url" : "__PROPHECY_URL_PLACEHOLDER__",
+          "spark.prophecy.execution.metrics.disabled" : false
+        }
+      }
+    } ],
+    "email_notifications" : { },
+    "tasks" : [ {
+      "task_key" : "Pipeline_0",
+      "job_cluster_key" : "Job01_default_Small",
+      "python_wheel_task" : {
+        "package_name" : "FirstPipeline",
+        "entry_point" : "main",
+        "parameters" : [ "-i", "default", "-O", "{}" ]
+      },
+      "libraries" : [ {
+        "maven" : {
+          "coordinates" : "io.prophecy:prophecy-libs_2.12:3.3.0-7.1.27"
+        }
+      }, {
+        "pypi" : {
+          "package" : "prophecy-libs==1.7.0"
+        }
+      }, {
+        "whl" : "dbfs:/FileStore/prophecy/artifacts/dev/execution/1767/0.1/pipeline/FirstPipeline-1.0-py3-none-any.whl"
+      } ],
+      "email_notifications" : { },
+      "max_retries" : 0
+    } ],
+    "max_concurrent_runs" : 1,
+    "access_control_list" : [ ]
+  },
+  "cluster_mode" : {
+    "clusterMode" : "Single"
+  },
+  "secret_scope" : "prophecy_jobs_199",
+  "sorted_processes" : [ "U4V-Pi_EbCnWulINhGezd$$945F0P_2NNMZLj3lpzZjD" ]
+}
