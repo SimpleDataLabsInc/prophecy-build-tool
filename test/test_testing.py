@@ -46,7 +46,6 @@ def test_test_with_pipeline_filter_one_notfound_pipeline():
     assert "Filtered pipelines doesn't match with passed filter" in result.output
 
 
-
 def test_test_with_pipeline_filter_all_notfound_pipelines():
     runner = CliRunner()
     result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'notfound1,notfound2,notfound3'])
