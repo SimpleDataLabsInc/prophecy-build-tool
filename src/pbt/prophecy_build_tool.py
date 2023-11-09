@@ -556,12 +556,28 @@ class ProphecyBuildTool:
                 print("   Create/Update failed for jobs: %s" % (" ,".join(job_update_failures.keys())))
             sys.exit(1)
 
-    def test(self, build_jars: str = ""):
+    def test(self, build_jars: str = "", pipelines=None):
+        if not pipelines:  # if pipelines not provided test all pipelines
+            pipelines = self.pipelines
+            pipelines_count = self.pipelines_count
+            print("\n[INFO]: Testing All pipelines")
+        else:
+            pipeline_filter = [x.strip() for x in pipelines.split(",")]
+            pipelines = {k: v for k, v in self.pipelines.items() if k.split("/")[1] in pipeline_filter}
+            pipelines_count = len(pipelines)
+            print(f"\n[INFO]: Pipeline Filters passed [{len(pipeline_filter)}]: {pipeline_filter}")
+            print(f"[INFO]: Pipelines found [{pipelines_count}]: {list(pipelines.keys())}")
+
+            if pipelines_count != len(pipeline_filter):
+                print("\n[ERROR]: Filtered pipelines doesn't match with passed filter"
+                      "\n Please check for any typo in Pipeline Filter")
+                sys.exit(1)
+
         if self._verify_unit_test_env():
             unit_test_results = {}
 
-            for pipeline_i, (path_pipeline, pipeline) in enumerate(self.pipelines.items()):
-                print("\n  Unit Testing pipeline %s [%s/%s]" % (path_pipeline, pipeline_i + 1, self.pipelines_count))
+            for pipeline_i, (path_pipeline, pipeline) in enumerate(pipelines.items()):
+                print("\n  Unit Testing pipeline %s [%s/%s]" % (path_pipeline, pipeline_i + 1, pipelines_count))
 
                 path_pipeline_absolute = os.path.join(os.path.join(self.path_root, path_pipeline), "code")
                 if self.project_language == "python":
