@@ -573,7 +573,6 @@ class ProphecyBuildTool:
                       "\n Please check for any typo in Pipeline Filter")
                 sys.exit(1)
 
-
         if self._verify_unit_test_env():
             unit_test_results = {}
 
