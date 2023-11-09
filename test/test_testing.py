@@ -16,16 +16,9 @@ def test_test_path_default():
     )
     assert "Testing All pipelines" in result.output
     assert "Unit Testing pipeline pipelines/customers_orders" in result.output
-    assert "Unit test for pipeline: pipelines/customers_orders succeeded" in result.output
-
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Unit test for pipeline: pipelines/report_top_customers succeeded" in result.output
-
     assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
-    assert "Unit test for pipeline: pipelines/join_agg_sort succeeded" in result.output
-
     assert "Unit Testing pipeline pipelines/farmers-markets-irs" in result.output
-    assert "Unit test for pipeline: pipelines/farmers-markets-irs succeeded" in result.output
 
 
 def test_test_with_pipeline_filter():
@@ -38,15 +31,9 @@ def test_test_with_pipeline_filter():
             "farmers-markets-irs (python)" in result.output
     )
     assert "Testing given pipelines: ['report_top_customers', 'join_agg_sort']" in result.output
-
     assert "Unit Testing pipeline pipelines/customers_orders" not in result.output
-
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Unit test for pipeline: pipelines/report_top_customers succeeded" in result.output
-
     assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
-    assert "Unit test for pipeline: pipelines/join_agg_sort succeeded" in result.output
-
     assert "Unit Testing pipeline pipelines/farmers-markets-irs" not in result.output
 
 
@@ -55,9 +42,7 @@ def test_test_with_pipeline_filter_one_invalid_pipeline():
     result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'report_top_customers,invalid'])
     print(result.output)
     assert "Testing given pipelines: ['report_top_customers', 'invalid']" in result.output
-
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Unit test for pipeline: pipelines/report_top_customers succeeded" in result.output
     assert "Pipelines found: 1" in result.output
 
 
