@@ -16,8 +16,8 @@ from requests import HTTPError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import AirflowRestClient
-from src.pbt.utils.exceptions import DagUploadFailedException, DagFileDeletionFailedException
-from src.pbt.utils.project_models import DAG
+from ...utils.exceptions import DagUploadFailedException, DagFileDeletionFailedException
+from ...utils.project_models import DAG
 
 pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
 

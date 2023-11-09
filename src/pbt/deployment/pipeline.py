@@ -1,6 +1,8 @@
+import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import threading
 from abc import ABC, abstractmethod
@@ -75,37 +77,40 @@ class PipelineDeployment:
                                         Operation.Build, StepType.Pipeline))
         return headers
 
-    def build_and_upload(self):
-        max_workers = 1
-        use_threads = False
+    def _build_and_upload_online(self, pipeline_jobs):
         responses = []
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = {executor.submit(self.build_and_upload_pipeline, pipeline_id, pipeline_name): (
+                pipeline_id, pipeline_name) for pipeline_id, pipeline_name in pipeline_jobs}
+
+            for future in as_completed(futures):
+                responses.append(future.result())
+        return responses
+
+    def _build_and_upload_offline(self, pipeline_jobs):
+        responses = []
+        for pipeline_id, pipeline_name in pipeline_jobs:
+            try:
+                response = self.build_and_upload_pipeline(pipeline_id, pipeline_name)
+                responses.append(response)
+            except Exception as exc:
+                log(f"{Colors.FAIL}Pipeline {pipeline_id} generated an exception: {exc}{Colors.ENDC}",
+                    step_id=pipeline_id)
+        return responses
+
+    def build_and_upload(self):
+        use_threads = is_online_mode()
+
         if len(self._pipeline_components_from_jobs().items()) > 0:
             log(f"\n\n{Colors.OKCYAN}Building Pipelines {len(self._pipeline_to_list_fabrics)}{Colors.ENDC}\n")
 
         pipeline_jobs = self._pipeline_components_from_jobs().items()
 
         if use_threads and len(pipeline_jobs) > 1:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(self.build_and_upload_pipeline, pipeline_id, pipeline_name): (
-                    pipeline_id, pipeline_name) for pipeline_id, pipeline_name in pipeline_jobs}
-                for future in as_completed(futures):
-                    pipeline_id, pipeline_name = futures[future]
-                    try:
-                        response = future.result()
-                        responses.append(response)
-                    except Exception as exc:
-                        log(f"{Colors.FAIL}Pipeline {pipeline_id} generated an exception: {exc}{Colors.ENDC}",
-                            step_id=pipeline_id)
-        else:
-            for pipeline_id, pipeline_name in pipeline_jobs:
-                try:
-                    response = self.build_and_upload_pipeline(pipeline_id, pipeline_name)
-                    responses.append(response)
-                except Exception as exc:
-                    log(f"{Colors.FAIL}Pipeline {pipeline_id} generated an exception: {exc}{Colors.ENDC}",
-                        step_id=pipeline_id)
+            return self._build_and_upload_online(pipeline_jobs)
 
-        return responses
+        else:
+            return self._build_and_upload_offline(pipeline_jobs)
 
     def build_and_upload_pipeline(self, pipeline_id, pipeline_name):
         log(f"{Colors.OKBLUE}Building pipeline {pipeline_id}{Colors.ENDC}\n\n", step_id=pipeline_id)
@@ -120,9 +125,46 @@ class PipelineDeployment:
     def deploy(self):
         return self.build_and_upload()
 
+    def validate(self, treat_warning_as_errors: bool = False):
+        all_pipelines = self._pipeline_components_from_jobs()
+        log(f"{Colors.OKBLUE} Validating pipelines {Colors.ENDC}")
+
+        num_errors = 0
+        num_warnings = 0
+        overall_validate_status = True
+
+        for pipeline_id, pipeline_name in all_pipelines.items():
+            log(f"\n\nValidating pipeline {pipeline_name} \n")
+            rdc = self.project.load_pipeline_folder(pipeline_id)
+            workflow = rdc.get('workflow.latest.json', None)
+
+            if workflow is None:
+                log(f"\n{Colors.FAIL}Empty Pipeline Found: {pipeline_name}!{Colors.ENDC}")
+            else:
+                workflow_json = json.loads(workflow)
+                if "diagnostic" in workflow_json:
+                    diagnostics = workflow["diagnostics"]
+                    for diagnostic in diagnostics:
+                        if diagnostic.get("severity") == 1:
+                            print(f"\n[red]\[error] {pipeline_name}: {diagnostic.get('message')}[/red]")
+                            num_errors += 1
+                        elif diagnostic.get("severity") == 2:
+                            print(f"\n[yellow]\[warn] {pipeline_name}: {diagnostic.get('message')}[/yellow]")
+                            num_warnings += 1
+                    print(f"\n{pipeline_name} has {num_errors} errors and {num_warnings} warnings.")
+                    if num_errors > 0 or (treat_warning_as_errors and num_warnings > 0):
+                        print(f"\n[bold red]Pipeline is Broken: {pipeline_name}[/bold red]")
+                        overall_validate_status = False
+
+        if not overall_validate_status:
+            sys.exit(1)
+        else:
+            sys.exit(0)
+
     def test(self):
         log(f"{Colors.OKBLUE}Testing pipelines{Colors.ENDC}")
 
+        responses = {}
         for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
             log(f"{Colors.OKGREEN} Testing pipeline `{pipeline_id}` {Colors.ENDC}", step_id=pipeline_id)
             log(step_id=pipeline_id, step_status=Status.RUNNING)
@@ -132,15 +174,23 @@ class PipelineDeployment:
                                                          are_tests_enabled=True,
                                                          fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
             return_code = pipeline_builder.test()
-            if return_code == 0:
+            responses[pipeline_id] = return_code
+        for pipeline_id, return_code in responses.items():
+            if return_code in (0, 5):
                 log(f"{Colors.OKGREEN} Pipeline test succeeded : `{pipeline_id}` {Colors.ENDC}")
             else:
                 log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
 
-    def build(self, ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
-        log(f"{Colors.OKBLUE}Building pipelines{Colors.ENDC}")
+    def build(self, pipelines: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
+        all_pipelines = self._pipeline_components_from_jobs()
+        if len(pipelines) > 0:
+            pipelines_set = set(pipelines.split(","))
+            all_pipelines = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in all_pipelines.items() if
+                             pipeline_id in pipelines_set}
 
-        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+        log(f"{Colors.OKBLUE}Building pipelines ${len(all_pipelines)}{Colors.ENDC}")
+
+        for pipeline_id, pipeline_name in all_pipelines.items():
             log(f"{Colors.OKGREEN} Building pipeline `{pipeline_id}` {Colors.ENDC}", step_id=pipeline_id)
             log(step_id=pipeline_id, step_status=Status.RUNNING)
 
@@ -154,7 +204,7 @@ class PipelineDeployment:
                                                          self.project_config,
                                                          are_tests_enabled=False,
                                                          fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
-            return_code = pipeline_builder.build()
+            return_code = pipeline_builder.build(ignore_build_errors)
             if return_code == 0:
                 log(f"{Colors.OKGREEN} Build for pipeline {pipeline_id} succeeded {Colors.ENDC}")
             elif ignore_build_errors:
@@ -241,14 +291,14 @@ class PackageBuilderAndUploader:
         else:
             return self.wheel_test()
 
-    def build(self):
+    def build(self, ignore_build_errors: bool = False):
 
         if self._project_langauge == SCALA_LANGUAGE:
-            return self.mvn_build()
+            return self.mvn_build(ignore_build_errors)
         else:
-            return self.wheel_build()
+            return self.wheel_build(ignore_build_errors)
 
-    def build_and_upload_pipeline(self):
+    def build_and_upload_pipeline(self) -> Either:
         pipeline_from_nexus = self._download_pipeline_from_nexus()
         if pipeline_from_nexus is not None and pipeline_from_nexus.is_right:
             return Either(right=(self._pipeline_id, pipeline_from_nexus.right))
@@ -331,14 +381,14 @@ class PackageBuilderAndUploader:
             result = re.sub(underscore_regex, "_", result)
             return f'{result}-1.0-py3-none-any.whl'
 
-    def mvn_build(self):
+    def mvn_build(self, ignore_build_errors: bool = False):
         mvn = "mvn"
         command = [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package",
                                                                                        "-Dfabric=default"]
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id)
 
-        return self._build(command)
+        return self._build(command, ignore_build_errors)
 
     def mvn_test(self):
         mvn = "mvn"
@@ -348,17 +398,16 @@ class PackageBuilderAndUploader:
         return self._build(command)
 
     def wheel_test(self):
-        test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py"]
+        separator = {os.sep}
+        test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}{separator}test{separator}TestSuite.py"]
         log(f"Running python test {test_command}", step_id=self._pipeline_id)
         response_code = self._build(test_command)
 
         return response_code
 
-    def wheel_build(self):
+    def wheel_build(self, ignore_build_error: bool = False):
         if self._are_tests_enabled:
-            test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}/test/TestSuite.py"]
-            log(f"Running python test {test_command}", step_id=self._pipeline_id)
-            response_code = self._build(test_command)
+            response_code = self.wheel_test()
 
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
@@ -367,15 +416,17 @@ class PackageBuilderAndUploader:
 
         log(f"Running python command {command}", step_id=self._pipeline_id)
 
-        return self._build(command)
+        return self._build(command, ignore_build_error)
 
     # maybe we can try another iteration with yield ?
-    def _build(self, command: list):
+    def _build(self, command: list, ignore_build_errors: bool = False):
         env = dict(os.environ)
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
-        env["FABRIC_NAME"] = "default"  # for python test runs.
+
+        if env['FABRIC_NAME'] is None:
+            env["FABRIC_NAME"] = "default"  # for python test runs.
 
         log(f"Running command {command} on path {self._base_path}",
             step_id=self._pipeline_id)
@@ -414,6 +465,8 @@ class PackageBuilderAndUploader:
 
         if return_code in (0, 5):
             log(f"Build was successful with exit code {return_code}", step_id=self._pipeline_id)
+        elif ignore_build_errors:
+            log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
         else:
             log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")

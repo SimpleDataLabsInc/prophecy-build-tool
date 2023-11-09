@@ -82,13 +82,13 @@ class ProjectDeployment:
 
         return headers
 
-    def build(self):
-        self._pipelines.build()
+    def build(self, pipelines, ignore_build_errors, ignore_parse_errors):
+        self._pipelines.build(pipelines, ignore_build_errors, ignore_parse_errors)
 
-    def validate(self):
-        pass
+    def validate(self, treat_warning_as_errors):
+        self._pipelines.validate(treat_warning_as_errors)
 
-    def test(self, pipeline_name: List):
+    def test(self,):
         self._pipelines.test()
 
     def _deploy_gems(self):

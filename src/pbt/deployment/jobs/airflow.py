@@ -591,7 +591,7 @@ class AirflowGitSecrets:
         if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
 
             if len(self.fabric_config.project_git_tokens) > 0:
-                log(f"{Colors.MAGENTA} Uploading project git tokens {Colors.ENDC}")
+                log(f"\n\n{Colors.OKBLUE} Uploading project git tokens {Colors.ENDC}\n\n")
 
             job_data = list(self.airflow_jobs.prophecy_managed_dbt_jobs.values())[0]
 
@@ -669,7 +669,7 @@ class EMRPipelineConfigurations:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             if len(self.headers()) > 0:
-                log(f"{Colors.MAGENTA} Uploading EMR pipeline configurations {Colors.ENDC}")
+                log(f"\n\n{Colors.OKBLUE}Uploading EMR pipeline configurations {Colors.ENDC}\n\n")
 
             def execute_job(_fabric_info, _config_content, _config_path):
                 futures.append(executor.submit(
@@ -749,7 +749,7 @@ class DataprocPipelineConfigurations:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             if len(self.headers()) > 0:
-                log(f"{Colors.MAGENTA} Uploading dataproc configurations {Colors.ENDC}")
+                log(f"\n\n{Colors.OKBLUE} Uploading dataproc configurations {Colors.ENDC}\n\n")
 
             def execute_job(fabric_info, configuration_content, configuration_path):
                 futures.append(executor.submit(

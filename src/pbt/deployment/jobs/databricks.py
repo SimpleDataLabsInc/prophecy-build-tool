@@ -437,9 +437,10 @@ class DatabricksJobsDeployment:
             try:
                 client = self.get_databricks_client(fabric_id)
                 client.pause_job(external_job_id)
-                log(f"{Colors.OKBLUE}Paused job {external_job_id} in fabric {fabric_id}{Colors.ENDC}",
+                log(f"{Colors.OKGREEN}Paused job {external_job_id} in fabric {fabric_id}{Colors.ENDC}",
                     step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
+
             except Exception as e:
                 log(f"{Colors.WARNING}Error pausing job {external_job_id} in fabric {fabric_id}, Ignoring this {Colors.ENDC}",
                     exception=e,
@@ -518,7 +519,8 @@ class DBTComponents:
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             if len(self._dbt_profiles_to_build_headers()) > 0:
-                log(f"{Colors.MAGENTA}Uploading profiles{Colors.ENDC}")
+                log(f"\n\n{Colors.OKBLUE}Uploading DBT profiles{Colors.ENDC}\n\n")
+
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for components in dbt_component_model.components:
 
@@ -534,7 +536,7 @@ class DBTComponents:
             client = self.databricks_jobs.get_databricks_client(dbt_component_model.fabric_id)
             client.upload_content(components['profileContent'], components['profilePath'])
 
-            log(f"{Colors.OKBLUE}Successfully uploaded dbt profile {components['profilePath']}{Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Successfully uploaded dbt profile {components['profilePath']}{Colors.ENDC}",
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(right=True)
         except Exception as e:
@@ -547,7 +549,8 @@ class DBTComponents:
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             if len(self._dbt_secrets_headers()) > 0:
-                log(f"{Colors.MAGENTA}Uploading dbt secrets{Colors.ENDC}")
+                log(f"\n\n{Colors.OKBLUE}Uploading DBT secrets{Colors.ENDC}\n\n")
+
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for dbt_component in dbt_component_model.components:
                     if dbt_component.get('sqlFabricId', None) is not None and dbt_component.get('secretKey',
@@ -570,7 +573,7 @@ class DBTComponents:
 
             sql_client.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
 
-            log(f"{Colors.OKBLUE}Successfully uploaded dbt secret for component {dbt_component['nodeName']}{Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Successfully uploaded dbt secret for component {dbt_component['nodeName']}{Colors.ENDC}",
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
 
             return Either(right=True)
@@ -649,7 +652,7 @@ class ScriptComponents:
         futures = []
 
         if (len(self.headers()) > 0):
-            log(f"{Colors.MAGENTA}Uploading script components from job{Colors.ENDC}")
+            log(f"\n\n{Colors.OKBLUE}Uploading script components from job{Colors.ENDC}\n\n")
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             for job_id, script_components in self._script_components_from_jobs().items():
@@ -672,7 +675,7 @@ class ScriptComponents:
             log(f"Uploaded script component {node_name} to fabric-id {fabric_id} for job {job_id} to path {script.get('path', None)}",
                 step_id=self._STEP_ID, level=LogLevel.TRACE)
 
-            log(f"{Colors.OKBLUE}Uploaded script component `{node_name}` to fabric `{fabric_name}` for job `{job_id}` to path `{script.get('path', None)}` {Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Uploaded script component `{node_name}` to fabric `{fabric_name}` for job `{job_id}` to path `{script.get('path', None)}` {Colors.ENDC}",
                 step_id=self._STEP_ID)
             return Either(right=True)
         except Exception as e:
@@ -733,7 +736,7 @@ class PipelineConfigurations:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             if len(self.pipeline_configurations.items()) > 0:
-                log(f"{Colors.MAGENTA} Uploading pipeline configutaions {Colors.ENDC}")
+                log(f"\n\n{Colors.OKBLUE} Uploading pipeline configurations {Colors.ENDC}\n\n")
 
             def execute_job(_fabric_id, config_content, config_path):
                 futures.append(executor.submit(
@@ -758,7 +761,7 @@ class PipelineConfigurations:
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             client.upload_content(configuration_content, configuration_path)
 
-            log(f"{Colors.OKBLUE}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID)
 
             return Either(right=True)

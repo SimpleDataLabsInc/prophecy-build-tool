@@ -1,13 +1,15 @@
 import json
 import os
 import re
+from abc import ABC
 from typing import Optional, List
 
 import yaml
 
 from ..utils.constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
-    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS
+    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS, \
+    PROJECT_URL_PLACEHOLDER_REGEX
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
 SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
@@ -37,13 +39,14 @@ class Project:
                  project_id: Optional[str] = None,
                  release_tag: Optional[str] = None,
                  release_version: Optional[str] = None,
-                 dependant_project_list: Optional[str] = None):
+                 dependant_project_list: Optional[str] = None, md_url: str = ""):
 
         self.project_id = project_id
         self.project_path = project_path
 
         self.release_tag = release_tag
         self.release_version = release_version
+        self.md_url = md_url
 
         self.pbt_project_dict = {}
         self.project_language = None
@@ -65,9 +68,9 @@ class Project:
             for path in project_paths:
                 dependant_projects.append(Project(path, ""))
 
-            self.dependant_project = DependantProjectCli(dependant_projects)
+            self.dependant_project = DependentProjectCli(dependant_projects)
         else:
-            self.dependant_project = DependantProjectAPP(project_path, self)
+            self.dependant_project = DependentProjectAPP(project_path, self)
 
     @property
     def name(self) -> str:
@@ -199,7 +202,8 @@ class Project:
         if path.endswith('.json') or path.endswith('.scala') or path.endswith('.py'):
             content = content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id) \
                 .replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version) \
-                .replace(PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, self.release_tag)
+                .replace(PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, self.release_tag) \
+                .replace(PROJECT_URL_PLACEHOLDER_REGEX, self.md_url)
 
         return content
 
@@ -261,9 +265,7 @@ class Project:
         return self.dependant_project.is_cross_project_pipeline(from_path)
 
 
-class DependantProjectCli:
-    def __init__(self, dependant_projects: List[Project]):
-        self.dependant_projects = dependant_projects
+class DependentProject(ABC):
 
     def is_cross_project_pipeline(self, pipeline_id):
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
@@ -271,6 +273,20 @@ class DependantProjectCli:
             return True
         else:
             return False
+
+    def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
+        pass
+
+    def get_pipeline_name(self, pipeline_id: str) -> Optional[str]:
+        pass
+
+    def load_pipeline_folder(self, pipeline_id: str):
+        pass
+
+
+class DependentProjectCli(DependentProject, ABC):
+    def __init__(self, dependant_projects: List[Project]):
+        self.dependant_projects = dependant_projects
 
     def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
@@ -297,17 +313,10 @@ class DependantProjectCli:
         return {}
 
 
-class DependantProjectAPP:
+class DependentProjectAPP(DependentProject, ABC):
     def __init__(self, path: str, main_project: Project):
         self.path = path
         self.project = main_project
-
-    def is_cross_project_pipeline(self, pipeline_id):
-        (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
-        if pid is not None and tag is not None and path is not None:
-            return True
-        else:
-            return False
 
     def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
