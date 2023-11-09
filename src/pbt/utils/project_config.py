@@ -390,7 +390,8 @@ def load_fabric_config(fabric_config_path):
     if fabric_config_path is not None and len(fabric_config_path) > 0:
         with open(fabric_config_path, "r") as fabric_config:
             data = fabric_config.read()
-            return parse_yaml_raw_as(FabricConfig, data)
+            fabric_config1 = parse_yaml_raw_as(FabricConfig, data)
+            return fabric_config1
     else:
         raise ConfigFileNotFoundException("Fabric config path is not provided")
 
@@ -411,7 +412,7 @@ class ProjectConfig:
 
         if is_online_mode():
             jobs = load_jobs_state(job_state_path)
-            fabrics = load_fabric_config(fabric_config_path),
+            fabrics = load_fabric_config(fabric_config_path)
             system = load_system_config(system_config_path)
             configs = load_configs_override(configs_override_path)
             return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)

@@ -57,7 +57,7 @@ class ProjectDeployment:
 
         header_components = (
             summary_header,
-            # self._gems.headers(),
+            self._gems.headers(),
             self._script_component.headers(),
             self._dbt_component.headers(),
             self._airflow_git_secrets.headers(),

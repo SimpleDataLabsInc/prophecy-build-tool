@@ -143,7 +143,7 @@ class LogEvent:
                 log_line = LogLine(step_id, log, level=LogLevel.ERROR).to_json()
 
         else:
-            log_line = LogLine(step_id, log, level=level).to_json()
+            log_line = LogLine(step_id, log, level=log_level).to_json()
 
         return LogEvent(step_id, LogType.LogLine, log_line)
 

@@ -227,7 +227,7 @@ def deploy_v2(path: str,
               skip_builds: bool, dependent_projects_path: str, md_url: str):
     pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
                                   skip_builds, dependent_projects_path, md_url)
-    if not is_online_mode():
+    if is_online_mode():
         pbt.headers()
     pbt.deploy([])
 
