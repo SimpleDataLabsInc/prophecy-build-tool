@@ -21,7 +21,8 @@ class PBTCli(object):
 
     @classmethod
     def from_conf_folder(cls, project_path: str, project_id: str, conf_folder: str, release_tag: Optional[str],
-                         release_version: str, fabric_ids: str = "", job_ids: str = "", skip_builds: bool = False, dependant_project_paths:str=""):
+                         release_version: str, fabric_ids: str = "", job_ids: str = "", skip_builds: bool = False,
+                         dependant_project_paths: str = ""):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
         project_config = ProjectConfig.from_conf_folder(project, conf_folder, fabric_ids, job_ids, skip_builds)

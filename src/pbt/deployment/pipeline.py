@@ -526,8 +526,6 @@ class PipelineUploadManager(PipelineUploader, ABC):
         else:
             to_path = f"{self.project.project_id}/{self.project.release_version}"
 
-        responses = []
-
         for fabric_id in self.all_fabrics:
             fabric_info = self.project_config.fabric_config.get_fabric(fabric_id)
             fabric_name = fabric_info.name

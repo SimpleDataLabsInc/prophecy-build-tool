@@ -39,10 +39,9 @@ def custom_print(message: Optional[Any] = None, exception=None,
         # Regular print: Skip stepName.
         if exception is not None:
             print(message, exception)
-        elif message is not None:
-            print(message)
         else:
-            a=1
+            if message is not None:
+                print(message)
 
 
 def is_online_mode() -> bool:

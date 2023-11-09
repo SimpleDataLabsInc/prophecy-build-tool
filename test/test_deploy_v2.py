@@ -28,7 +28,8 @@ def test_deploy_path_default_new_project():
 
 def test_deploy_with_dependant_path():
     runner = CliRunner()
-    result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH_SUB, "--release-version", "1.0", "--project-id", "1", "--dependent-projects-path", PROJECT_PATH_Base ])
+    result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH_SUB, "--release-version", "1.0", "--project-id", "1",
+                                       "--dependent-projects-path", PROJECT_PATH_Base])
     print(result.output)
 #
 #
