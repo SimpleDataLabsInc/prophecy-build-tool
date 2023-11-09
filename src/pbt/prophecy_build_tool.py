@@ -565,8 +565,14 @@ class ProphecyBuildTool:
             pipeline_filter = [x.strip() for x in pipelines.split(",")]
             pipelines = {k: v for k, v in self.pipelines.items() if k.split("/")[1] in pipeline_filter}
             pipelines_count = len(pipelines)
-            print(f"\n[INFO]: Testing given pipelines: {pipeline_filter}")
-            print(f"\n[INFO]: Pipelines found: {pipelines_count}")
+            print(f"\n[INFO]: Pipeline Filters passed [{len(pipeline_filter)}]: {pipeline_filter}")
+            print(f"[INFO]: Pipelines found [{pipelines_count}]: {list(pipelines.keys())}")
+
+            if pipelines_count != len(pipeline_filter):
+                print(f"\n[ERROR]: Filtered pipelines doesn't match with passed filter"
+                      f"\n Please check for any typo in Pipeline Filter")
+                sys.exit(1)
+
 
         if self._verify_unit_test_env():
             unit_test_results = {}

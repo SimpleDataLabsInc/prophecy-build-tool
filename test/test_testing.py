@@ -30,25 +30,27 @@ def test_test_with_pipeline_filter():
             "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
     )
-    assert "Testing given pipelines: ['report_top_customers', 'join_agg_sort']" in result.output
+    assert "Pipeline Filters passed [2]: ['report_top_customers', 'join_agg_sort']" in result.output
     assert "Unit Testing pipeline pipelines/customers_orders" not in result.output
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
     assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
     assert "Unit Testing pipeline pipelines/farmers-markets-irs" not in result.output
 
 
-def test_test_with_pipeline_filter_one_invalid_pipeline():
+def test_test_with_pipeline_filter_one_notfound_pipeline():
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'report_top_customers,invalid'])
+    result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'report_top_customers,notfound'])
     print(result.output)
-    assert "Testing given pipelines: ['report_top_customers', 'invalid']" in result.output
-    assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Pipelines found: 1" in result.output
+    assert "Pipeline Filters passed [2]: ['report_top_customers', 'notfound']" in result.output
+    assert "Pipelines found [1]" in result.output
+    assert "Filtered pipelines doesn't match with passed filter" in result.output
 
 
-def test_test_with_pipeline_filter_all_invalid_pipelines():
+
+def test_test_with_pipeline_filter_all_notfound_pipelines():
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'invalid1,invalid2,invalid3'])
+    result = runner.invoke(test, ["--path", PROJECT_PATH, '--pipelines', 'notfound1,notfound2,notfound3'])
     print(result.output)
-    assert "Testing given pipelines: ['invalid1', 'invalid2', 'invalid3']" in result.output
-    assert "Pipelines found: 0" in result.output
+    assert "Pipeline Filters passed [3]: ['notfound1', 'notfound2', 'notfound3']" in result.output
+    assert "Pipelines found [0]" in result.output
+    assert "Filtered pipelines doesn't match with passed filter" in result.output
