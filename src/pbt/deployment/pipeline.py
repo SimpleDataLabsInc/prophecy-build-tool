@@ -136,7 +136,7 @@ class PipelineDeployment:
         for pipeline_id, pipeline_name in all_pipelines.items():
             log(f"\n\nValidating pipeline {pipeline_name} \n")
             rdc = self.project.load_pipeline_folder(pipeline_id)
-            workflow = rdc.get('workflow.latest.json', None)
+            workflow = rdc.get('.prophecy/workflow.latest.json', None)
 
             if workflow is None:
                 log(f"\n{Colors.FAIL}Empty Pipeline Found: {pipeline_name}!{Colors.ENDC}")
@@ -146,15 +146,17 @@ class PipelineDeployment:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
                         if diagnostic.get("severity") == 1:
-                            print(f"\n[red]\[error] {pipeline_name}: {diagnostic.get('message')}[/red]")
+                            print(f"\n{Colors.FAIL} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")
                             num_errors += 1
                         elif diagnostic.get("severity") == 2:
-                            print(f"\n[yellow]\[warn] {pipeline_name}: {diagnostic.get('message')}[/yellow]")
+                            print(f"\n{Colors.WARNING} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")
                             num_warnings += 1
                     print(f"\n{pipeline_name} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warning_as_errors and num_warnings > 0):
-                        print(f"\n[bold red]Pipeline is Broken: {pipeline_name}[/bold red]")
+                        print(f"\n{Colors.FAIL}Pipeline is Broken: {pipeline_name}{Colors.ENDC}")
                         overall_validate_status = False
+                else:
+                    print(f"\n{Colors.OKBLUE} Pipeline is validated: {pipeline_name}{Colors.ENDC}")
 
         if not overall_validate_status:
             sys.exit(1)
@@ -188,10 +190,10 @@ class PipelineDeployment:
             all_pipelines = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in all_pipelines.items() if
                              pipeline_id in pipelines_set}
 
-        log(f"{Colors.OKBLUE}Building pipelines ${len(all_pipelines)}{Colors.ENDC}")
+        log(f"\n\n{Colors.OKBLUE}Building pipelines {len(all_pipelines)}{Colors.ENDC}\n\n")
 
         for pipeline_id, pipeline_name in all_pipelines.items():
-            log(f"{Colors.OKGREEN} Building pipeline `{pipeline_id}` {Colors.ENDC}", step_id=pipeline_id)
+            log(f"\n{Colors.OKGREEN} Building pipeline `{pipeline_id}` {Colors.ENDC}\n")
             log(step_id=pipeline_id, step_status=Status.RUNNING)
 
             code = self.project.load_pipeline_folder(pipeline_id)
@@ -266,7 +268,7 @@ class PackageBuilderAndUploader:
         self._are_tests_enabled = are_tests_enabled
         self._project = project
         self._project_langauge = project.project_language
-        self._base_path = None
+        self._base_path = project.load_pipeline_base_path(pipeline_id)
         self._project_config = project_config
         self.fabrics = fabrics
         self.pipeline_upload_manager = PipelineUploadManager(self._project, self._project_config, self._pipeline_id,

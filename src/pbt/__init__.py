@@ -78,7 +78,7 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
 )
 def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors):
     pbt = PBTCli.from_conf_folder(path)
-    pbt.build(pipelines, pipelines, ignore_build_errors, ignore_parse_errors)
+    pbt.build(pipelines, ignore_build_errors, ignore_parse_errors)
 
 
 @cli.command()
@@ -244,7 +244,7 @@ def deploy_v2(path: str,
     required=False,
 )
 def test_v2(path, driver_library_path):
-    pbt = PBTCli.from_conf_folder(path, "", "", "", "")
+    pbt = PBTCli.from_conf_folder(path)
     pbt.test(driver_library_path)
 
 
