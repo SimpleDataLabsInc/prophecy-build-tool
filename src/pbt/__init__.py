@@ -258,9 +258,14 @@ def test_v2(path, driver_library_path):
     help="Jar path of prophecy-python-libs and other required dependencies",
     required=False,
 )
-def test(path, driver_library_path):
+@click.option(
+    "--pipelines",
+    help="Pipeline names(comma separated) which can be used to filter pipelines to be tested",
+    default="",
+)
+def test(path, driver_library_path, pipelines):
     pbt = ProphecyBuildTool(path)
-    pbt.test(driver_library_path)
+    pbt.test(driver_library_path, pipelines)
 
 
 if __name__ == "pbt":
