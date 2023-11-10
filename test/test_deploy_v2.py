@@ -9,9 +9,9 @@ PROJECT_PATH_NEW = str(os.getcwd()) + "/resources/ProjectCreatedOn160523"
 PROJECT_PATH_SUB = str(os.getcwd()) + "/resources/SubProject"
 PROJECT_PATH_Base = str(os.getcwd()) + "/resources/BaseDirectory"
 if os.environ.get("DATABRICKS_HOST") is None:
-    os.environ["DATABRICKS_HOST"] = "https://dbc-ac0e9adb-13fb.cloud.databricks.com"
+    os.environ["DATABRICKS_HOST"] = "test"
 if os.environ.get("DATABRICKS_TOKEN") is None:
-    os.environ["DATABRICKS_TOKEN"] = "dapi206757f0ab975566aa5ff64481dbcaa3"
+    os.environ["DATABRICKS_TOKEN"] = "test"
 
 
 def test_deploy_path_default():
