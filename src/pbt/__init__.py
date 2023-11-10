@@ -204,19 +204,18 @@ def deploy(
     help="Job IDs(comma separated) which can be used to filter jobs for deployment",
     default="",
 )
-@click.option("--skip-builds",
-              default=False,
-              help="Flag to skip building Pipelines",
-              required=False
-              )
-@click.option("--dependent-projects-path",
-              default="",
-              help="Dependent projects path",
-              required=False)
-@click.option("--md-url",
-              default="",
-              help="Md-Url",
-              required=False)
+@click.option(
+    "--skip-builds",
+    default=False,
+    help="Flag to skip building Pipelines",
+    required=False
+)
+@click.option(
+    "--dependent-projects-path",
+    default="",
+    help="Dependent projects path",
+    required=False
+)
 def deploy_v2(path: str,
               project_id: str,
               conf_dir: Optional[str],
@@ -224,9 +223,9 @@ def deploy_v2(path: str,
               release_version: str,
               fabric_ids: str,
               job_ids: str,
-              skip_builds: bool, dependent_projects_path: str, md_url: str):
+              skip_builds: bool, dependent_projects_path: str):
     pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
-                                  skip_builds, dependent_projects_path, md_url)
+                                  skip_builds, dependent_projects_path)
     if is_online_mode():
         pbt.headers()
     pbt.deploy([])

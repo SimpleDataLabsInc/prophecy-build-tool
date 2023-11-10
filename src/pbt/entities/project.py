@@ -39,14 +39,14 @@ class Project:
                  project_id: Optional[str] = None,
                  release_tag: Optional[str] = None,
                  release_version: Optional[str] = None,
-                 dependant_project_list: Optional[str] = None, md_url: str = ""):
+                 dependant_project_list: Optional[str] = None):
 
         self.project_id = project_id
         self.project_path = project_path
 
         self.release_tag = release_tag
         self.release_version = release_version
-        self.md_url = md_url
+        self.md_url = os.environ.get("MD_PATH", "")
 
         self.pbt_project_dict = {}
         self.project_language = None
