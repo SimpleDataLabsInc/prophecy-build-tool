@@ -146,17 +146,17 @@ class PipelineDeployment:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
                         if diagnostic.get("severity") == 1:
-                            print(f"\n{Colors.FAIL} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")
+                            log(f"\n{Colors.FAIL} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")
                             num_errors += 1
                         elif diagnostic.get("severity") == 2:
-                            print(f"\n{Colors.WARNING} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")
+                            log(f"\n{Colors.WARNING} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")
                             num_warnings += 1
-                    print(f"\n{pipeline_name} has {num_errors} errors and {num_warnings} warnings.")
+                    log(f"\n{pipeline_name} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warning_as_errors and num_warnings > 0):
-                        print(f"\n{Colors.FAIL}Pipeline is Broken: {pipeline_name}{Colors.ENDC}")
+                        log(f"\n{Colors.FAIL}Pipeline is Broken: {pipeline_name}{Colors.ENDC}")
                         overall_validate_status = False
                 else:
-                    print(f"\n{Colors.OKBLUE} Pipeline is validated: {pipeline_name}{Colors.ENDC}")
+                    log(f"\n{Colors.OKBLUE} Pipeline is validated: {pipeline_name}{Colors.ENDC}")
 
         if not overall_validate_status:
             sys.exit(1)

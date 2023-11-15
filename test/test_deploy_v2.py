@@ -4,10 +4,10 @@ from click.testing import CliRunner
 
 from src.pbt import deploy_v2, validate_v2, build_v2
 
-PROJECT_PATH = str(os.getcwd()) + "/resources/HelloWorld"
-PROJECT_PATH_NEW = str(os.getcwd()) + "/resources/ProjectCreatedOn160523"
-PROJECT_PATH_SUB = str(os.getcwd()) + "/resources/SubProject"
-PROJECT_PATH_Base = str(os.getcwd()) + "/resources/BaseDirectory"
+PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
+PROJECT_PATH_NEW = str(os.getcwd()) + "/test/resources/ProjectCreatedOn160523"
+PROJECT_PATH_SUB = str(os.getcwd()) + "/test/resources/SubProject"
+PROJECT_PATH_Base = str(os.getcwd()) + "/test/resources/BaseDirectory"
 if os.environ.get("DATABRICKS_HOST") is None:
     os.environ["DATABRICKS_HOST"] = "test"
 if os.environ.get("DATABRICKS_TOKEN") is None:
@@ -42,7 +42,7 @@ def test_deploy_path_default_new_project():
     if os.environ.get("DATABRICKS_HOST") != "test":
         assert "Refreshed job jobs/AutomatedPBT-truescala in fabric" in result.output
         assert "Refreshed job jobs/AutomatedPBTNo-truescala in fabric " in result.output
-    # print(result.output)
+    print(result.output)
 
 
 def test_deploy_with_dependant_path():

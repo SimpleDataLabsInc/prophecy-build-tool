@@ -466,8 +466,6 @@ class AirflowJobDeployment:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"{Colors.OKGREEN}Successfully un-pause dag `{dag_name}` for job `{job_id}` and fabric-id {job_data.fabric_id}{Colors.ENDC}",
-                    step_id=self._ADD_JOBS_STEP_ID, level=LogLevel.TRACE)
                 log(f"{Colors.OKGREEN}Successfully un-paused dag `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:

@@ -736,7 +736,8 @@ class PipelineConfigurations:
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             if len(self.pipeline_configurations.items()) > 0:
-                log(f"\n\n{Colors.OKBLUE} Uploading pipeline configurations {Colors.ENDC}\n\n")
+                count = sum(len(v) for v in self.pipeline_configurations.values())
+                log(f"\n\n{Colors.OKBLUE} Uploading {count} pipeline configurations {Colors.ENDC}\n\n")
 
             def execute_job(_fabric_id, config_content, config_path):
                 futures.append(executor.submit(
