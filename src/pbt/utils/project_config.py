@@ -436,7 +436,8 @@ class ProjectConfig:
                     allowed_fabrics = project.fabrics()
                 else:
                     allowed_fabrics = fabric_ids.split(",")
-
+                print("Allowed fabrics: " + str(allowed_fabrics))
+                print("Project fabrics " + str(project.fabrics()))
                 fabric_list = [FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in
                                allowed_fabrics]
 

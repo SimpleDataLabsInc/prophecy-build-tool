@@ -308,7 +308,7 @@ class DatabricksJobsDeployment:
                         lambda j_id=job_id, j_data=job_data: self._deploy_add_job(j_id, j_data,
                                                                                   self._ADD_JOBS_STEP_ID)))
                 else:
-                    log(f"{Colors.WARNING}Invalid fabric {fabric_id}, skipping job creation for job_id {job_id}{Colors.ENDC}",
+                    log(f"{Colors.WARNING} Invalid fabric {fabric_id}, skipping job creation for job_id {job_id}{Colors.ENDC}",
                         step_id=self._ADD_JOBS_STEP_ID)
 
         return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Add])

@@ -21,7 +21,7 @@ class RestClientFactory:
 
     def _get_fabric_info(self, fabric_id: str) -> FabricInfo:
         if fabric_id is None or fabric_id == "":
-            raise ValueError("Fabric Id is not defined in the deployment state")
+            raise ValueError(f"Fabric Id {fabric_id} is not defined in the deployment state")
         else:
             fabric_info: Optional[FabricInfo] = self.fabric_config.get_fabric(str(fabric_id))
             if fabric_info is None:
