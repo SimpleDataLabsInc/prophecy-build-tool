@@ -25,7 +25,7 @@ class RestClientFactory:
         else:
             fabric_info: Optional[FabricInfo] = self.fabric_config.get_fabric(str(fabric_id))
             if fabric_info is None:
-                raise ValueError("Fabric Id is not defined in the deployment state")
+                raise ValueError(f"Fabric Id {fabric_id} is not found in the fabric configs")
             return fabric_info
 
     def _get_client(self, fabric_id: str):
@@ -65,7 +65,7 @@ class RestClientFactory:
             return client
 
         else:
-            raise ValueError("Fabric Id is not defined in the deployment state")
+            raise ValueError(f"Fabric Id {fabric_id} is not defined and the databricks client {self._get_fabric_info(fabric_id)}.")
 
     def airflow_client(self, fabric_id: str) -> AirflowRestClient:
         if self._get_client(fabric_id) is not None:
@@ -84,7 +84,7 @@ class RestClientFactory:
                                     mwaa.secret_key)
 
         else:
-            raise ValueError("Fabric Id is not defined in the deployment state")
+            raise ValueError(f"Fabric Id {fabric_id} is not defined.")
 
         if client is not None:
             self.fabric_id_to_rest_client[fabric_id] = client

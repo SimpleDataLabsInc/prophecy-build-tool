@@ -220,8 +220,8 @@ class Project:
                     return root, file
 
     def fabrics(self) -> List[str]:
-        return [content.get('fabricUID', None) for id, content in self.jobs.items() if
-                content.get('fabricUID', None) is not None]
+        return list(set([content.get('fabricUID', None) for id, content in self.jobs.items() if
+                content.get('fabricUID', None) is not None]))
 
     def _stripPrefix(self, value, prefix):
         if value.startswith(prefix):
