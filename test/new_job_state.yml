@@ -1,0 +1,10 @@
+jobs:
+- external_job_id: '990342977646618'
+  fabric_id: '466'
+  id: jobs/Job01
+  is_paused: false
+  name: Job01
+  release_tag: '1.0'
+  skip_processing: false
+  type: Databricks
+version: '1.0'

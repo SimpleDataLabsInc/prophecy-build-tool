@@ -1,0 +1,68 @@
+name: SubProject
+description: ''
+version: 0.0.1
+author: abhisheks+e2etests@prophecy.io
+language: python
+buildSystem: ''
+buildSystemDetails:
+  artefactID: subproject
+  parentArtefactID: ''
+  buildSystem: wheel
+  author: null
+  createdAt: '2023-11-08 11:30:31'
+pipelines: {}
+datasets: {}
+templates: {}
+jobs:
+  jobs/Job01:
+    name: Job01
+    description: ''
+    fabricUID: 466
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: Small
+    scheduleCron: None
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - gitUri=http://gitserver:3000/Jf9ltE5z_team_199/NpYHJr6Q_project_1767.git&subPath=&tag=BaseProject/0.1&projectSubscriptionProjectId=1767&path=pipelines/FirstPipeline
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: false
+    createdAt: '2023-11-08 11:30:31'
+    author: abhisheks+e2etests@prophecy.io
+gemContainer:
+  languageVersion: '3.10'
+  gemLibsVersion: 1.3.4.0
+  gems: {}
+functions:
+  author: null
+  createdAt: '2023-11-08 11:30:31'
+  udfs: {}
+  udafs: {}
+  expressions: {}
+subgraphs: {}
+sqlModels: {}
+sqlMacros: {}
+sqlSeeds: {}
+sqlSources: {}
+sqlUnreferencedSources: {}
+sqlPipeline: null
+dependencies: '[]'
+projectDependencies:
+  '1767':
+    projectUID: 1767
+    projectName: BaseProject
+    repositoryPath: gitUri=http://gitserver:3000/Jf9ltE5z_team_199/NpYHJr6Q_project_1767.git&subPath=
+    version: BaseProject/0.1
+    isDefault: false
+    author: null
+    createdAt: '2023-11-08 11:30:01'
+pipelineConfigurations: {}

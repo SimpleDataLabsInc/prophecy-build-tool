@@ -7,8 +7,9 @@ import click
 import pkg_resources
 from rich import print
 
+from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
-from .v2.pbt_cli import PBTCli
+from .utility import is_online_mode
 
 
 @click.group()
@@ -55,6 +56,38 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     required=True,
 )
 @click.option(
+    "--pipelines",
+    help="Pipeline names(comma separated) which can be used to filter pipelines to be build",
+    default="",
+)
+@click.option(
+    "--ignore-build-errors",
+    help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
+         "errors.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+@click.option(
+    "--ignore-parse-errors",
+    help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
+         "any errors.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors):
+    pbt = PBTCli.from_conf_folder(path)
+    pbt.build(pipelines, ignore_build_errors, ignore_parse_errors)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
     "--treat-warnings-as-errors",
     help="Specifies whether to treat warnings as errors.",
     is_flag=True,
@@ -63,6 +96,24 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
 )
 def validate(path, treat_warnings_as_errors):
     pbt = ProphecyBuildTool(path)
+    pbt.validate(treat_warnings_as_errors)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--treat-warnings-as-errors",
+    help="Specifies whether to treat warnings as errors.",
+    is_flag=True,
+    required=False,
+    default=False,
+)
+def validate_v2(path, treat_warnings_as_errors):
+    pbt = PBTCli.from_conf_folder(path)
     pbt.validate(treat_warnings_as_errors)
 
 
@@ -115,38 +166,85 @@ def deploy(
 
 @cli.command()
 @click.option(
-    "--project-dir",
+    "--path",
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
 @click.option(
     "--project-id",
     help="Path to the directory containing the pbt_project.yml file",
-    required=True,
+    default="1",
+    required=False,
 )
 @click.option(
     "--conf-dir",
     help="Path to the configuration file folders",
+    default="",
     required=False,
 )
 @click.option(
     "--release-tag",
     help="Release tag",
+    default="1.0",
     required=False,
 )
 @click.option(
     "--release-version",
     help="Release version",
+    default="1.0",
+    required=False,
+)
+@click.option(
+    "--fabric-ids",
+    help="Fabric IDs(comma separated) which can be used to filter jobs for deployments",
+    default="",
+)
+@click.option(
+    "--job-ids",
+    help="Job IDs(comma separated) which can be used to filter jobs for deployment",
+    default="",
+)
+@click.option(
+    "--skip-builds",
+    default=False,
+    help="Flag to skip building Pipelines",
+    required=False
+)
+@click.option(
+    "--dependent-projects-path",
+    default="",
+    help="Dependent projects path",
+    required=False
+)
+def deploy_v2(path: str,
+              project_id: str,
+              conf_dir: Optional[str],
+              release_tag: Optional[str],
+              release_version: str,
+              fabric_ids: str,
+              job_ids: str,
+              skip_builds: bool, dependent_projects_path: str):
+    pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
+                                  skip_builds, dependent_projects_path)
+    if is_online_mode():
+        pbt.headers()
+    pbt.deploy([])
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
-def deploy_v2(project_dir, project_id: str, conf_dir: Optional[str],
-              release_tag: Optional[str], release_version: str):
-    if conf_dir is not None:
-        pbt = PBTCli.from_conf_folder(project_dir, project_id, conf_dir, release_tag, release_version)
-        pbt.headers()
-        pbt.deploy([])
-    else:
-        raise Exception("Not implemented")
+@click.option(
+    "--driver-library-path",
+    help="Jar path of prophecy-python-libs and other required dependencies",
+    required=False,
+)
+def test_v2(path, driver_library_path):
+    pbt = PBTCli.from_conf_folder(path)
+    pbt.test(driver_library_path)
 
 
 @cli.command()
