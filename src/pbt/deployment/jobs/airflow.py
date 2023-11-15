@@ -16,7 +16,7 @@ from ...entities.project import Project
 from ...utility import custom_print as log, Either
 from ...utils.constants import FABRIC_UID
 from ...utils.project_config import JobInfo, ProjectConfig, FabricInfo, update_state, await_futures_and_update_states
-from ...utils.project_models import StepMetadata, Operation, StepType, Colors, LogLevel
+from ...utils.project_models import StepMetadata, Operation, StepType, Colors
 
 
 def generate_secure_content(content: str, salt: str) -> str:
