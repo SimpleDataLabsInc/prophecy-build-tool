@@ -183,10 +183,6 @@ class FabricConfig(BaseModel):
     fabrics: List[FabricInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
 
-    @staticmethod
-    def empty():
-        return FabricConfig()
-
     def get_fabric(self, fabric_id: str) -> Optional[FabricInfo]:
         return next((fabric for fabric in self.fabrics if fabric.id == fabric_id), None)
 
@@ -428,7 +424,7 @@ class ProjectConfig:
                 fabrics_config = load_fabric_config(fabric_config_path),
             except Exception:
                 based_on_file = False
-                fabrics_config = FabricConfig.empty()
+
                 # only cli case for databricks
                 host = os.environ.get("DATABRICKS_HOST")
                 token = os.environ.get("DATABRICKS_TOKEN")
@@ -441,8 +437,7 @@ class ProjectConfig:
                 fabric_list = [FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in
                                allowed_fabrics]
 
-                fabrics_config.fabrics = fabric_list
-
+                fabrics_config = FabricConfig(fabrics=fabric_list)
             try:
                 system = load_system_config(system_config_path)
             except Exception:

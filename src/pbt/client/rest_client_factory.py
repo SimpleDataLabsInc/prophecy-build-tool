@@ -25,7 +25,7 @@ class RestClientFactory:
         else:
             fabric_info: Optional[FabricInfo] = self.fabric_config.get_fabric(str(fabric_id))
             if fabric_info is None:
-                raise ValueError(f"Fabric Id {fabric_id} is not found in the fabric configs")
+                raise ValueError(f"Fabric Id {fabric_id} is not found in the fabric configs {self.fabric_config}")
             return fabric_info
 
     def _get_client(self, fabric_id: str):
