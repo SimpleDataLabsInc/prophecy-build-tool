@@ -12,12 +12,11 @@ from ..utils.constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PROJECT_URL_PLACEHOLDER_REGEX
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
-SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
-    r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)")
+SUBSCRIBED_ENTITY_URI_REGEX = r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
 
 
 def is_cross_project_pipeline(pipeline):
-    match = SUBSCRIBED_ENTITY_URI_REGEX.search(pipeline)
+    match = re.compile(SUBSCRIBED_ENTITY_URI_REGEX).search(pipeline)
 
     if match:
         git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
