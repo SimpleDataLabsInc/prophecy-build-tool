@@ -88,7 +88,7 @@ class ProjectDeployment:
     def validate(self, treat_warning_as_errors):
         self._pipelines.validate(treat_warning_as_errors)
 
-    def test(self,):
+    def test(self, ):
         self._pipelines.test()
 
     def _deploy_gems(self):
