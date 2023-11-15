@@ -34,6 +34,8 @@ def test_deploy_path_default_new_project():
     runner = CliRunner()
     result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH_NEW, "--release-version", "1.0", "--project-id", "1"])
 
+    print(result.output)
+
     assert "Building Pipelines 2" in result.output
     assert "Building pipeline pipelines/AutomatedPBT-truescala" in result.output
     assert "Build was successful with exit code 0" in result.output
@@ -42,7 +44,6 @@ def test_deploy_path_default_new_project():
     if os.environ.get("DATABRICKS_HOST") != "test":
         assert "Refreshed job jobs/AutomatedPBT-truescala in fabric" in result.output
         assert "Refreshed job jobs/AutomatedPBTNo-truescala in fabric " in result.output
-    print(result.output)
 
 
 def test_deploy_with_dependant_path():
@@ -50,14 +51,14 @@ def test_deploy_with_dependant_path():
     result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH_SUB, "--release-version", "1.0", "--project-id", "1",
                                        "--dependent-projects-path", PROJECT_PATH_Base])
 
+    print(result.output)
+
     assert "Building Pipelines 1" in result.output
     assert "Building pipeline gitUri=http://gitserver:3000/Jf9ltE5z_team_199/NpYHJr6Q_project_1767.git&subPath=&tag=BaseProject/0.1&projectSubscriptionProjectId=1767&path=pipelines/FirstPipeline" in result.output
     assert "Build was successful with exit code 0" in result.output
 
     if os.environ.get("DATABRICKS_HOST") != "test":
         assert "Refreshed job jobs/Job01 in fabric " in result.output
-
-    # print(result.output)
 
 
 def test_validate():
