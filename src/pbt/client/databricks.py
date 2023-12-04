@@ -123,7 +123,7 @@ class DatabricksClient:
     def find_job(self, job_name) -> Optional[str]:
         try:
             jobs = self.job.list_jobs(name=job_name)['jobs']
-            if len(jobs) > 0:
+            if jobs is not None and len(jobs) > 0:
                 return jobs[0]['job_id']
             return None
         except Exception:

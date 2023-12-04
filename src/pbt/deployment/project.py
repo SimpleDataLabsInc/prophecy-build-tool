@@ -15,7 +15,7 @@ from ..utility import custom_print as log, Either, is_online_mode
 from ..utility import remove_null_items_recursively
 from ..utils.constants import NEW_JOB_STATE_FILE
 from ..utils.project_config import ProjectConfig
-from ..utils.project_models import StepMetadata, Operation, StepType, Status
+from ..utils.project_models import StepMetadata, Operation, StepType, Status, Colors
 
 
 class ProjectDeployment:
@@ -165,6 +165,8 @@ class ProjectDeployment:
 
         if not self.project_config.skip_builds:
             self._deploy_pipelines()
+        else:
+            log("\nSkipping pipeline deployment as skip_builds is set to true.\n")
 
         databricks_responses = self._deploy_databricks_jobs()
         airflow_responses = self._deploy_airflow_jobs()
@@ -174,11 +176,13 @@ class ProjectDeployment:
         # only jobs changes state_config.
 
         new_state_config.update_state(databricks_responses + airflow_responses)
-        path = os.path.join(os.getcwd(), NEW_JOB_STATE_FILE)
-        yaml_str = yaml.dump(remove_null_items_recursively(new_state_config.dict()))
 
-        with open(path, 'w') as file:
-            file.write(yaml_str)
+        if self.project_config.based_on_file:
+            path = os.path.join(os.getcwd(), NEW_JOB_STATE_FILE)
+            yaml_str = yaml.dump(data=remove_null_items_recursively(new_state_config.dict()))
+
+            with open(path, 'w') as file:
+                file.write(yaml_str)
 
         # Only fail when there is a failure in jobs deployment.
         if databricks_responses is not None and any(response.is_left for response in databricks_responses):
@@ -190,4 +194,5 @@ class ProjectDeployment:
         if airflow_responses is not None and any(response.is_left for response in airflow_responses):
             raise Exception("Airflow jobs deployment failed.")
 
+        log(f"\n\n{Colors.OKCYAN}Deployment completed successfully.\n{Colors.ENDC}")
         return databricks_responses + airflow_responses

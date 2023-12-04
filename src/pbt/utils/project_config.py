@@ -143,11 +143,11 @@ class FabricInfo(BaseModel):
 
 
 class JobInfo(BaseModel):
+    id: str
     name: str
     type: SchedulerType
     external_job_id: str
     fabric_id: str
-    id: str
     is_paused: Optional[bool] = False
     skip_processing: Optional[bool] = False  # this is useful in case when we deploy from older release tags.
     release_tag: Optional[str] = None
@@ -221,10 +221,19 @@ class FabricConfig(BaseModel):
     def list_all_fabrics(self) -> List[str]:
         return [fabric.id for fabric in self.fabrics]
 
+    def filter_fabrics(self, fabric_ids: str):
+        if fabric_ids is not None and len(fabric_ids) > 0:
+            fabrics = set(fabric_ids.split(","))
+
+            self.fabrics = [fabric for fabric in self.fabrics if fabric.id in fabrics]
+
 
 class JobsState(BaseModel):
     version: str
     jobs: List[JobInfo] = []
+
+    def dict(self, *args, **kwargs):
+        return super().dict(*args, **kwargs)
 
     @staticmethod
     def empty():
@@ -330,6 +339,12 @@ class ConfigsOverride(BaseModel):
     def empty():
         return ConfigsOverride()
 
+    def filter_jobs(self, job_ids):
+        if job_ids is not None and len(job_ids) > 0:
+            filtered_jobs = set(job_ids.split(","))
+
+            self.jobs_and_fabric = [jobs for jobs in self.jobs_and_fabric if jobs.job_id in filtered_jobs]
+
 
 class NexusConfig(BaseModel):
     url: str
@@ -358,8 +373,7 @@ class SystemConfig(BaseModel):
 def load_jobs_state(job_state_path: str):
     if job_state_path is not None and len(job_state_path) > 0:
         with open(job_state_path, "r") as job_state:
-            data = job_state.read()
-            return parse_yaml_raw_as(JobsState, data)
+            return parse_yaml_raw_as(JobsState, job_state.read())
     else:
         raise ConfigFileNotFoundException("Job state config path is not provided")
 
@@ -367,8 +381,7 @@ def load_jobs_state(job_state_path: str):
 def load_system_config(system_config_path: str):
     if system_config_path is not None and len(system_config_path) > 0:
         with open(system_config_path, "r") as system_config:
-            data = system_config.read()
-            return parse_yaml_raw_as(SystemConfig, data)
+            return parse_yaml_raw_as(SystemConfig, system_config.read())
     else:
         raise ConfigFileNotFoundException("System config path is not provided")
 
@@ -376,8 +389,7 @@ def load_system_config(system_config_path: str):
 def load_configs_override(configs_override_path):
     if configs_override_path is not None and len(configs_override_path) > 0:
         with open(configs_override_path, "r") as config_override:
-            data = config_override.read()
-            return parse_yaml_raw_as(ConfigsOverride, data)
+            return parse_yaml_raw_as(ConfigsOverride, config_override.read())
     else:
         return ConfigsOverride.empty()
 
@@ -385,9 +397,7 @@ def load_configs_override(configs_override_path):
 def load_fabric_config(fabric_config_path):
     if fabric_config_path is not None and len(fabric_config_path) > 0:
         with open(fabric_config_path, "r") as fabric_config:
-            data = fabric_config.read()
-            fabric_config1 = parse_yaml_raw_as(FabricConfig, data)
-            return fabric_config1
+            return parse_yaml_raw_as(FabricConfig, fabric_config.read())
     else:
         raise ConfigFileNotFoundException("Fabric config path is not provided")
 
@@ -404,9 +414,9 @@ class ProjectConfig:
 
     @staticmethod
     def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
-                  fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool):
+                  fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool, conf_folder: str):
 
-        if is_online_mode():
+        if is_online_mode() and len(conf_folder) > 0:
             jobs = load_jobs_state(job_state_path)
             fabrics = load_fabric_config(fabric_config_path)
             system = load_system_config(system_config_path)
@@ -421,19 +431,18 @@ class ProjectConfig:
                 based_on_file = False
 
             try:
-                fabrics_config = load_fabric_config(fabric_config_path),
+                fabrics_config = load_fabric_config(fabric_config_path)
+                fabrics_config.filter_fabrics(fabric_ids)
             except Exception:
                 based_on_file = False
 
                 # only cli case for databricks
-                host = os.environ.get("DATABRICKS_HOST")
-                token = os.environ.get("DATABRICKS_TOKEN")
+                host = os.environ.get("DATABRICKS_HOST", 'test')
+                token = os.environ.get("DATABRICKS_TOKEN", 'test')
                 if not fabric_ids:
                     allowed_fabrics = project.fabrics()
                 else:
                     allowed_fabrics = fabric_ids.split(",")
-                print("Allowed fabrics: " + str(allowed_fabrics))
-                print("Project fabrics " + str(project.fabrics()))
                 fabric_list = [FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in
                                allowed_fabrics]
 
@@ -447,12 +456,14 @@ class ProjectConfig:
 
             try:
                 configs = load_configs_override(configs_override_path)
+                configs.filter_jobs(job_ids)
             except Exception:
                 configs = ConfigsOverride.empty()
                 configs.mode = DeploymentMode.FullProject  # only build what's needed.
-                if not job_ids:
+                if len(job_ids) != 0:
                     allowed_jobs = job_ids.split(",")
                     configs.jobs_and_fabric = [JobAndFabric.create(f"jobs/{job}", "") for job in allowed_jobs]
+                    configs.mode = DeploymentMode.SelectiveJob
 
             return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file, skip_builds=skip_build)
 
@@ -466,7 +477,7 @@ class ProjectConfig:
 
         return ProjectConfig.from_path(project, jobs_state, system_config, config_override, fabric_config, fabric_ids,
                                        job_ids,
-                                       skip_builds)
+                                       skip_builds, conf_folder)
 
 
 def await_futures_and_update_states(futures: List[Future], step_id: str):

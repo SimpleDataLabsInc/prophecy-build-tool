@@ -141,7 +141,7 @@ class AirflowJob(JobData, ABC):
 
     @property
     def fabric_id(self):
-        if self.fabric_override is not None:
+        if self.fabric_override is not None and len(self.fabric_override) > 0:
             return self.fabric_override
         else:
             fabric_id = self.job_pbt.get(FABRIC_UID)
@@ -235,7 +235,7 @@ class AirflowJobDeployment:
 
     def deploy(self):
         if len(self.headers()) > 0:
-            log(f"{Colors.OKBLUE}\n\nAdding/Updating databricks jobs{Colors.ENDC}\n\n")
+            log(f"{Colors.OKBLUE}\n\nAdding/Updating airflow jobs{Colors.ENDC}\n")
 
         responses = self._deploy_remove_jobs() + self._deploy_pause_jobs() + \
             self._deploy_add_jobs() + self._deploy_rename_jobs()
@@ -466,13 +466,13 @@ class AirflowJobDeployment:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"{Colors.OKGREEN}Successfully un-paused dag `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
+                log(f"{Colors.OKGREEN}Successfully un-paused dag:{dag_name} for job:{job_id} and fabric:{fabric_name}{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"{Colors.WARNING}Failed to un-pause dag with name `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
+                log(f"{Colors.WARNING}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_name}{Colors.ENDC}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"{Colors.OKGREEN}Successfully added job `{dag_name}` for job_id `{job_id}` on fabric `{fabric_name}`{Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Successfully added job:{dag_name} for job_id:{job_id} on fabric:{fabric_name}{Colors.ENDC}",
                 step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_job(job_data.name, job_id, job_data.fabric_id, dag_name,
@@ -482,7 +482,7 @@ class AirflowJobDeployment:
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
-            log(f"{Colors.FAIL}Failed to upload_dag for job_id:`{job_id}` with dag_name `{dag_name}`{Colors.ENDC}", e,
+            log(f"{Colors.FAIL}Failed to upload_dag for job_id:{job_id} with dag_name {dag_name}{Colors.ENDC}", e,
                 step_id=self._ADD_JOBS_STEP_ID)
             return Either(left=e)
 

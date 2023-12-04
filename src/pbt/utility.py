@@ -24,7 +24,7 @@ class Either:
 def custom_print(message: Optional[Any] = None, exception=None,
                  step_id=None,
                  step_metadata: Optional[StepMetadata] = None,
-                 step_status: Optional[Status] = None, level: LogLevel = LogLevel.INFO):
+                 step_status: Optional[Status] = None, level: LogLevel = LogLevel.INFO, indent: int = 0) -> None:
     if is_online_mode():
         # Custom print: Print all variables.
         if step_metadata is not None:
@@ -36,12 +36,15 @@ def custom_print(message: Optional[Any] = None, exception=None,
 
         print(log_event.to_json(), flush=True)
     else:
+        prefix_space = ''
+        if indent != 0:
+            prefix_space = ' ' * indent
         # Regular print: Skip stepName.
         if exception is not None:
-            print(message, exception)
+            print(f'{prefix_space}{message}', exception)
         else:
             if message is not None:
-                print(message)
+                print(f'{prefix_space}{message}')
 
 
 def is_online_mode() -> bool:

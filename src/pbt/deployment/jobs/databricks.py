@@ -13,12 +13,19 @@ from ...utils.constants import COMPONENTS_LITERAL
 from ...utils.exceptions import InvalidFabricException
 from ...utils.project_config import JobInfo, ProjectConfig, await_futures_and_update_states
 from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, \
-    LogLevel, Colors
+    Colors
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
 FABRIC_ID = "fabric_id"
 DBT_COMPONENT = "DBTComponent"
+
+
+def get_fabric_preferred_label(name: str, id: str):
+    if len(name) > 0:
+        return name
+    else:
+        return id
 
 
 # todo add a new abstract class for DatabricksJobs and AirflowJobs
@@ -119,7 +126,7 @@ class DatabricksJobsDeployment:
         self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory,
                                                                    fabric_config=self.project_config.fabric_config)
 
-        self._db_jobs = self._initialize_db_jobs()
+        (self._db_jobs, self._skipping_jobs) = self._initialize_db_jobs()
         self.valid_databricks_jobs, self._databricks_jobs_without_code = self._initialize_valid_databricks_jobs()
 
     def summary(self):
@@ -168,10 +175,10 @@ class DatabricksJobsDeployment:
 
     def deploy(self) -> List[Either]:
         if len(self.headers()) > 0:
-            log(f"{Colors.OKBLUE}\nAdding/Updating databricks jobs{Colors.ENDC}\n")
+            log(f"{Colors.OKBLUE}\nDeploying databricks jobs{Colors.ENDC}\n\n")
 
         responses = self._deploy_add_jobs() + self._deploy_refresh_jobs() + \
-            self._deploy_delete_jobs() + self._deploy_pause_jobs()
+                    self._deploy_delete_jobs() + self._deploy_pause_jobs() + self._deploy_skipping_jobs()
 
         return responses
 
@@ -182,9 +189,35 @@ class DatabricksJobsDeployment:
     def databricks_job_json_for_refresh_and_new_jobs(self) -> Dict[str, DatabricksJobs]:
         return self._databricks_jobs_data(self._add_and_refresh_job_ids())
 
-    def _initialize_db_jobs(self):
+    def _deploy_skipping_jobs(self) -> List[Either]:
+        responses = []
+        allowed_fabrics = self.fabric_configs.list_all_fabrics()
+
+        if len(self._skipping_jobs) > 0:
+            log(f"{Colors.OKBLUE}\n\nSkipping databricks jobs{Colors.ENDC}\n")
+
+        for job_id, job in self._skipping_jobs.items():
+            log(f"[SKIP] Job {job_id} skipped as it belongs to fabric-id {job.fabric_id} but allowed fabric-ids are {allowed_fabrics}")
+
+        return responses
+
+    def _initialize_all_db_jobs(self):
         jobs = {}
 
+        for job_id, pbt_job_json in self.project.jobs.items():
+
+            databricks_job = self.project.load_databricks_job(job_id)
+
+            if 'Databricks' in pbt_job_json.get('scheduler', None) and \
+                    databricks_job is not None:
+                fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
+                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
+
+        return jobs
+
+    def _initialize_db_jobs(self):
+        jobs = {}
+        skipping_jobs = {}
         for job_id, pbt_job_json in self.project.jobs.items():
 
             fabric_override = str(self.deployment_run_override_config.find_fabric_override_for_job(job_id))
@@ -194,13 +227,15 @@ class DatabricksJobsDeployment:
 
             databricks_job = self.project.load_databricks_job(job_id)
 
-            if 'Databricks' in pbt_job_json.get('scheduler', None) and \
-                    self.deployment_run_override_config.is_job_to_run(
-                        job_id) and does_fabric_exist and databricks_job is not None:
-                fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
-                jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
+            if 'Databricks' in pbt_job_json.get('scheduler', None) and databricks_job is not None:
+                if self.deployment_run_override_config.is_job_to_run(job_id):
+                    if does_fabric_exist:
+                        fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
+                        jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
+                    else:
+                        skipping_jobs[job_id] = DatabricksJobs(pbt_job_json, databricks_job, fabric_override)
 
-        return jobs
+        return (jobs, skipping_jobs)
 
     def _initialize_valid_databricks_jobs(self):
 
@@ -261,9 +296,9 @@ class DatabricksJobsDeployment:
     '''Deploy Jobs '''
 
     def _deploy_add_job(self, job_id, job_data, step_id):
-
         fabric_id = job_data.fabric_id
-        fabric_name = self.project_config.fabric_config.get_fabric(fabric_id).name
+        fabric_name = get_fabric_preferred_label(self.project_config.fabric_config.get_fabric(fabric_id).name,
+                                                 fabric_id)
 
         try:
             client = self.get_databricks_client(fabric_id)
@@ -274,7 +309,7 @@ class DatabricksJobsDeployment:
                 scheduler_job_id = client.find_job(job_data.name)
                 if scheduler_job_id:
                     client.reset_job(scheduler_job_id, job_data.databricks_json)
-                    log(f"{Colors.OKGREEN}Refreshed job {job_id} in fabric {fabric_name} response {scheduler_job_id}{Colors.ENDC}",
+                    log(f"{Colors.OKGREEN}Refreshed job {job_id} in fabric {fabric_name} databricks-job-id:{scheduler_job_id}{Colors.ENDC}",
                         step_id=step_id)
                     operation = OperationType.REFRESH
 
@@ -331,7 +366,7 @@ class DatabricksJobsDeployment:
 
     def _reset_and_patch_job(self, job_id, job_info):
         fabric_id = job_info.fabric_id
-        fabric_name = self.fabric_configs.get_fabric(fabric_id).name
+        fabric_name = get_fabric_preferred_label(self.fabric_configs.get_fabric(fabric_id).name, fabric_id)
 
         def log_error(message, exc, step_id=self._REFRESH_JOBS_STEP_ID):
             log(message, exception=exc, step_id=step_id)
@@ -433,11 +468,12 @@ class DatabricksJobsDeployment:
 
         def pause_job(fabric_id, job_info):
             external_job_id = job_info.external_job_id
+            fabric_name = get_fabric_preferred_label(self.fabric_configs.get_fabric(fabric_id).name, fabric_id)
 
             try:
                 client = self.get_databricks_client(fabric_id)
                 client.pause_job(external_job_id)
-                log(f"{Colors.OKGREEN}Paused job {external_job_id} in fabric {fabric_id}{Colors.ENDC}",
+                log(f"{Colors.OKGREEN}Paused job {external_job_id} in fabric {fabric_name}{Colors.ENDC}",
                     step_id=self._PAUSE_JOBS_STEP_ID)
                 return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
 
@@ -651,7 +687,7 @@ class ScriptComponents:
     def deploy(self):
         futures = []
 
-        if (len(self.headers()) > 0):
+        if len(self.headers()) > 0:
             log(f"\n\n{Colors.OKBLUE}Uploading script components from job{Colors.ENDC}\n\n")
 
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -667,21 +703,16 @@ class ScriptComponents:
 
     def _upload_content(self, script: dict, fabric_id: str, job_id: str):
         node_name = script.get('nodeName')
-        fabric_name = self.fabric_config.get_fabric(fabric_id).name
+        fabric_name = get_fabric_preferred_label(self.fabric_config.get_fabric(fabric_id).name, fabric_id)
+
         try:
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             client.upload_content(content=script.get('content', None), path=script.get('path', None))
-
-            log(f"Uploaded script component {node_name} to fabric-id {fabric_id} for job {job_id} to path {script.get('path', None)}",
-                step_id=self._STEP_ID, level=LogLevel.TRACE)
 
             log(f"{Colors.OKGREEN}Uploaded script component `{node_name}` to fabric `{fabric_name}` for job `{job_id}` to path `{script.get('path', None)}` {Colors.ENDC}",
                 step_id=self._STEP_ID)
             return Either(right=True)
         except Exception as e:
-            log(f"{Colors.FAIL}Error uploading script component `{node_name}` to fabric-id `{fabric_id}` {Colors.ENDC}",
-                step_id=self._STEP_ID,
-                exception=e, level=LogLevel.TRACE)
 
             log(f"{Colors.FAIL}Error uploading script component `{node_name}` to fabric `{fabric_name}` {Colors.ENDC}",
                 step_id=self._STEP_ID,

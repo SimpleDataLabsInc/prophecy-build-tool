@@ -207,6 +207,7 @@ def deploy(
 @click.option(
     "--skip-builds",
     default=False,
+    is_flag=True,
     help="Flag to skip building Pipelines",
     required=False
 )
@@ -224,6 +225,7 @@ def deploy_v2(path: str,
               fabric_ids: str,
               job_ids: str,
               skip_builds: bool, dependent_projects_path: str):
+
     pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
                                   skip_builds, dependent_projects_path)
     if is_online_mode():
