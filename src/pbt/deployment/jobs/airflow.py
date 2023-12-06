@@ -235,7 +235,7 @@ class AirflowJobDeployment:
 
     def deploy(self):
         if len(self.headers()) > 0:
-            log(f"{Colors.OKBLUE}\n\nAdding/Updating airflow jobs{Colors.ENDC}\n")
+            log(f"{Colors.OKBLUE}\n\nDeploying airflow jobs{Colors.ENDC}\n")
 
         responses = self._deploy_remove_jobs() + self._deploy_pause_jobs() + \
             self._deploy_add_jobs() + self._deploy_rename_jobs()
@@ -376,7 +376,7 @@ class AirflowJobDeployment:
             if not any(
                 airflow_job.id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
-            )
+            ) and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
         ]
 
     '''
@@ -460,19 +460,20 @@ class AirflowJobDeployment:
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
-        fabric_name = self._project_config.fabric_config.get_fabric(job_data.fabric_id).name
+        fabric_label = self._project_config.fabric_config.get_fabric(job_data.fabric_id).name
         client = self.get_airflow_client(fabric_id=job_data.fabric_id)
+
         try:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"{Colors.OKGREEN}Successfully un-paused dag:{dag_name} for job:{job_id} and fabric:{fabric_name}{Colors.ENDC}",
+                log(f"{Colors.OKGREEN}Successfully un-paused dag:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"{Colors.WARNING}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_name}{Colors.ENDC}",
+                log(f"{Colors.WARNING}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"{Colors.OKGREEN}Successfully added job:{dag_name} for job_id:{job_id} on fabric:{fabric_name}{Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Successfully added job:{dag_name} for job_id:{job_id} on fabric:{fabric_label}{Colors.ENDC}",
                 step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_job(job_data.name, job_id, job_data.fabric_id, dag_name,

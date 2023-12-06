@@ -156,6 +156,9 @@ class Project:
     def get_pipeline_absolute_path(self, pipeline_id):
         return os.path.join(os.path.join(self.project_path, pipeline_id), "code")
 
+    def get_pipeline_id(self, pipeline_name):
+        return next((k for k, v in self.pipelines.items() if v['name'] == pipeline_name), None)
+
     def get_pipeline_name(self, pipeline_id):
         try:
             pipeline_path = pipeline_id

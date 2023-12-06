@@ -307,6 +307,12 @@ class JobsState(BaseModel):
 
                 self.jobs = new_jobs
 
+    def filter_jobs_on_passed_args(self, job_ids):
+        if job_ids is not None and len(job_ids) > 0:
+            jobs = set([f"jobs/{job}" for job in job_ids.split(",")])
+
+            self.jobs = [job for job in self.jobs if job.id in jobs]
+
 
 class JobAndFabric(BaseModel):
     job_id: str
@@ -341,9 +347,14 @@ class ConfigsOverride(BaseModel):
 
     def filter_jobs(self, job_ids):
         if job_ids is not None and len(job_ids) > 0:
-            filtered_jobs = set(job_ids.split(","))
+            if self.jobs_and_fabric is not None:
+                filtered_jobs = set([f"jobs/{job}" for job in job_ids.split(",")])
 
-            self.jobs_and_fabric = [jobs for jobs in self.jobs_and_fabric if jobs.job_id in filtered_jobs]
+                self.jobs_and_fabric = [jobs for jobs in self.jobs_and_fabric if jobs.job_id in filtered_jobs]
+                self.mode = DeploymentMode.SelectiveJob
+            else:
+                self.jobs_and_fabric = [JobAndFabric.create(f"jobs/{job}", "") for job in job_ids.split(",")]
+                self.mode = DeploymentMode.SelectiveJob
 
 
 class NexusConfig(BaseModel):
@@ -416,27 +427,19 @@ class ProjectConfig:
     def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
                   fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool, conf_folder: str):
 
+        based_on_file = conf_folder is not "" and len(conf_folder) > 0
+
         if is_online_mode() and len(conf_folder) > 0:
             jobs = load_jobs_state(job_state_path)
             fabrics = load_fabric_config(fabric_config_path)
             system = load_system_config(system_config_path)
             configs = load_configs_override(configs_override_path)
             return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
+
         else:
-            based_on_file = True
-            try:
-                jobs = load_jobs_state(job_state_path)
-            except Exception:
-                jobs = JobsState.empty()
-                based_on_file = False
 
-            try:
-                fabrics_config = load_fabric_config(fabric_config_path)
-                fabrics_config.filter_fabrics(fabric_ids)
-            except Exception:
-                based_on_file = False
-
-                # only cli case for databricks
+            if not based_on_file:
+                ## only cli case for databricks/ fabrics
                 host = os.environ.get("DATABRICKS_HOST", 'test')
                 token = os.environ.get("DATABRICKS_TOKEN", 'test')
                 if not fabric_ids:
@@ -445,19 +448,35 @@ class ProjectConfig:
                     allowed_fabrics = fabric_ids.split(",")
                 fabric_list = [FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in
                                allowed_fabrics]
-
                 fabrics_config = FabricConfig(fabrics=fabric_list)
+
+            else:
+                ## most important files.
+                ## fabrics
+                fabrics_config = load_fabric_config(fabric_config_path)
+                fabrics_config.filter_fabrics(fabric_ids)
+
+            ## jobs
+            try:
+                jobs = load_jobs_state(job_state_path)
+            except ConfigFileNotFoundException:
+                jobs = JobsState.empty()
+
+                ## system
             try:
                 system = load_system_config(system_config_path)
-            except Exception:
+            except ConfigFileNotFoundException:
+                ## system
                 system = SystemConfig.empty()
                 system.customer_name = project.find_customer_name()
                 system.control_plane_name = project.find_control_plane_name()
 
+            ## configs
             try:
                 configs = load_configs_override(configs_override_path)
                 configs.filter_jobs(job_ids)
-            except Exception:
+                jobs.filter_jobs_on_passed_args(job_ids)
+            except ConfigFileNotFoundException:
                 configs = ConfigsOverride.empty()
                 configs.mode = DeploymentMode.FullProject  # only build what's needed.
                 if len(job_ids) != 0:
@@ -465,7 +484,8 @@ class ProjectConfig:
                     configs.jobs_and_fabric = [JobAndFabric.create(f"jobs/{job}", "") for job in allowed_jobs]
                     configs.mode = DeploymentMode.SelectiveJob
 
-            return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file, skip_builds=skip_build)
+            return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file=based_on_file,
+                                 skip_builds=skip_build)
 
     # best used when invoking from execution.
     @classmethod

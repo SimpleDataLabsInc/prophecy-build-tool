@@ -46,7 +46,7 @@ class DatabricksJobs(JobData, ABC):
 
     @property
     def fabric_id(self):
-        if self.fabric_override is not None:
+        if self.fabric_override is not None and len(self.fabric_override) > 0:
             return self.fabric_override
         else:
             fabric_id = self.pbt_job_json.get('fabricUID', None)
@@ -449,7 +449,7 @@ class DatabricksJobsDeployment:
             response = e.response.content.decode('utf-8')
 
             if e.response.status_code == 400 and "does not exist." in response:
-                log_success(f"{Colors.OKGREEN}Job already deleted, skipping{Colors.ENDC}")
+                log_success(f"{Colors.OKGREEN}Job:{job_info.id} with external-id:{job_info.external_job_id}  already deleted, skipping{Colors.ENDC}")
                 return Either(right=JobInfoAndOperation(job_info, OperationType.DELETED))
             log_error(
                 f'{Colors.WARNING}Error on deleting job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}{Colors.ENDC}',
