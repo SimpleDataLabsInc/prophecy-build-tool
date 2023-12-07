@@ -15,7 +15,7 @@ from . import JobData
 from ..client.nexus import NexusClient
 from ..client.rest_client_factory import RestClientFactory
 from ..deployment.jobs.airflow import AirflowJobDeployment
-from ..deployment.jobs.databricks import DatabricksJobsDeployment, get_fabric_preferred_label
+from ..deployment.jobs.databricks import DatabricksJobsDeployment, get_fabric_label
 from ..entities.project import Project, is_cross_project_pipeline
 from ..utility import custom_print as log, Either, is_online_mode
 from ..utils.constants import SCALA_LANGUAGE
@@ -79,7 +79,8 @@ class PipelineDeployment:
 
     def _build_and_upload_online(self, pipeline_jobs):
         responses = []
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        max_workers = os.getenv("PBT_MAX_WORKERS", 2)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(self.build_and_upload_pipeline, pipeline_id, pipeline_name): (
                 pipeline_id, pipeline_name) for pipeline_id, pipeline_name in pipeline_jobs}
 
@@ -117,13 +118,14 @@ class PipelineDeployment:
     def build_and_upload_pipeline(self, pipeline_id, pipeline_name):
         log(step_id=pipeline_id, step_status=Status.RUNNING)
 
-        available_fabrics = set(self.project_config.fabric_config.list_all_fabrics())
-        fabrics = [fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if fabric in available_fabrics]
+        all_available_fabrics = set(self.project_config.fabric_config.list_all_fabrics())
+        relevant_fabrics_for_pipeline = [fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if
+                                         fabric in all_available_fabrics]
 
         pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
                                                      self.project_config,
                                                      are_tests_enabled=self.are_tests_enabled,
-                                                     fabrics=fabrics)
+                                                     fabrics=relevant_fabrics_for_pipeline)
         return pipeline_builder.build_and_upload_pipeline()
 
     def deploy(self):
@@ -139,6 +141,7 @@ class PipelineDeployment:
             log(f"\n\nValidating pipeline {pipeline_name} \n")
             rdc = self.project.load_pipeline_folder(pipeline_id)
             workflow = rdc.get('.prophecy/workflow.latest.json', None)
+
             num_errors = 0
             num_warnings = 0
 
@@ -190,26 +193,27 @@ class PipelineDeployment:
     def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
         ## these can be names and ids.
         all_pipelines = self._pipeline_to_list_fabrics_full_deployment.keys()
-        pipeline_ids_name = {self.project.get_pipeline_id(pipeline_name): pipeline_name for pipeline_name in
-                             all_pipelines if self.project.get_pipeline_id(pipeline_name) is not None}
+        pipeline_ids_to_name = {self.project.get_pipeline_id(pipeline_name): pipeline_name for pipeline_name in
+                                all_pipelines if self.project.get_pipeline_id(pipeline_name) is not None}
 
         if pipeline_names is not None and len(pipeline_names) > 0:
             pipelines_set = {pipeline for pipeline in pipeline_names.split(",")}
-            pipeline_ids_name = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in pipeline_ids_name.items()
-                                 if pipeline_name in pipelines_set}
+            pipeline_ids_to_name = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in
+                                    pipeline_ids_to_name.items()
+                                    if pipeline_name in pipelines_set}
 
-            skip_build_for_pipelines = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in
-                                        pipeline_ids_name.items()
-                                        if pipeline_name not in pipelines_set}
+            pipelines_to_skip_build = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in
+                                       pipeline_ids_to_name.items()
+                                       if pipeline_name not in pipelines_set}
 
-            if len(skip_build_for_pipelines) > 0:
-                log(f"{Colors.WARNING}Skipping build for pipelines {skip_build_for_pipelines}, Please check the ids of provided pipelines {Colors.ENDC}")
+            if len(pipelines_to_skip_build) > 0:
+                log(f"{Colors.WARNING}Skipping build for pipelines {pipelines_to_skip_build}, Please check the ids/names of provided pipelines {Colors.ENDC}")
 
-        log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_name)}{Colors.ENDC}\n")
+        log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_to_name)}{Colors.ENDC}\n")
 
         build_errors = False
-        for index, (pipeline_id, pipeline_name) in enumerate(pipeline_ids_name.items(), start=1):
-            log(f"\n\n{Colors.OKGREEN}Building pipeline `{pipeline_name}`:[{index}/{len(pipeline_ids_name)}] {Colors.ENDC}\n",
+        for index, (pipeline_id, pipeline_name) in enumerate(pipeline_ids_to_name.items(), start=1):
+            log(f"\n\n{Colors.OKGREEN}Building pipeline `{pipeline_name}`:[{index}/{len(pipeline_ids_to_name)}] {Colors.ENDC}\n",
                 indent=1)
             log(step_id=pipeline_id, step_status=Status.RUNNING)
 
@@ -702,7 +706,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.to_path = to_path
         self.fabric_id = fabric_id
         self.fabric_name = fabric_name
-        self.fabric_label = get_fabric_preferred_label(fabric_name, fabric_id)
+        self.fabric_label = get_fabric_label(fabric_name, fabric_id)
 
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
         self.base_path = self.project_config.system_config.get_dbfs_base_path()
@@ -768,7 +772,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.to_path = to_path
         self.fabric_id = fabric_id
         self.fabric_name = fabric_name
-        self.fabric_label = get_fabric_preferred_label(fabric_name, fabric_id)
+        self.fabric_label = get_fabric_label(fabric_name, fabric_id)
 
         self.dataproc_info = dataproc_info
         self.file_name = file_name

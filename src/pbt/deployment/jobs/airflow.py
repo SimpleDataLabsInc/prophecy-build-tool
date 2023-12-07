@@ -9,6 +9,7 @@ from typing import Dict, Optional, List
 
 import yaml
 
+from .databricks import get_fabric_label
 from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
@@ -460,9 +461,12 @@ class AirflowJobDeployment:
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
-        fabric_label = self._project_config.fabric_config.get_fabric(job_data.fabric_id).name
         client = self.get_airflow_client(fabric_id=job_data.fabric_id)
 
+        fabric_config = self._fabrics_config.get_fabric(job_data.fabric_id)
+        fabric_name = fabric_config.name if fabric_config is not None else None
+
+        fabric_label = get_fabric_label(fabric_name, job_data.fabric_id)
         try:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
@@ -470,8 +474,10 @@ class AirflowJobDeployment:
                 log(f"{Colors.OKGREEN}Successfully un-paused dag:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"{Colors.WARNING}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
+                log(f"{Colors.FAIL}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
+
+                return Either(left=e)
 
             log(f"{Colors.OKGREEN}Successfully added job:{dag_name} for job_id:{job_id} on fabric:{fabric_label}{Colors.ENDC}",
                 step_id=self._ADD_JOBS_STEP_ID)

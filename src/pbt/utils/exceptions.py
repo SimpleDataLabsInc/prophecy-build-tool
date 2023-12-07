@@ -68,3 +68,8 @@ class ConfigFileNotFoundException(PBTException):
 class PipelinePathNotFoundException(PBTException):
     def __init__(self, message):
         self.message = message
+
+
+class DuplicateJobNameException(PBTException):
+    def __init__(self, message):
+        self.message = message

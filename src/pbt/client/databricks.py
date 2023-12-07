@@ -12,6 +12,7 @@ from requests import HTTPError
 from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
 
 from ..utility import Either
+from ..utils.exceptions import DuplicateJobNameException
 
 
 class DatabricksClient:
@@ -123,8 +124,11 @@ class DatabricksClient:
     def find_job(self, job_name) -> Optional[str]:
         try:
             jobs = self.job.list_jobs(name=job_name)['jobs']
-            if jobs is not None and len(jobs) > 0:
-                return jobs[0]['job_id']
+            if jobs is not None:
+                if len(jobs) == 1:
+                    return jobs[0]['job_id']
+                else:
+                    raise DuplicateJobNameException(f"Found more than one job with name {job_name}")
             return None
         except Exception:
             return None

@@ -221,7 +221,7 @@ class FabricConfig(BaseModel):
     def list_all_fabrics(self) -> List[str]:
         return [fabric.id for fabric in self.fabrics]
 
-    def filter_fabrics(self, fabric_ids: str):
+    def filter_provided_fabrics(self, fabric_ids: str):
         if fabric_ids is not None and len(fabric_ids) > 0:
             fabrics = set(fabric_ids.split(","))
 
@@ -231,9 +231,6 @@ class FabricConfig(BaseModel):
 class JobsState(BaseModel):
     version: str
     jobs: List[JobInfo] = []
-
-    def dict(self, *args, **kwargs):
-        return super().dict(*args, **kwargs)
 
     @staticmethod
     def empty():
@@ -307,7 +304,7 @@ class JobsState(BaseModel):
 
                 self.jobs = new_jobs
 
-    def filter_jobs_on_passed_args(self, job_ids):
+    def filter_provided_jobs(self, job_ids):
         if job_ids is not None and len(job_ids) > 0:
             jobs = set([f"jobs/{job}" for job in job_ids.split(",")])
 
@@ -454,7 +451,7 @@ class ProjectConfig:
                 ## most important files.
                 ## fabrics
                 fabrics_config = load_fabric_config(fabric_config_path)
-                fabrics_config.filter_fabrics(fabric_ids)
+                fabrics_config.filter_provided_fabrics(fabric_ids)
 
             ## jobs
             try:
@@ -475,7 +472,7 @@ class ProjectConfig:
             try:
                 configs = load_configs_override(configs_override_path)
                 configs.filter_jobs(job_ids)
-                jobs.filter_jobs_on_passed_args(job_ids)
+                jobs.filter_provided_jobs(job_ids)
             except ConfigFileNotFoundException:
                 configs = ConfigsOverride.empty()
                 configs.mode = DeploymentMode.FullProject  # only build what's needed.

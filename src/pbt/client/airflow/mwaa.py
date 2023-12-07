@@ -67,7 +67,7 @@ class MWAARestClient(AirflowRestClient, ABC):
             print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
             raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(5), wait=wait_fixed(10),
+    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(7), wait=wait_fixed(15),
            reraise=True)
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
