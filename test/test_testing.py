@@ -11,7 +11,7 @@ def test_test_path_default():
     print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert (
-            "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "	
+            "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
     )
     assert "Testing All pipelines" in result.output
@@ -27,7 +27,7 @@ def test_test_with_pipeline_filter():
     print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert (
-            "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "	
+            "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
     )
     assert "Pipeline Filters passed [2]: ['report_top_customers', 'join_agg_sort']" in result.output
