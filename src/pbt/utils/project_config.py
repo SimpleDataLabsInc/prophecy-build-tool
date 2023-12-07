@@ -424,7 +424,7 @@ class ProjectConfig:
     def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
                   fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool, conf_folder: str):
 
-        based_on_file = conf_folder is not "" and len(conf_folder) > 0
+        is_based_on_file = conf_folder == "" and len(conf_folder) > 0
 
         if is_online_mode() and len(conf_folder) > 0:
             jobs = load_jobs_state(job_state_path)
@@ -435,8 +435,8 @@ class ProjectConfig:
 
         else:
 
-            if not based_on_file:
-                ## only cli case for databricks/ fabrics
+            if not is_based_on_file:
+                # only cli case for databricks/ fabrics
                 host = os.environ.get("DATABRICKS_HOST", 'test')
                 token = os.environ.get("DATABRICKS_TOKEN", 'test')
                 if not fabric_ids:
@@ -448,27 +448,27 @@ class ProjectConfig:
                 fabrics_config = FabricConfig(fabrics=fabric_list)
 
             else:
-                ## most important files.
-                ## fabrics
+                # most important files.
+                # fabrics
                 fabrics_config = load_fabric_config(fabric_config_path)
                 fabrics_config.filter_provided_fabrics(fabric_ids)
 
-            ## jobs
+            # jobs
             try:
                 jobs = load_jobs_state(job_state_path)
             except ConfigFileNotFoundException:
                 jobs = JobsState.empty()
 
-                ## system
+                # system
             try:
                 system = load_system_config(system_config_path)
             except ConfigFileNotFoundException:
-                ## system
+                # system
                 system = SystemConfig.empty()
                 system.customer_name = project.find_customer_name()
                 system.control_plane_name = project.find_control_plane_name()
 
-            ## configs
+            # configs
             try:
                 configs = load_configs_override(configs_override_path)
                 configs.filter_jobs(job_ids)
@@ -481,7 +481,7 @@ class ProjectConfig:
                     configs.jobs_and_fabric = [JobAndFabric.create(f"jobs/{job}", "") for job in allowed_jobs]
                     configs.mode = DeploymentMode.SelectiveJob
 
-            return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file=based_on_file,
+            return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file=is_based_on_file,
                                  skip_builds=skip_build)
 
     # best used when invoking from execution.

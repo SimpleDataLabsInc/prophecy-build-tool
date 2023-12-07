@@ -191,7 +191,7 @@ class PipelineDeployment:
                 log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
 
     def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
-        ## these can be names and ids.
+        # these can be names and ids.
         all_pipelines = self._pipeline_to_list_fabrics_full_deployment.keys()
         pipeline_ids_to_name = {self.project.get_pipeline_id(pipeline_name): pipeline_name for pipeline_name in
                                 all_pipelines if self.project.get_pipeline_id(pipeline_name) is not None}
@@ -229,7 +229,7 @@ class PipelineDeployment:
                                                          fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
             try:
                 build_success = pipeline_builder.build(ignore_build_errors) == 0
-            except ProjectBuildFailedException as e:
+            except ProjectBuildFailedException:
                 build_success = False
 
             if build_success:

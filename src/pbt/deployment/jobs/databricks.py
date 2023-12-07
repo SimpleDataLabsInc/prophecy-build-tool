@@ -178,7 +178,7 @@ class DatabricksJobsDeployment:
             log(f"{Colors.OKBLUE}\nDeploying databricks jobs{Colors.ENDC}\n\n")
 
         responses = self._deploy_add_jobs() + self._deploy_refresh_jobs() + \
-                    self._deploy_delete_jobs() + self._deploy_pause_jobs() + self._deploy_skipping_jobs()
+            self._deploy_delete_jobs() + self._deploy_pause_jobs() + self._deploy_skipping_jobs()
 
         return responses
 
@@ -377,7 +377,8 @@ class DatabricksJobsDeployment:
                     client.patch_job_acl(job_info.external_job_id, job_data.acl)
                 except Exception as e:
                     log_error(
-                        f"{Colors.FAIL}Error patching job acl for job {job_id} in fabric {fabric_label}{Colors.ENDC}", e)
+                        f"{Colors.FAIL}Error patching job acl for job {job_id} in fabric {fabric_label}{Colors.ENDC}",
+                        e)
                     return Either(left=e)
             else:
                 log_success(
@@ -695,7 +696,7 @@ class ScriptComponents:
 
     def _upload_content(self, script: dict, fabric_id: str, job_id: str):
         node_name = script.get('nodeName')
-        fabric_config= self.fabric_config.get_fabric(fabric_id)
+        fabric_config = self.fabric_config.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
         fabric_label = get_fabric_label(fabric_name, fabric_id)
 

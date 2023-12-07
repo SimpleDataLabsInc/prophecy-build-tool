@@ -85,7 +85,7 @@ class Project:
         if dependant_project_list is not None and len(dependant_project_list) > 0:
             project_paths = dependant_project_list.split(",")
             dependant_projects = []
-            log(f"Parsing dependent projects")
+            log("Parsing dependent projects")
             for path in project_paths:
                 dependant_projects.append(Project(path, ""))
 
