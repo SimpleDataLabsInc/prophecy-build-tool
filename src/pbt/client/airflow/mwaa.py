@@ -57,7 +57,6 @@ class MWAARestClient(AirflowRestClient, ABC):
         self.get_dag(dag_id)
         response_as_text = self._get_response(f"dags unpause {dag_id}")
         response_as_json = self._clean_response(response_as_text)
-        print(f"Response as json {response_as_json}")
         return DAG.create_from_mwaa(response_as_json)
 
     def upload_dag(self, dag_id: str, file_path: str):
@@ -68,7 +67,7 @@ class MWAARestClient(AirflowRestClient, ABC):
             print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
             raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(5), wait=wait_fixed(10),
+    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(7), wait=wait_fixed(15),
            reraise=True)
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
@@ -108,7 +107,6 @@ class MWAARestClient(AirflowRestClient, ABC):
             return json.loads(cleaned_text)
 
     def _execute_airflow_command(self, command: str):
-        print(f"Expiry cli token {self._expiry_cli_token().get_value()}")
         url = f"https://{self._expiry_cli_token().get_value()['WebServerHostname']}/aws_mwaa/cli"
         response = requests.post(url, headers=self._headers(), data=command)
         response.raise_for_status()  # Raise an HTTPError if the status is 4xx, 5xx

@@ -15,11 +15,11 @@ from . import JobData
 from ..client.nexus import NexusClient
 from ..client.rest_client_factory import RestClientFactory
 from ..deployment.jobs.airflow import AirflowJobDeployment
-from ..deployment.jobs.databricks import DatabricksJobsDeployment
+from ..deployment.jobs.databricks import DatabricksJobsDeployment, get_fabric_label
 from ..entities.project import Project, is_cross_project_pipeline
 from ..utility import custom_print as log, Either, is_online_mode
 from ..utils.constants import SCALA_LANGUAGE
-from ..utils.exceptions import ProjectBuildFailedException, PipelineBuildFailedException
+from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import ProjectConfig, EMRInfo, DataprocInfo, DeploymentMode
 from ..utils.project_models import StepMetadata, Operation, StepType, Status, LogLevel, Colors
 
@@ -79,7 +79,8 @@ class PipelineDeployment:
 
     def _build_and_upload_online(self, pipeline_jobs):
         responses = []
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        max_workers = os.getenv("PBT_MAX_WORKERS", 2)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(self.build_and_upload_pipeline, pipeline_id, pipeline_name): (
                 pipeline_id, pipeline_name) for pipeline_id, pipeline_name in pipeline_jobs}
 
@@ -89,37 +90,42 @@ class PipelineDeployment:
 
     def _build_and_upload_offline(self, pipeline_jobs):
         responses = []
-        for pipeline_id, pipeline_name in pipeline_jobs:
+        for index, (pipeline_id, pipeline_name) in enumerate(pipeline_jobs, start=1):
             try:
+                log(f"{Colors.OKBLUE}\nBuilding pipeline {pipeline_id} [{index}/{len(pipeline_jobs)}]{Colors.ENDC}\n\n",
+                    indent=1)
                 response = self.build_and_upload_pipeline(pipeline_id, pipeline_name)
                 responses.append(response)
             except Exception as exc:
                 log(f"{Colors.FAIL}Pipeline {pipeline_id} generated an exception: {exc}{Colors.ENDC}",
-                    step_id=pipeline_id)
+                    step_id=pipeline_id, indent=1)
         return responses
 
     def build_and_upload(self):
         use_threads = is_online_mode()
 
         if len(self._pipeline_components_from_jobs().items()) > 0:
-            log(f"\n\n{Colors.OKCYAN}Building Pipelines {len(self._pipeline_to_list_fabrics)}{Colors.ENDC}\n")
+            log(f"\n\n{Colors.OKCYAN}Building {len(self._pipeline_to_list_fabrics)} Pipelines {Colors.ENDC}\n")
 
-        pipeline_jobs = self._pipeline_components_from_jobs().items()
+        pipelines_from_job = self._pipeline_components_from_jobs().items()
 
-        if use_threads and len(pipeline_jobs) > 1:
-            return self._build_and_upload_online(pipeline_jobs)
+        if use_threads and len(pipelines_from_job) > 1:
+            return self._build_and_upload_online(pipelines_from_job)
 
         else:
-            return self._build_and_upload_offline(pipeline_jobs)
+            return self._build_and_upload_offline(pipelines_from_job)
 
     def build_and_upload_pipeline(self, pipeline_id, pipeline_name):
-        log(f"{Colors.OKBLUE}Building pipeline {pipeline_id}{Colors.ENDC}\n\n", step_id=pipeline_id)
         log(step_id=pipeline_id, step_status=Status.RUNNING)
+
+        all_available_fabrics = set(self.project_config.fabric_config.list_all_fabrics())
+        relevant_fabrics_for_pipeline = [fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if
+                                         fabric in all_available_fabrics]
 
         pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
                                                      self.project_config,
                                                      are_tests_enabled=self.are_tests_enabled,
-                                                     fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
+                                                     fabrics=relevant_fabrics_for_pipeline)
         return pipeline_builder.build_and_upload_pipeline()
 
     def deploy(self):
@@ -129,8 +135,6 @@ class PipelineDeployment:
         all_pipelines = self._pipeline_components_from_jobs()
         log(f"{Colors.OKBLUE} Validating pipelines {Colors.ENDC}")
 
-        num_errors = 0
-        num_warnings = 0
         overall_validate_status = True
 
         for pipeline_id, pipeline_name in all_pipelines.items():
@@ -138,11 +142,14 @@ class PipelineDeployment:
             rdc = self.project.load_pipeline_folder(pipeline_id)
             workflow = rdc.get('.prophecy/workflow.latest.json', None)
 
+            num_errors = 0
+            num_warnings = 0
+
             if workflow is None:
                 log(f"\n{Colors.FAIL}Empty Pipeline Found: {pipeline_name}!{Colors.ENDC}")
             else:
                 workflow_json = json.loads(workflow)
-                if "diagnostic" in workflow_json:
+                if "diagnostics" in workflow_json:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
                         if diagnostic.get("severity") == 1:
@@ -183,37 +190,63 @@ class PipelineDeployment:
             else:
                 log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
 
-    def build(self, pipelines: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
-        all_pipelines = self._pipeline_components_from_jobs()
-        if len(pipelines) > 0:
-            pipelines_set = set(pipelines.split(","))
-            all_pipelines = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in all_pipelines.items() if
-                             pipeline_id in pipelines_set}
+    def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
+        # these can be names and ids.
+        all_pipelines = self._pipeline_to_list_fabrics_full_deployment.keys()
+        pipeline_ids_to_name = {self.project.get_pipeline_id(pipeline_name): pipeline_name for pipeline_name in
+                                all_pipelines if self.project.get_pipeline_id(pipeline_name) is not None}
 
-        log(f"\n\n{Colors.OKBLUE}Building pipelines {len(all_pipelines)}{Colors.ENDC}\n\n")
+        if pipeline_names is not None and len(pipeline_names) > 0:
+            pipelines_set = {pipeline for pipeline in pipeline_names.split(",")}
+            pipeline_ids_to_name = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in
+                                    pipeline_ids_to_name.items()
+                                    if pipeline_name in pipelines_set}
 
-        for pipeline_id, pipeline_name in all_pipelines.items():
-            log(f"\n{Colors.OKGREEN} Building pipeline `{pipeline_id}` {Colors.ENDC}\n")
+            pipelines_to_skip_build = {pipeline_id: pipeline_name for pipeline_id, pipeline_name in
+                                       pipeline_ids_to_name.items()
+                                       if pipeline_name not in pipelines_set}
+
+            if len(pipelines_to_skip_build) > 0:
+                log(f"{Colors.WARNING}Skipping build for pipelines {pipelines_to_skip_build}, Please check the ids/names of provided pipelines {Colors.ENDC}")
+
+        log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_to_name)}{Colors.ENDC}\n")
+
+        build_errors = False
+        for index, (pipeline_id, pipeline_name) in enumerate(pipeline_ids_to_name.items(), start=1):
+            log(f"\n\n{Colors.OKGREEN}Building pipeline `{pipeline_name}`:[{index}/{len(pipeline_ids_to_name)}] {Colors.ENDC}\n",
+                indent=1)
             log(step_id=pipeline_id, step_status=Status.RUNNING)
 
             code = self.project.load_pipeline_folder(pipeline_id)
 
-            if len(code) == 0 and ignore_parse_errors:
-                log(f"{Colors.WARNING} Pipeline code is not present {Colors.ENDC}")
-                break
+            if (code is None or len(code) == 0) and ignore_parse_errors:
+                log(f"{Colors.WARNING}Pipeline `{pipeline_name}` code is not present {Colors.ENDC}", indent=2)
+                pass
 
             pipeline_builder = PackageBuilderAndUploader(self.project, pipeline_id, pipeline_name,
                                                          self.project_config,
                                                          are_tests_enabled=False,
                                                          fabrics=self._pipeline_to_list_fabrics.get(pipeline_id))
-            return_code = pipeline_builder.build(ignore_build_errors)
-            if return_code == 0:
-                log(f"{Colors.OKGREEN} Build for pipeline {pipeline_id} succeeded {Colors.ENDC}")
+            try:
+                build_success = pipeline_builder.build(ignore_build_errors) == 0
+            except ProjectBuildFailedException:
+                build_success = False
+
+            if build_success:
+                build_errors = True
+
+            if build_success:
+                log(f"\n{Colors.OKGREEN}Build for pipeline `{pipeline_name}` succeeded {Colors.ENDC}", indent=1)
             elif ignore_build_errors:
-                log(f"{Colors.WARNING} Build for pipeline {pipeline_id} failed {Colors.ENDC}")
+                log(f"\n{Colors.WARNING}Build for pipeline `{pipeline_name}` failed {Colors.ENDC}", indent=1)
             else:
-                log(f"{Colors.FAIL} Build for pipeline {pipeline_id} failed {Colors.ENDC}")
-                raise PipelineBuildFailedException(f"Build failed for pipeline {pipeline_id}")
+                log(f"\n{Colors.FAIL}Build for pipeline `{pipeline_name}` failed {Colors.ENDC}", indent=1)
+
+        if build_errors:
+            sys.exit(1)
+        else:
+            if ignore_build_errors:
+                log(f"\n{Colors.WARNING}Ignoring builds Errors as --ignore-build-errors is passed.{Colors.ENDC}")
 
     @property
     def _pipeline_to_list_fabrics_selective_job(self) -> Dict[str, List[str]]:
@@ -305,14 +338,14 @@ class PackageBuilderAndUploader:
         if pipeline_from_nexus is not None and pipeline_from_nexus.is_right:
             return Either(right=(self._pipeline_id, pipeline_from_nexus.right))
 
-        # if not is_online_mode() and not self._project_config.based_on_file and self.pipeline_upload_manager.exists():
-        #     log("File exist, ignoring pipeline build", step_id=self._pipeline_id)
-        #     return Either(right=True)
+        if not is_online_mode() and self._project_config.skip_builds:
+            log("Artifact File already exist, ignoring pipeline build", step_id=self._pipeline_id, indent=2)
+            return Either(right=True)
 
         try:
             self._initialize_temp_folder()
 
-            log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id)
+            log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
 
             if self._project_langauge == SCALA_LANGUAGE:
                 self.mvn_build()
@@ -321,19 +354,19 @@ class PackageBuilderAndUploader:
 
             path = Project.get_pipeline_whl_or_jar(self._base_path)
             log(f"{Colors.OKGREEN}Pipeline package built successfully, with path {path}{Colors.ENDC}\n",
-                step_id=self._pipeline_id)
+                step_id=self._pipeline_id, indent=2)
 
             if self._project_config.system_config.nexus is not None:
                 log("Trying to upload pipeline package to nexus.", self._pipeline_id)
                 self._uploading_to_nexus(path)
 
-            log(f"Uploading pipeline {self._pipeline_id} from path {path}")
+            log(f"Uploading pipeline {self._pipeline_id} from path {path}", indent=2)
 
             return self._upload_pipeline(path)
 
         except Exception as e:
             log(message=f"{Colors.FAIL}Failed to build the pipeline package.{Colors.ENDC}", exception=e,
-                step_id=self._pipeline_id)
+                step_id=self._pipeline_id, indent=1)
             log(step_id=self._pipeline_id, step_status=Status.FAILED)
             return Either(left=e)
 
@@ -342,10 +375,11 @@ class PackageBuilderAndUploader:
 
     def _download_pipeline_from_nexus(self) -> Optional[Either]:
         if self._project_config.system_config.nexus is not None:
-            log("Project has nexus configured, trying to download the pipeline package.", step_id=self._pipeline_id)
+            log("Project has nexus configured, trying to download the pipeline package.", step_id=self._pipeline_id,
+                indent=2)
             return self._download_from_nexus()
         else:
-            log("Project does not have nexus configured, building the pipeline package.", step_id=self._pipeline_id)
+            # log("Project does not have nexus configured, building the pipeline package.", step_id=self._pipeline_id, indent=2)
             return None
 
     def _uploading_to_nexus(self, upload_path):
@@ -388,21 +422,21 @@ class PackageBuilderAndUploader:
         command = [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package",
                                                                                        "-Dfabric=default"]
 
-        log(f"Running mvn command {command}", step_id=self._pipeline_id)
+        log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command, ignore_build_errors)
 
     def mvn_test(self):
         mvn = "mvn"
         command = [mvn, "package", "-Dfabric=default"]
-        log(f"Running mvn command {command}", step_id=self._pipeline_id)
+        log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command)
 
     def wheel_test(self):
         separator = {os.sep}
         test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}{separator}test{separator}TestSuite.py"]
-        log(f"Running python test {test_command}", step_id=self._pipeline_id)
+        log(f"Running python test {test_command}", step_id=self._pipeline_id, indent=2)
         response_code = self._build(test_command)
 
         return response_code
@@ -416,7 +450,7 @@ class PackageBuilderAndUploader:
 
         command = ["python3", "setup.py", "bdist_wheel"]
 
-        log(f"Running python command {command}", step_id=self._pipeline_id)
+        log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command, ignore_build_error)
 
@@ -431,7 +465,7 @@ class PackageBuilderAndUploader:
             env["FABRIC_NAME"] = "default"  # for python test runs.
 
         log(f"Running command {command} on path {self._base_path}",
-            step_id=self._pipeline_id)
+            step_id=self._pipeline_id, indent=2)
         process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
                                    cwd=self._base_path)
 
@@ -445,14 +479,16 @@ class PackageBuilderAndUploader:
                 response = output.decode().strip()
 
                 # stripping unnecessary logs
-                if not re.search(r'Progress \(\d+\):', response):
+                if not re.search(r'Progress \(\d+\):', response) and len(response) != 0 and response != '\n':
                     log_function(response)
 
         # Create threads to read and log stdout and stderr simultaneously
         stdout_thread = threading.Thread(target=log_output,
-                                         args=(process.stdout, lambda msg: log(msg, step_id=self._pipeline_id)))
+                                         args=(
+                                             process.stdout, lambda msg: log(msg, step_id=self._pipeline_id, indent=2)))
         stderr_thread = threading.Thread(target=log_output,
-                                         args=(process.stderr, lambda msg: log(msg, step_id=self._pipeline_id)))
+                                         args=(
+                                             process.stderr, lambda msg: log(msg, step_id=self._pipeline_id, indent=2)))
 
         # Start threads
         stdout_thread.start()
@@ -466,11 +502,11 @@ class PackageBuilderAndUploader:
         return_code = process.wait()
 
         if return_code in (0, 5):
-            log(f"Build was successful with exit code {return_code}", step_id=self._pipeline_id)
+            log(f"Build was successful with exit code {return_code}", step_id=self._pipeline_id, indent=2)
         elif ignore_build_errors:
-            log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
+            log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id, indent=2)
         else:
-            log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id)
+            log(f"Build failed with exit code {return_code}", step_id=self._pipeline_id, indent=2)
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")
 
         return return_code
@@ -551,7 +587,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
 
                 except Exception as e:
                     log(f"{Colors.FAIL}Error while uploading pipeline {self.pipeline_id} for fabric {fabric_id}{Colors.ENDC}",
-                        step_id=self.pipeline_id, exception=e, level=LogLevel.TRACE)
+                        step_id=self.pipeline_id, exception=e, level=LogLevel.TRACE, indent=2)
                     log(step_status=Status.FAILED, step_id=self.pipeline_id)
                     responses.append(Either(left=e))
 
@@ -565,7 +601,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
         except Exception as e:
             log(f"{Colors.FAIL}Error while uploading pipeline {self.pipeline_id}{Colors.ENDC}",
                 step_id=self.pipeline_id,
-                exception=e)
+                exception=e, indent=2)
             log(step_status=Status.FAILED, step_id=self.pipeline_id)
             return Either(left=e)
 
@@ -638,7 +674,7 @@ class EMRPipelineUploader(PipelineUploader, ABC):
             client.upload_file(self.emr_info.bare_bucket(), self.upload_path, self.from_path)
 
             log(f"{Colors.OKGREEN}Uploaded pipeline to s3, from path {self.from_path} to path {self.upload_path} for fabric {self.fabric_name}{Colors.ENDC}",
-                step_id=self.pipeline_id)
+                step_id=self.pipeline_id, indent=2)
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
@@ -648,11 +684,11 @@ class EMRPipelineUploader(PipelineUploader, ABC):
                 client.upload_content(self.emr_info.bare_bucket(), launcher_path, content)
 
                 log(f"{Colors.OKGREEN}Uploading py pipeline launcher to to-path {launcher_path} for fabric {self.fabric_name}{Colors.ENDC}",
-                    step_id=self.pipeline_id)
+                    step_id=self.pipeline_id, indent=2)
             return Either(right=True)
         except Exception as e:
             log(f"{Colors.WARNING}Unknown Exception while uploading pipeline to emr, from-path {self.from_path} to path {self.upload_path} for fabric {self.fabric_name}, Ignoring{Colors.ENDC}",
-                exception=e, step_id=self.pipeline_id)
+                exception=e, step_id=self.pipeline_id, indent=2)
             return Either(right=True)
 
     def exists(self) -> bool:
@@ -670,6 +706,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.to_path = to_path
         self.fabric_id = fabric_id
         self.fabric_name = fabric_name
+        self.fabric_label = get_fabric_label(fabric_name, fabric_id)
 
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
         self.base_path = self.project_config.system_config.get_dbfs_base_path()
@@ -679,8 +716,8 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         try:
             client = self.rest_client_factory.databricks_client(self.fabric_id)
             client.upload_src_path(self.file_path, self.upload_path)
-            log(f"Uploading pipeline to databricks from-path `{self.file_path}` to path `{self.upload_path}` for fabric `{self.fabric_name}`",
-                step_id=self.pipeline_id)
+            log(f"Uploading pipeline to databricks from-path `{self.file_path}` to path `{self.upload_path}` for fabric `{self.fabric_label}`",
+                step_id=self.pipeline_id, indent=2)
 
             return Either(right=True)
 
@@ -689,26 +726,28 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
             log(step_id=self.pipeline_id, message=response)
 
             if e.response.status_code == 401 or e.response.status_code == 403:
-                log(f'{Colors.WARNING}Error on uploading pipeline to databricks from path {self.file_path} to path {self.upload_path} for fabric {self.fabric_name}, but ignoring{Colors.ENDC}',
-                    exception=e, step_id=self.pipeline_id)
+                log(f'{Colors.WARNING}Error on uploading pipeline to databricks from path {self.file_path} to path {self.upload_path} for fabric {self.fabric_label}, but ignoring{Colors.ENDC}',
+                    exception=e, step_id=self.pipeline_id, indent=2)
                 return Either(right=True)
             else:
-                log(f"{Colors.FAIL}HttpError on uploading pipeline to databricks from-path {self.file_path} to path {self.upload_path} for fabric {self.fabric_name}{Colors.ENDC}",
-                    exception=e, step_id=self.pipeline_id)
+                log(f"{Colors.FAIL}HttpError on uploading pipeline to databricks from-path {self.file_path} to path {self.upload_path} for fabric {self.fabric_label}{Colors.ENDC}",
+                    exception=e, step_id=self.pipeline_id, indent=2)
                 return Either(left=e)
 
         except Exception as e:
-            log(f"{Colors.FAIL}Unknown Exception on uploading pipeline to databricks from-path {self.file_path} to to-path {self.upload_path} for fabric {self.fabric_name}, ignoring exception{Colors.ENDC}",
-                exception=e, step_id=self.pipeline_id)
+            log(f"{Colors.FAIL}Unknown Exception on uploading pipeline to databricks from-path {self.file_path} to path {self.upload_path} for fabric {self.fabric_label}, ignoring exception{Colors.ENDC}",
+                exception=e, step_id=self.pipeline_id, indent=2)
             return Either(right=True)
 
     def exists(self) -> bool:
         try:
-            log(f"Checking if path  {self.upload_path} already exists.", self.pipeline_id)
+            log(f"Checking if path {self.upload_path} already exists.", self.pipeline_id, indent=2)
             client = self.rest_client_factory.databricks_client(self.fabric_id)
             return client.path_exist(self.upload_path)
         except Exception as e:
-            log(f"{Colors.WARNING} Failed checking path {self.upload_path}", step_id=self.pipeline_id, exception=e)
+            log(f"{Colors.WARNING} Failed checking path {self.upload_path}{Colors.ENDC}", step_id=self.pipeline_id,
+                exception=e,
+                indent=2)
             return False
 
 
@@ -733,6 +772,8 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.to_path = to_path
         self.fabric_id = fabric_id
         self.fabric_name = fabric_name
+        self.fabric_label = get_fabric_label(fabric_name, fabric_id)
+
         self.dataproc_info = dataproc_info
         self.file_name = file_name
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
@@ -745,8 +786,8 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
             client = self.rest_client_factory.dataproc_client(self.fabric_name)
             client.put_object_from_file(self.dataproc_info.bare_bucket(), self.upload_path, self.from_path)
 
-            log(f"{Colors.OKGREEN}Uploaded pipeline to data-proc, from-path {self.from_path} to to-path {self.upload_path} for fabric {self.fabric_name}{Colors.ENDC}",
-                step_id=self.pipeline_id)
+            log(f"{Colors.OKGREEN}Uploaded pipeline to data-proc, from-path {self.from_path} to to-path {self.upload_path} for fabric {self.fabric_label}{Colors.ENDC}",
+                step_id=self.pipeline_id, indent=2)
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
@@ -755,13 +796,13 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
                     '/')
                 client.put_object(self.dataproc_info.bare_bucket(), launcher_path, content)
 
-                log(f"{Colors.OKGREEN}Uploading py pipeline launcher to to-path {launcher_path} and bucket {self.dataproc_info.bare_bucket()} for fabric {self.fabric_name}{Colors.ENDC}",
-                    step_id=self.pipeline_id)
+                log(f"{Colors.OKGREEN}Uploading py pipeline launcher to to-path {launcher_path} and bucket {self.dataproc_info.bare_bucket()} for fabric {self.fabric_label}{Colors.ENDC}",
+                    step_id=self.pipeline_id, indent=2)
             return Either(right=True)
 
         except Exception as e:
-            log(f"{Colors.WARNING}Unknown Exception while uploading pipeline to data-proc, from-path {self.from_path} to to-path {self.upload_path} for fabric {self.fabric_name}, ignoring exception{Colors.ENDC}",
-                exception=e, step_id=self.pipeline_id)
+            log(f"{Colors.WARNING}Unknown Exception while uploading pipeline to data-proc, from-path {self.from_path} to to-path {self.upload_path} for fabric {self.fabric_label}, ignoring exception{Colors.ENDC}",
+                exception=e, step_id=self.pipeline_id, indent=2)
             return Either(right=True)
 
     def exists(self) -> bool:

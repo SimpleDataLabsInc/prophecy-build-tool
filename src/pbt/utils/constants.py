@@ -39,4 +39,4 @@ DBFS_FILE_STORE = "dbfs:/FileStore"
 S3_FILE_STORE = "s3://"
 PROPHECY_ARTIFACTS = "prophecy/artifacts"
 
-NEW_JOB_STATE_FILE = "new_job_state.yml"
+NEW_JOB_STATE_FILE = "new_state.yml"

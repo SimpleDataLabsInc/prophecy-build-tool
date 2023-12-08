@@ -6,6 +6,7 @@ from typing import Optional, List
 
 import yaml
 
+from ..utility import custom_print as log
 from ..utils.constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
     PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
     PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS, \
@@ -58,14 +59,33 @@ class Project:
 
         self._verify_project()
         self._load_project_config()
+
         self._extract_project_info()
         self.pipeline_configurations = self._load_pipeline_configurations()
+
+        log(f"Project name {self.pbt_project_dict.get('name', '')}")
+        pipelines_str = ", ".join(
+            map(
+                lambda pipeline: "%s (%s)" % (pipeline["name"], pipeline["language"]),
+                self.pipelines.values(),
+            )
+        )
+
+        jobs_str = ", ".join(
+            map(
+                lambda job: "%s" % (job["name"]),
+                self.jobs.values(),
+            )
+        )
+        log(f"Found {len(self.jobs)} jobs: {jobs_str}")
+        log(f"Found {len(self.pipelines)} pipelines: {pipelines_str}\n  ")
 
         self.dependant_project = None
 
         if dependant_project_list is not None and len(dependant_project_list) > 0:
             project_paths = dependant_project_list.split(",")
             dependant_projects = []
+            log("Parsing dependent projects")
             for path in project_paths:
                 dependant_projects.append(Project(path, ""))
 
@@ -135,6 +155,9 @@ class Project:
 
     def get_pipeline_absolute_path(self, pipeline_id):
         return os.path.join(os.path.join(self.project_path, pipeline_id), "code")
+
+    def get_pipeline_id(self, pipeline_name):
+        return next((k for k, v in self.pipelines.items() if v['name'] == pipeline_name), None)
 
     def get_pipeline_name(self, pipeline_id):
         try:

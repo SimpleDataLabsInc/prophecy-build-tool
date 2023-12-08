@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# avoid accidental publish of relese projects.
+test/resources/*
 # C extensions
 *.so
 

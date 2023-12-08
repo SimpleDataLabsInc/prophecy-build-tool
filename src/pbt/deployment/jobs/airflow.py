@@ -9,6 +9,7 @@ from typing import Dict, Optional, List
 
 import yaml
 
+from .databricks import get_fabric_label
 from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
@@ -141,7 +142,7 @@ class AirflowJob(JobData, ABC):
 
     @property
     def fabric_id(self):
-        if self.fabric_override is not None:
+        if self.fabric_override is not None and len(self.fabric_override) > 0:
             return self.fabric_override
         else:
             fabric_id = self.job_pbt.get(FABRIC_UID)
@@ -235,7 +236,7 @@ class AirflowJobDeployment:
 
     def deploy(self):
         if len(self.headers()) > 0:
-            log(f"{Colors.OKBLUE}\n\nAdding/Updating databricks jobs{Colors.ENDC}\n\n")
+            log(f"{Colors.OKBLUE}\n\nDeploying airflow jobs{Colors.ENDC}\n")
 
         responses = self._deploy_remove_jobs() + self._deploy_pause_jobs() + \
             self._deploy_add_jobs() + self._deploy_rename_jobs()
@@ -376,7 +377,7 @@ class AirflowJobDeployment:
             if not any(
                 airflow_job.id == job_id
                 for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
-            )
+            ) and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
         ]
 
     '''
@@ -460,19 +461,25 @@ class AirflowJobDeployment:
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
-        fabric_name = self._project_config.fabric_config.get_fabric(job_data.fabric_id).name
         client = self.get_airflow_client(fabric_id=job_data.fabric_id)
+
+        fabric_config = self._fabrics_config.get_fabric(job_data.fabric_id)
+        fabric_name = fabric_config.name if fabric_config is not None else None
+
+        fabric_label = get_fabric_label(fabric_name, job_data.fabric_id)
         try:
             client.upload_dag(dag_name, zipped_dag_name)
             try:
                 client.unpause_dag(dag_name)
-                log(f"{Colors.OKGREEN}Successfully un-paused dag `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
+                log(f"{Colors.OKGREEN}Successfully un-paused dag:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID)
             except Exception as e:
-                log(f"{Colors.WARNING}Failed to un-pause dag with name `{dag_name}` for job `{job_id}` and fabric `{fabric_name}`{Colors.ENDC}",
+                log(f"{Colors.FAIL}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     exception=e, step_id=self._ADD_JOBS_STEP_ID)
 
-            log(f"{Colors.OKGREEN}Successfully added job `{dag_name}` for job_id `{job_id}` on fabric `{fabric_name}`{Colors.ENDC}",
+                return Either(left=e)
+
+            log(f"{Colors.OKGREEN}Successfully added job:{dag_name} for job_id:{job_id} on fabric:{fabric_label}{Colors.ENDC}",
                 step_id=self._ADD_JOBS_STEP_ID)
 
             job_info = JobInfo.create_job(job_data.name, job_id, job_data.fabric_id, dag_name,
@@ -482,7 +489,7 @@ class AirflowJobDeployment:
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.CREATED))
         except Exception as e:
-            log(f"{Colors.FAIL}Failed to upload_dag for job_id:`{job_id}` with dag_name `{dag_name}`{Colors.ENDC}", e,
+            log(f"{Colors.FAIL}Failed to upload_dag for job_id:{job_id} with dag_name {dag_name}{Colors.ENDC}", e,
                 step_id=self._ADD_JOBS_STEP_ID)
             return Either(left=e)
 
