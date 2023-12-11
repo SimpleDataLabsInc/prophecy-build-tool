@@ -195,4 +195,21 @@ class ProjectDeployment:
             raise Exception("Airflow jobs deployment failed.")
 
         log(f"\n\n{Colors.OKCYAN}Deployment completed successfully.\n{Colors.ENDC}")
+
+        if self.project_config.migrate:
+            log(f"\n\n{Colors.OKCYAN}Migrating project to new version.\n{Colors.ENDC}")
+            fabric_config_str = yaml.dump(data=remove_null_items_recursively(self.project_config.fabric_config.dict()))
+            system_config_str = yaml.dump(data=remove_null_items_recursively(self.project_config.system_config.dict()))
+            config_override_str = yaml.dump(
+                data=remove_null_items_recursively(self.project_config.configs_override.dict()))
+
+            with open(os.path.join(os.getcwd(), "fabric.yaml"), 'w') as file:
+                file.write(fabric_config_str)
+
+            with open(os.path.join(os.getcwd(), "system.yaml"), 'w') as file:
+                file.write(system_config_str)
+
+            with open(os.path.join(os.getcwd(), "override.yaml"), 'w') as file:
+                file.write(config_override_str)
+
         return databricks_responses + airflow_responses

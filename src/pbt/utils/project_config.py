@@ -378,24 +378,24 @@ class SystemConfig(BaseModel):
         return SystemConfig()
 
 
-def load_jobs_state(job_state_path: str):
-    if job_state_path is not None and len(job_state_path) > 0:
+def load_jobs_state(job_state_path: str, is_based_on_file: bool):
+    if job_state_path is not None and len(job_state_path) > 0 and is_based_on_file:
         with open(job_state_path, "r") as job_state:
             return parse_yaml_raw_as(JobsState, job_state.read())
     else:
         raise ConfigFileNotFoundException("Job state config path is not provided")
 
 
-def load_system_config(system_config_path: str):
-    if system_config_path is not None and len(system_config_path) > 0:
+def load_system_config(system_config_path: str, is_based_on_file: bool):
+    if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file:
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
     else:
         raise ConfigFileNotFoundException("System config path is not provided")
 
 
-def load_configs_override(configs_override_path):
-    if configs_override_path is not None and len(configs_override_path) > 0:
+def load_configs_override(configs_override_path, is_based_on_file: bool):
+    if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file:
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
     else:
@@ -412,19 +412,23 @@ def load_fabric_config(fabric_config_path):
 
 class ProjectConfig:
     def __init__(self, jobs_state: JobsState, fabric_config: FabricConfig, system_config: SystemConfig,
-                 config_override: ConfigsOverride, based_on_file: bool = True, skip_builds: bool = False):
+                 config_override: ConfigsOverride, based_on_file: bool = True, skip_builds: bool = False,
+                 migrate: bool = False, conf_folder: str = ""):
         self.jobs_state = jobs_state
         self.fabric_config = fabric_config
         self.system_config = system_config
         self.configs_override = config_override
         self.based_on_file = based_on_file
         self.skip_builds = skip_builds
+        self.migrate = migrate
+        self.conf_folder = conf_folder
 
     @staticmethod
     def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
-                  fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool, conf_folder: str):
+                  fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool, conf_folder: str,
+                  migrate: bool):
 
-        is_based_on_file = conf_folder == "" and len(conf_folder) > 0
+        is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
         if is_online_mode() and len(conf_folder) > 0:
             jobs = load_jobs_state(job_state_path)
@@ -455,13 +459,13 @@ class ProjectConfig:
 
             # jobs
             try:
-                jobs = load_jobs_state(job_state_path)
+                jobs = load_jobs_state(job_state_path, is_based_on_file)
             except ConfigFileNotFoundException:
                 jobs = JobsState.empty()
 
                 # system
             try:
-                system = load_system_config(system_config_path)
+                system = load_system_config(system_config_path, is_based_on_file)
             except ConfigFileNotFoundException:
                 # system
                 system = SystemConfig.empty()
@@ -470,7 +474,7 @@ class ProjectConfig:
 
             # configs
             try:
-                configs = load_configs_override(configs_override_path)
+                configs = load_configs_override(configs_override_path, is_based_on_file)
                 configs.filter_jobs(job_ids)
                 jobs.filter_provided_jobs(job_ids)
             except ConfigFileNotFoundException:
@@ -482,11 +486,12 @@ class ProjectConfig:
                     configs.mode = DeploymentMode.SelectiveJob
 
             return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file=is_based_on_file,
-                                 skip_builds=skip_build)
+                                 skip_builds=skip_build, migrate=migrate)
 
     # best used when invoking from execution.
     @classmethod
-    def from_conf_folder(cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool):
+    def from_conf_folder(cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool,
+                         migrate: bool):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
         config_override = os.path.join(conf_folder, "override.yml")
@@ -494,7 +499,7 @@ class ProjectConfig:
 
         return ProjectConfig.from_path(project, jobs_state, system_config, config_override, fabric_config, fabric_ids,
                                        job_ids,
-                                       skip_builds, conf_folder)
+                                       skip_builds, conf_folder, migrate)
 
 
 def await_futures_and_update_states(futures: List[Future], step_id: str):
