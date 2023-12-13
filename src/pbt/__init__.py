@@ -220,6 +220,7 @@ def deploy(
 @click.option(
     "--migrate",
     default=False,
+    is_flag=True,
     help="Migrate v1 to v2 based project",
     required=False
 )
