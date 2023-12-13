@@ -177,8 +177,10 @@ class ProjectDeployment:
 
         new_state_config.update_state(databricks_responses + airflow_responses)
 
+        path = os.path.join(os.getcwd(), ".pbt")
+
         if self.project_config.based_on_file:
-            path = os.path.join(os.getcwd(), NEW_JOB_STATE_FILE)
+            path = os.path.join(path, NEW_JOB_STATE_FILE)
             yaml_str = yaml.dump(data=remove_null_items_recursively(new_state_config.dict()))
 
             with open(path, 'w') as file:
@@ -197,19 +199,19 @@ class ProjectDeployment:
         log(f"\n\n{Colors.OKCYAN}Deployment completed successfully.\n{Colors.ENDC}")
 
         if self.project_config.migrate:
-            log(f"\n\n{Colors.OKCYAN}Migrating project to new version.\n{Colors.ENDC}")
+            log(f"\n\n{Colors.OKCYAN} Migrating project to new version. \n{Colors.ENDC}")
             fabric_config_str = yaml.dump(data=remove_null_items_recursively(self.project_config.fabric_config.dict()))
             system_config_str = yaml.dump(data=remove_null_items_recursively(self.project_config.system_config.dict()))
             config_override_str = yaml.dump(
                 data=remove_null_items_recursively(self.project_config.configs_override.dict()))
 
-            with open(os.path.join(os.getcwd(), "fabric.yaml"), 'w') as file:
+            with open(os.path.join(path, "fabric.yaml"), 'w') as file:
                 file.write(fabric_config_str)
 
-            with open(os.path.join(os.getcwd(), "system.yaml"), 'w') as file:
+            with open(os.path.join(path, "system.yaml"), 'w') as file:
                 file.write(system_config_str)
 
-            with open(os.path.join(os.getcwd(), "override.yaml"), 'w') as file:
+            with open(os.path.join(path, "override.yaml"), 'w') as file:
                 file.write(config_override_str)
 
         return databricks_responses + airflow_responses
