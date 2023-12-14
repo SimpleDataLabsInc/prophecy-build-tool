@@ -177,13 +177,13 @@ class ProjectDeployment:
 
         new_state_config.update_state(databricks_responses + airflow_responses)
 
-        path = os.path.join(os.getcwd(), ".pbt")
+        base_path = os.path.join(os.getcwd(), ".pbt")
 
-        if not os.path.exists(path):
-            os.makedirs(path)
-            
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+
         if self.project_config.based_on_file:
-            path = os.path.join(path, NEW_JOB_STATE_FILE)
+            path = os.path.join(base_path, NEW_JOB_STATE_FILE)
             yaml_str = yaml.dump(data=remove_null_items_recursively(new_state_config.dict()))
 
             with open(path, 'w') as file:
@@ -211,19 +211,19 @@ class ProjectDeployment:
                 config_override_str = yaml.dump(
                     data=remove_null_items_recursively(self.project_config.configs_override.dict()))
 
-                with open(os.path.join(path, "fabric.yaml"), 'w') as file:
+                with open(os.path.join(base_path, "fabric.yaml"), 'w') as file:
                     file.write(fabric_config_str)
 
-                with open(os.path.join(path, "system.yaml"), 'w') as file:
+                with open(os.path.join(base_path, "system.yaml"), 'w') as file:
                     file.write(system_config_str)
 
-                with open(os.path.join(path, "override.yaml"), 'w') as file:
+                with open(os.path.join(base_path, "override.yaml"), 'w') as file:
                     file.write(config_override_str)
 
                 log(f"\n\n{Colors.OKCYAN}Successfully migrated project to new version.\n{Colors.ENDC}")
             except Exception as e:
                 log(f"\n\n{Colors.FAIL}Failed to migrate project to new version.\n{Colors.ENDC}", e)
-                if os.path.isdir(path):
-                    os.rmdir(path)
+                if os.path.isdir(base_path):
+                    os.rmdir(base_path)
 
         return databricks_responses + airflow_responses
