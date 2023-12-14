@@ -199,19 +199,28 @@ class ProjectDeployment:
         log(f"\n\n{Colors.OKCYAN}Deployment completed successfully.\n{Colors.ENDC}")
 
         if self.project_config.migrate:
-            log(f"\n\n{Colors.OKCYAN} Migrating project to new version. \n{Colors.ENDC}")
-            fabric_config_str = yaml.dump(data=remove_null_items_recursively(self.project_config.fabric_config.dict()))
-            system_config_str = yaml.dump(data=remove_null_items_recursively(self.project_config.system_config.dict()))
-            config_override_str = yaml.dump(
-                data=remove_null_items_recursively(self.project_config.configs_override.dict()))
+            log(f"\n\n{Colors.OKCYAN}Migrating project to new version. \n{Colors.ENDC}")
+            try:
+                fabric_config_str = yaml.dump(
+                    data=remove_null_items_recursively(self.project_config.fabric_config.dict()))
+                system_config_str = yaml.dump(
+                    data=remove_null_items_recursively(self.project_config.system_config.dict()))
+                config_override_str = yaml.dump(
+                    data=remove_null_items_recursively(self.project_config.configs_override.dict()))
 
-            with open(os.path.join(path, "fabric.yaml"), 'w') as file:
-                file.write(fabric_config_str)
+                with open(os.path.join(path, "fabric.yaml"), 'w') as file:
+                    file.write(fabric_config_str)
 
-            with open(os.path.join(path, "system.yaml"), 'w') as file:
-                file.write(system_config_str)
+                with open(os.path.join(path, "system.yaml"), 'w') as file:
+                    file.write(system_config_str)
 
-            with open(os.path.join(path, "override.yaml"), 'w') as file:
-                file.write(config_override_str)
+                with open(os.path.join(path, "override.yaml"), 'w') as file:
+                    file.write(config_override_str)
+
+                log(f"\n\n{Colors.OKCYAN}Successfully migrated project to new version.\n{Colors.ENDC}")
+            except Exception as e:
+                log(f"\n\n{Colors.FAIL}Failed to migrate project to new version.\n{Colors.ENDC}", e)
+                if os.path.isdir(path):
+                    os.rmdir(path)
 
         return databricks_responses + airflow_responses
