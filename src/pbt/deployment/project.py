@@ -179,6 +179,9 @@ class ProjectDeployment:
 
         path = os.path.join(os.getcwd(), ".pbt")
 
+        if not os.path.exists(path):
+            os.makedirs(path)
+            
         if self.project_config.based_on_file:
             path = os.path.join(path, NEW_JOB_STATE_FILE)
             yaml_str = yaml.dump(data=remove_null_items_recursively(new_state_config.dict()))
