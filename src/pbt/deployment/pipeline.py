@@ -150,7 +150,7 @@ class PipelineDeployment:
             else:
                 workflow_json = json.loads(workflow)
                 if "diagnostics" in workflow_json:
-                    diagnostics = workflow["diagnostics"]
+                    diagnostics = workflow_json["diagnostics"]
                     for diagnostic in diagnostics:
                         if diagnostic.get("severity") == 1:
                             log(f"\n{Colors.FAIL} {pipeline_name}: {diagnostic.get('message')}{Colors.ENDC}")

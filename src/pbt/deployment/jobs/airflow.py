@@ -95,6 +95,7 @@ class AirflowJob(JobData, ABC):
     @property
     def is_valid_job(self):
         prophecy_job_yaml_dict = self.prophecy_job_json_dict
+
         return self.job_pbt is not None and self.prophecy_job_yaml is not None and self.rdc is not None and \
             prophecy_job_yaml_dict.get('metainfo', {}).get('fabricId', None) is not None
 

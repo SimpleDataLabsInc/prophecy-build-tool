@@ -182,7 +182,7 @@ class ProjectDeployment:
         if not os.path.exists(base_path):
             os.makedirs(base_path)
 
-        if self.project_config.based_on_file:
+        if self.project_config.based_on_file or self.project_config.migrate:
             path = os.path.join(base_path, NEW_JOB_STATE_FILE)
             yaml_str = yaml.dump(data=remove_null_items_recursively(new_state_config.dict()))
 
