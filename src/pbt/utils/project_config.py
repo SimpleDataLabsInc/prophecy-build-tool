@@ -378,7 +378,7 @@ class SystemConfig(BaseModel):
         return SystemConfig()
 
 
-def load_jobs_state(job_state_path: str, is_based_on_file: bool):
+def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
     if job_state_path is not None and len(job_state_path) > 0 and is_based_on_file:
         with open(job_state_path, "r") as job_state:
             return parse_yaml_raw_as(JobsState, job_state.read())
@@ -386,7 +386,7 @@ def load_jobs_state(job_state_path: str, is_based_on_file: bool):
         raise ConfigFileNotFoundException("Job state config path is not provided")
 
 
-def load_system_config(system_config_path: str, is_based_on_file: bool):
+def load_system_config(system_config_path: str, is_based_on_file: bool = True):
     if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file:
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
@@ -394,7 +394,7 @@ def load_system_config(system_config_path: str, is_based_on_file: bool):
         raise ConfigFileNotFoundException("System config path is not provided")
 
 
-def load_configs_override(configs_override_path, is_based_on_file: bool):
+def load_configs_override(configs_override_path, is_based_on_file: bool = True):
     if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file:
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
