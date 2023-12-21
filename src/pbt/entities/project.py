@@ -27,7 +27,7 @@ def is_cross_project_pipeline(pipeline):
         return None, None, None
 
 
-def _read_file_content(file_path: str) -> str:
+def _read_file_content(file_path: str) -> Optional[str]:
     if not os.path.exists(file_path):
         return None
 
