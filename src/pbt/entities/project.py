@@ -28,6 +28,10 @@ def is_cross_project_pipeline(pipeline):
 
 
 def _read_file_content(file_path: str) -> str:
+    if not os.path.exists(file_path):
+        return None
+
+        # If the file exists, read its content
     with open(file_path, 'r') as file:
         content = file.read()
         return content

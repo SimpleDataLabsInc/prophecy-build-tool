@@ -95,6 +95,7 @@ class AirflowJob(JobData, ABC):
     @property
     def is_valid_job(self):
         prophecy_job_yaml_dict = self.prophecy_job_json_dict
+
         return self.job_pbt is not None and self.prophecy_job_yaml is not None and self.rdc is not None and \
             prophecy_job_yaml_dict.get('metainfo', {}).get('fabricId', None) is not None
 
@@ -250,8 +251,12 @@ class AirflowJobDeployment:
 
         for job_id, parsed_job in self._project.jobs.items():
 
-            fabric_override = str(self.deployment_run_override_config.find_fabric_override_for_job(job_id))
-            job_fabric = str(parsed_job.get('fabricUID', None))
+            fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
+            fabric_override = str(fabric_override) if fabric_override is not None else None
+
+            job_fabric = parsed_job.get('fabricUID', None)
+            job_fabric = str(job_fabric) if job_fabric is not None else None
+
             does_fabric_exist = self._fabrics_config.get_fabric(
                 job_fabric) is not None or self._fabrics_config.get_fabric(fabric_override) is not None
 

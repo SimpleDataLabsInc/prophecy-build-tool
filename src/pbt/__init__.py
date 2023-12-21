@@ -217,6 +217,13 @@ def deploy(
     help="Dependent projects path",
     required=False
 )
+@click.option(
+    "--migrate",
+    default=False,
+    is_flag=True,
+    help="Migrate v1 to v2 based project",
+    required=False
+)
 def deploy_v2(path: str,
               project_id: str,
               conf_dir: Optional[str],
@@ -224,10 +231,9 @@ def deploy_v2(path: str,
               release_version: str,
               fabric_ids: str,
               job_ids: str,
-              skip_builds: bool, dependent_projects_path: str):
-
+              skip_builds: bool, dependent_projects_path: str, migrate: bool):
     pbt = PBTCli.from_conf_folder(path, project_id, conf_dir, release_tag, release_version, fabric_ids, job_ids,
-                                  skip_builds, dependent_projects_path)
+                                  skip_builds, dependent_projects_path, migrate)
     if is_online_mode():
         pbt.headers()
     pbt.deploy([])

@@ -206,8 +206,12 @@ class DatabricksJobsDeployment:
         skipping_jobs = {}
         for job_id, pbt_job_json in self.project.jobs.items():
 
-            fabric_override = str(self.deployment_run_override_config.find_fabric_override_for_job(job_id))
-            job_fabric = str(pbt_job_json.get('fabricUID', None))
+            fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
+            fabric_override = str(fabric_override) if fabric_override is not None else None
+
+            job_fabric = pbt_job_json.get('fabricUID', None)
+            job_fabric = str(job_fabric) if job_fabric is not None else None
+
             does_fabric_exist = self.fabric_configs.get_fabric(
                 job_fabric) is not None or self.fabric_configs.get_fabric(fabric_override) is not None
 
