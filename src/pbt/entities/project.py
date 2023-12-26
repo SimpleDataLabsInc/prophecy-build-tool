@@ -368,4 +368,4 @@ class DependentProjectAPP(DependentProject, ABC):
             path = ".prophecy/{}".format(pid)
             return Project(path, pid).load_pipeline_folder(path)
         else:
-            return None
+            return {}

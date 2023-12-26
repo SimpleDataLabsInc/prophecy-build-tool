@@ -71,7 +71,7 @@ class MWAARestClient(AirflowRestClient, ABC):
            reraise=True)
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
-        dag_list = json.loads(response)
+        dag_list = self._extract_and_load_list_json(response)
         dag = next((dag for dag in dag_list if dag['dag_id'] == dag_id and dag['paused'] is not None), None)
 
         if dag is not None:
@@ -130,6 +130,20 @@ class MWAARestClient(AirflowRestClient, ABC):
             return match.group(1)  # Return the captured group
         else:
             raise ValueError(f"No match found for {self.dag_s3_path}")
+
+
+    def _extract_and_load_list_json(self, data):
+        # Using regular expression to find the JSON part
+        match = re.search(r'\[.*\]', data)
+        if match:
+            json_part = match.group()
+            try:
+                # Parsing the JSON part
+                return json.loads(json_part)
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON: {e}")
+        else:
+            print("No JSON found in the data")
 
 
 class ExpiringValue:
