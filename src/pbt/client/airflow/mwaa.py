@@ -9,7 +9,7 @@ import requests
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
 
 from . import AirflowRestClient
-from ...utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException
+from ...utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException, DagListParsingFailedException
 from ...utils.project_models import DAG
 
 
@@ -65,13 +65,15 @@ class MWAARestClient(AirflowRestClient, ABC):
             self.aws_s3_client.upload_file(file_path, self._source_bucket, relative_path)
         except Exception as e:
             print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
-            raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
+            raise DagUploadFailedException(
+                f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(7), wait=wait_fixed(15),
+    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(7),
+           wait=wait_fixed(15),
            reraise=True)
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
-        dag_list = json.loads(response)
+        dag_list = self._extract_and_load_list_json(response)
         dag = next((dag for dag in dag_list if dag['dag_id'] == dag_id and dag['paused'] is not None), None)
 
         if dag is not None:
@@ -130,6 +132,21 @@ class MWAARestClient(AirflowRestClient, ABC):
             return match.group(1)  # Return the captured group
         else:
             raise ValueError(f"No match found for {self.dag_s3_path}")
+
+    def _extract_and_load_list_json(self, data):
+        # Using regular expression to find the JSON part
+        match = re.search(r'\[.*\]', data)
+        if match:
+            json_part = match.group()
+            try:
+                # Parsing the JSON part
+                return json.loads(json_part)
+            except json.JSONDecodeError as e:
+                print(f"Error decoding JSON: {e}")
+                raise DagListParsingFailedException(f"Error decoding JSON: {e}", e)
+        else:
+            print("No JSON found in the data")
+            raise DagListParsingFailedException("No JSON data found in dag listing")
 
 
 class ExpiringValue:

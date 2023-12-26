@@ -20,6 +20,13 @@ class DagUploadFailedException(PBTException):
         self.e = e
 
 
+class DagListParsingFailedException(PBTException):
+
+    def __init__(self, message, e):
+        self.message = message
+        self.e = e
+
+
 class ProjectPathNotFoundException(PBTException):
     def __init__(self, message):
         self.message = message

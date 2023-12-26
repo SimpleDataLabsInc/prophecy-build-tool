@@ -219,7 +219,7 @@ class PipelineDeployment:
 
             code = self.project.load_pipeline_folder(pipeline_id)
 
-            if (code is None or len(code) == 0) and ignore_parse_errors:
+            if (len(code) == 0) and ignore_parse_errors:
                 log(f"{Colors.WARNING}Pipeline `{pipeline_name}` code is not present {Colors.ENDC}", indent=2)
                 pass
 
