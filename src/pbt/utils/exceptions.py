@@ -20,7 +20,7 @@ class DagUploadFailedException(PBTException):
         self.e = e
 
 
-class DagListParsingtFailedException(PBTException):
+class DagListParsingFailedException(PBTException):
 
     def __init__(self, message, e):
         self.message = message

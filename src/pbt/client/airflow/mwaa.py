@@ -9,7 +9,7 @@ import requests
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
 
 from . import AirflowRestClient
-from ...utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException, DagListParsingtFailedException
+from ...utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException, DagListParsingFailedException
 from ...utils.project_models import DAG
 
 
@@ -143,10 +143,10 @@ class MWAARestClient(AirflowRestClient, ABC):
                 return json.loads(json_part)
             except json.JSONDecodeError as e:
                 print(f"Error decoding JSON: {e}")
-                raise DagListParsingtFailedException(f"Error decoding JSON: {e}", e)
+                raise DagListParsingFailedException(f"Error decoding JSON: {e}", e)
         else:
             print("No JSON found in the data")
-            raise DagListParsingtFailedException("No JSON data found in dag listing")
+            raise DagListParsingFailedException("No JSON data found in dag listing")
 
 
 class ExpiringValue:
