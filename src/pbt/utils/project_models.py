@@ -232,4 +232,4 @@ class DAG:
         is_paused = response.get('paused', None)
         owner = response.get('owner', None)
         owners = [] if owner is None else ([owner] if isinstance(owner, str) else owner)
-        return DAG(dag_id, fileloc=fileloc, is_paused = is_paused is None or bool(is_paused), owners = owners)
+        return DAG(dag_id, fileloc=fileloc, is_paused=is_paused is None or bool(is_paused), owners=owners)
