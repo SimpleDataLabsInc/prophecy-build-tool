@@ -221,7 +221,12 @@ class Project:
                 config_name = pipeline_config_object[CONFIGURATIONS][configurations_key]["name"]
                 file_path = os.path.join(self.project_path, configurations_key + JSON_EXTENSION)
 
-                configurations[config_name] = _read_file_content(file_path)
+                config = _read_file_content(file_path)
+
+                # in case of empty config file, we will skip it
+                if config is not None:
+                    configurations[config_name] = config
+
             pipeline_configurations[pipeline_config_object[BASE_PIPELINE]] = configurations
 
         return pipeline_configurations
@@ -345,27 +350,28 @@ class DependentProjectAPP(DependentProject, ABC):
     def __init__(self, path: str, main_project: Project):
         self.path = path
         self.project = main_project
+        self.base_path = self.project.project_path
 
     def get_py_pipeline_main_file(self, pipeline_id) -> Optional[str]:
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         if pid is not None:
-            path = ".prophecy/{}/{}".format(pid, path)
-            return self.project.load_main_file(path)
+            base_path = "{}/.prophecy/{}/{}".format(self.base_path, pid, path)
+            return self.project.load_main_file(base_path)
         else:
             return None
 
     def get_pipeline_name(self, pipeline_id: str) -> Optional[str]:
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         if pid is not None:
-            path = ".prophecy/{}".format(pid)
-            return Project(path, pid).get_pipeline_name(path)
+            base_path = "{}/.prophecy/{}".format(self.base_path, pid)
+            return Project(base_path, pid).get_pipeline_name(path)
         else:
             return None
 
     def load_pipeline_folder(self, pipeline_id: str):
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         if pid is not None:
-            path = ".prophecy/{}".format(pid)
-            return Project(path, pid).load_pipeline_folder(path)
+            base_path = "{}/.prophecy/{}".format(self.base_path, pid)
+            return Project(base_path, pid).load_pipeline_folder(path)
         else:
             return {}

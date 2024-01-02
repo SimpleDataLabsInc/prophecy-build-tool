@@ -278,10 +278,11 @@ class DatabricksJobsDeployment:
         }
 
     def _delete_jobs(self) -> Dict[str, JobInfo]:
+        all_jobs = {**self.valid_databricks_jobs, **self._databricks_jobs_without_code}
         return {
             job.id: job for job in self.deployment_state.databricks_jobs
             if not any(job.id == job_id for job_id in
-                       self.valid_databricks_jobs.keys())
+                       all_jobs.keys())
         }
 
     '''Deploy Jobs '''

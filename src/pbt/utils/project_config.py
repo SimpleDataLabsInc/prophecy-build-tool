@@ -229,7 +229,7 @@ class FabricConfig(BaseModel):
 
 
 class JobsState(BaseModel):
-    version: str
+    version: str = "1.0"
     jobs: List[JobInfo] = []
 
     @staticmethod
