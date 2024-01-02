@@ -4,7 +4,7 @@ import hashlib
 import os
 import zipfile
 from abc import ABC
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional, List
 
 import yaml
@@ -349,12 +349,7 @@ class AirflowJobDeployment:
             for job_info in self._list_remove_jobs():
                 futures.append(executor.submit(lambda j_info=job_info: self._remove_job(j_info)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_state(responses, self._operation_to_step_id[Operation.Remove])
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Remove])
 
     def _remove_job(self, job_info: JobInfo):
         client = self.get_airflow_client(job_info.fabric_id)
@@ -376,12 +371,12 @@ class AirflowJobDeployment:
      '''
 
     def _jobs_to_be_deleted(self) -> List[JobInfo]:
-
+        all_jobs = {**self.valid_airflow_jobs, **self._invalid_airflow_jobs, **self._airflow_jobs_without_code}
         return [
             airflow_job for airflow_job in self._jobs_state.airflow_jobs
             if not any(
                 airflow_job.id == job_id
-                for job_id in list(self.valid_airflow_jobs.keys())  # check from available valid airflow jobs.
+                for job_id in list(all_jobs.keys())  # check from available airflow jobs.
             ) and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
         ]
 
@@ -455,12 +450,7 @@ class AirflowJobDeployment:
             for job_id, job_data in self._add_jobs().items():
                 futures.append(executor.submit(lambda j_id=job_id, j_data=job_data: self._add_job(j_id, j_data)))
 
-        responses = []
-        for future in as_completed(futures):
-            responses.append(future.result())
-
-        update_state(responses, self._operation_to_step_id[Operation.Add])
-        return responses
+        return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Add])
 
     def _add_job(self, job_id, job_data):
         dag_name = job_data.dag_name
