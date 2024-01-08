@@ -192,9 +192,9 @@ class PipelineDeployment:
 
     def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
         # these can be names and ids.
-        all_pipelines = self._pipeline_to_list_fabrics_full_deployment.keys()
-        pipeline_ids_to_name = {self.project.get_pipeline_id(pipeline_name): pipeline_name for pipeline_name in
-                                all_pipelines if self.project.get_pipeline_id(pipeline_name) is not None}
+        all_pipeline_ids = self._pipeline_to_list_fabrics_full_deployment.keys()
+        pipeline_ids_to_name = {pipeline_id: self.project.get_pipeline_name(pipeline_id) for pipeline_id in
+                                all_pipeline_ids if self.project.get_pipeline_name(pipeline_id) is not None}
 
         if pipeline_names is not None and len(pipeline_names) > 0:
             pipelines_set = {pipeline for pipeline in pipeline_names.split(",")}
