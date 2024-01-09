@@ -434,7 +434,7 @@ class PackageBuilderAndUploader:
         return self._build(command)
 
     def wheel_test(self):
-        separator = {os.sep}
+        separator = os.sep
         test_command = ["python3", "-m", "pytest", "-v", f"{self._base_path}{separator}test{separator}TestSuite.py"]
         log(f"Running python test {test_command}", step_id=self._pipeline_id, indent=2)
         response_code = self._build(test_command)
