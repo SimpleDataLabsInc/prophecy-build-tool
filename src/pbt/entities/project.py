@@ -30,7 +30,6 @@ def is_cross_project_pipeline(pipeline):
 def _read_file_content(file_path: str) -> Optional[str]:
     if not os.path.exists(file_path):
         return None
-
         # If the file exists, read its content
     with open(file_path, 'r') as file:
         content = file.read()
@@ -175,6 +174,19 @@ class Project:
         rdc = {}
 
         for dir_path, dir_names, filenames in os.walk(base_path):
+
+            # Add resources to RDC
+            if 'resources' in dir_names:
+                resource_dir_path = os.path.join(dir_path, 'resources')
+                for resource_subdir_path, _, resource_filenames in os.walk(resource_dir_path):
+                    for resource_filename in resource_filenames:
+                        resource_full_path = os.path.join(resource_subdir_path, resource_filename)
+                        resource_content = _read_file_content(resource_full_path)
+                        if resource_content is not None:
+                            relative_path = os.path.relpath(resource_full_path, base_path)
+                            rdc[relative_path] = resource_content
+
+            # Add generated code to RDC
             for filename in filenames:
                 if filename.endswith(('.py', '.json', '.conf', '.scala', 'pom.xml')):
                     full_path = os.path.join(dir_path, filename)
