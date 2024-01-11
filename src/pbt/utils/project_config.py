@@ -1,5 +1,7 @@
+import copy
 import enum
 import os
+import re
 from asyncio import Future
 from concurrent.futures import as_completed
 from typing import List, Optional
@@ -116,6 +118,10 @@ class MwaaInfo(BaseModel):
     environment_name: str
 
 
+# catpure the group.
+pattern = r"{{(\w+)}}"
+
+
 class DatabricksInfo(BaseModel):
     url: str
     token: str
@@ -123,6 +129,15 @@ class DatabricksInfo(BaseModel):
     @staticmethod
     def create(host: str, token: str):
         return DatabricksInfo(url=host, token=token)
+
+    def resolve(self):
+        url_match = re.match(pattern, self.url)
+        if url_match:
+            self.url = os.environ[url_match.group(1)]
+
+        token_match = re.match(pattern, self.token)
+        if token_match:
+            self.token = os.environ[token_match.group(1)]
 
 
 class FabricInfo(BaseModel):
@@ -140,6 +155,12 @@ class FabricInfo(BaseModel):
     def create_db_fabric(id: str, host: str, token: str):
         return FabricInfo(id=id, name="", type=FabricType.Spark, provider=FabricProviderType.Databricks,
                           databricks=DatabricksInfo.create(host, token))
+
+    def resolve(self):
+        if self.databricks is not None:
+            self.databricks.resolve()
+
+        return self
 
 
 class JobInfo(BaseModel):
@@ -182,6 +203,10 @@ class ProjectAndGitTokens(BaseModel):
 class FabricConfig(BaseModel):
     fabrics: List[FabricInfo] = []
     project_git_tokens: List[ProjectAndGitTokens] = []
+
+    def resolve_env_vars(self):
+        self.fabrics = [fabric.resolve() for fabric in self.fabrics]
+        return self
 
     def get_fabric(self, fabric_id: str) -> Optional[FabricInfo]:
         return next((fabric for fabric in self.fabrics if fabric.id == fabric_id), None)
@@ -379,7 +404,7 @@ class SystemConfig(BaseModel):
 
 
 def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
-    if job_state_path is not None and len(job_state_path) > 0 and is_based_on_file:
+    if job_state_path is not None and len(job_state_path) > 0 and is_based_on_file and os.path.exists(job_state_path):
         with open(job_state_path, "r") as job_state:
             return parse_yaml_raw_as(JobsState, job_state.read())
     else:
@@ -387,7 +412,7 @@ def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
 
 
 def load_system_config(system_config_path: str, is_based_on_file: bool = True):
-    if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file:
+    if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file and os.path.exists(system_config_path):
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
     else:
@@ -395,7 +420,7 @@ def load_system_config(system_config_path: str, is_based_on_file: bool = True):
 
 
 def load_configs_override(configs_override_path, is_based_on_file: bool = True):
-    if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file:
+    if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file and os.path.exists(configs_override_path):
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
     else:
@@ -403,7 +428,7 @@ def load_configs_override(configs_override_path, is_based_on_file: bool = True):
 
 
 def load_fabric_config(fabric_config_path):
-    if fabric_config_path is not None and len(fabric_config_path) > 0:
+    if fabric_config_path is not None and len(fabric_config_path) > 0 and os.path.exists(fabric_config_path):
         with open(fabric_config_path, "r") as fabric_config:
             return parse_yaml_raw_as(FabricConfig, fabric_config.read())
     else:
@@ -415,13 +440,14 @@ class ProjectConfig:
                  config_override: ConfigsOverride, based_on_file: bool = True, skip_builds: bool = False,
                  migrate: bool = False, conf_folder: str = ""):
         self.jobs_state = jobs_state
-        self.fabric_config = fabric_config
         self.system_config = system_config
         self.configs_override = config_override
         self.based_on_file = based_on_file
         self.skip_builds = skip_builds
         self.migrate = migrate
         self.conf_folder = conf_folder
+        self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
+        self.fabric_config = fabric_config.resolve_env_vars()
 
     @staticmethod
     def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
