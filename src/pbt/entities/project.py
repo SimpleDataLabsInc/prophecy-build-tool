@@ -277,14 +277,14 @@ class Project:
     def find_customer_name(self) -> str:
         path = self._find_path()
         if path is not None:
-            return path.split("/")[5]
+            return path.split("/")[4]
         else:
             return "dev"
 
     def find_control_plane_name(self):
         path = self._find_path()
         if path is not None:
-            return path.split("/")[6]
+            return path.split("/")[5]
         else:
             return "execution"
 
