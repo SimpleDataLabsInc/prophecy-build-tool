@@ -211,13 +211,13 @@ class ProjectDeployment:
                 config_override_str = yaml.dump(
                     data=remove_null_items_recursively(self.project_config.configs_override.dict()))
 
-                with open(os.path.join(base_path, "fabric.yaml"), 'w') as file:
+                with open(os.path.join(base_path, "fabrics.yml"), 'w') as file:
                     file.write(fabric_config_str)
 
-                with open(os.path.join(base_path, "system.yaml"), 'w') as file:
+                with open(os.path.join(base_path, "system.yml"), 'w') as file:
                     file.write(system_config_str)
 
-                with open(os.path.join(base_path, "override.yaml"), 'w') as file:
+                with open(os.path.join(base_path, "override.yml"), 'w') as file:
                     file.write(config_override_str)
 
                 log(f"\n\n{Colors.OKCYAN}Successfully migrated project to new version.\n{Colors.ENDC}")
