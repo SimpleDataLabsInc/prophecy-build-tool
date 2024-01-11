@@ -205,7 +205,7 @@ class ProjectDeployment:
             log(f"\n\n{Colors.OKCYAN}Migrating project to new version. \n{Colors.ENDC}")
             try:
                 fabric_config_str = yaml.dump(
-                    data=remove_null_items_recursively(self.project_config.fabric_config.dict()))
+                    data=remove_null_items_recursively(self.project_config.fabric_config_without_conf_replace.dict()))
                 system_config_str = yaml.dump(
                     data=remove_null_items_recursively(self.project_config.system_config.dict()))
                 config_override_str = yaml.dump(
