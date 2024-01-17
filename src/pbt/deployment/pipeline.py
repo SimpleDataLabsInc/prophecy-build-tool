@@ -781,6 +781,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
         self.upload_path = f"{self.dataproc_info.bare_path_prefix()}/{self.base_path}/{self.to_path}/pipeline/{self.file_name}".lstrip(
             "/")
 
+    # Do for EMR and spark submit (HDFS) as well?
     def upload_pipeline(self, path: str):
         try:
             client = self.rest_client_factory.dataproc_client(self.fabric_name)

@@ -117,6 +117,17 @@ class MwaaInfo(BaseModel):
     dag_location: str
     environment_name: str
 
+class OpenSourceAirflow(BaseModel):
+    airflow_url: str
+    airflow_username: str
+    airflow_password: str
+    uploader_url: str
+    uploader_username: str
+    uploader_password: str
+    dag_location: str
+    location: str
+
+
 
 # catpure the group.
 pattern = r"{{(\w+)}}"
@@ -147,6 +158,7 @@ class FabricInfo(BaseModel):
     provider: Optional[FabricProviderType]  # composer/mwaa/prophecy/databricks/dataproc
     composer: Optional[ComposerInfo] = None
     mwaa: Optional[MwaaInfo] = None
+    airflow_oss: Optional[OpenSourceAirflow] = None
     databricks: Optional[DatabricksInfo] = None
     emr: Optional[EMRInfo] = None
     dataproc: Optional[DataprocInfo] = None

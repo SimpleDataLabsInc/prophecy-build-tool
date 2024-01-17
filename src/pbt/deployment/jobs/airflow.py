@@ -769,6 +769,7 @@ class DataprocPipelineConfigurations:
 
         return await_futures_and_update_states(futures, self._STEP_ID)
 
+    # Do for EMR and spark submit (HDFS) as well?
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
         upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
         dataproc_info = fabric_info.dataproc

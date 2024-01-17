@@ -1,7 +1,8 @@
 from .composer import ComposerRestClient
 from .mwaa import MWAARestClient
-from ...utils.exceptions import UnknownAirflowProviderException, FabricNotConfiguredException
-from ...utils.project_config import ProjectConfig, FabricType, FabricProviderType
+from .open_source import OpenSourceRestClient
+from ...utils.exceptions import FabricNotConfiguredException, UnknownAirflowProviderException
+from ...utils.project_config import FabricProviderType, FabricType, ProjectConfig
 
 
 def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
@@ -11,15 +12,28 @@ def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
 
         composer = fabric_info.composer
         mwaa = fabric_info.mwaa
+        oss = fabric_info.airflow_oss
 
         if composer is not None:
 
-            return ComposerRestClient(composer.airflow_url, composer.project_id, composer.client_id,
-                                      composer.key_json, composer.dag_location)
+            return ComposerRestClient(
+                composer.airflow_url, composer.project_id, composer.client_id, composer.key_json, composer.dag_location
+            )
 
         elif mwaa is not None:
-            return MWAARestClient(mwaa.environment_name, mwaa.region, mwaa.access_key,
-                                  mwaa.secret_key)
+            return MWAARestClient(mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key)
+
+        elif oss is not None:
+            return OpenSourceRestClient(
+                oss.airflow_url,
+                oss.airflow_username,
+                oss.airflow_password,
+                oss.uploader_url,
+                oss.uploader_username,
+                oss.uploader_password,
+                oss.dag_location,
+                oss.location,
+            )
 
         else:
             raise UnknownAirflowProviderException("unknown provider")
