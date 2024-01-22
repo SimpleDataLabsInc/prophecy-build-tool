@@ -9,10 +9,10 @@ from typing import List, Optional
 from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
-from .constants import PROPHECY_ARTIFACTS, DBFS_FILE_STORE
+from .constants import DBFS_FILE_STORE, PROPHECY_ARTIFACTS
 from .exceptions import ConfigFileNotFoundException
 from .project_models import Status
-from ..deployment import OperationType, JobInfoAndOperation
+from ..deployment import JobInfoAndOperation, OperationType
 from ..entities.project import Project
 from ..utility import Either, custom_print as log, is_online_mode
 
@@ -23,6 +23,7 @@ class SchedulerType(enum.Enum):
     Databricks = "Databricks"
     Prophecy = "Prophecy"
     EMR = "EMR"
+    OpenSource = "OpenSource"
 
     @staticmethod
     def from_type(provider_type: str):
@@ -38,6 +39,7 @@ class FabricType(enum.Enum):
 class FabricProviderType(enum.Enum):
     Composer = "Composer"
     MWAA = "MWAA"
+    OpenSource = "OpenSource"
     Databricks = "Databricks"
     Prophecy = "Prophecy"
     EMR = "EMR"
@@ -117,6 +119,7 @@ class MwaaInfo(BaseModel):
     dag_location: str
     environment_name: str
 
+
 class OpenSourceAirflow(BaseModel):
     airflow_url: str
     airflow_username: str
@@ -126,7 +129,6 @@ class OpenSourceAirflow(BaseModel):
     uploader_password: str
     dag_location: str
     location: str
-
 
 
 # catpure the group.
@@ -165,8 +167,13 @@ class FabricInfo(BaseModel):
 
     @staticmethod
     def create_db_fabric(id: str, host: str, token: str):
-        return FabricInfo(id=id, name="", type=FabricType.Spark, provider=FabricProviderType.Databricks,
-                          databricks=DatabricksInfo.create(host, token))
+        return FabricInfo(
+            id=id,
+            name="",
+            type=FabricType.Spark,
+            provider=FabricProviderType.Databricks,
+            databricks=DatabricksInfo.create(host, token),
+        )
 
     def resolve(self):
         if self.databricks is not None:
@@ -189,22 +196,36 @@ class JobInfo(BaseModel):
         self.release_tag = release_tag
 
     def is_job_same_as(self, job_info) -> bool:
-        return self.external_job_id == job_info.external_job_id and self.fabric_id == job_info.fabric_id and \
-            self.id == job_info.id and self.name == job_info.name and self.type == job_info.type
+        return (
+            self.external_job_id == job_info.external_job_id
+            and self.fabric_id == job_info.fabric_id
+            and self.id == job_info.id
+            and self.name == job_info.name
+            and self.type == job_info.type
+        )
 
     def pause(self, flag: bool):
         self.is_paused = flag
 
     @staticmethod
-    def create_job(name: str, id: str, fabric_id: str, external_job_id: str, release_tag: str,
-                   is_paused: bool = False, fabric_provider_type: str = "Databricks"):
-        return JobInfo(name=name,
-                       type=SchedulerType.from_type(fabric_provider_type),
-                       id=id,
-                       fabric_id=fabric_id,
-                       external_job_id=external_job_id,
-                       release_tag=release_tag,
-                       is_paused=is_paused)
+    def create_job(
+        name: str,
+        id: str,
+        fabric_id: str,
+        external_job_id: str,
+        release_tag: str,
+        is_paused: bool = False,
+        fabric_provider_type: str = "Databricks",
+    ):
+        return JobInfo(
+            name=name,
+            type=SchedulerType.from_type(fabric_provider_type),
+            id=id,
+            fabric_id=fabric_id,
+            external_job_id=external_job_id,
+            release_tag=release_tag,
+            is_paused=is_paused,
+        )
 
 
 class ProjectAndGitTokens(BaseModel):
@@ -227,8 +248,7 @@ class FabricConfig(BaseModel):
         return self.get_fabric(fabric_id) is not None
 
     def git_token_for_project(self, project_id: str) -> Optional[str]:
-        return next((entity.git_token for entity in self.project_git_tokens if entity.project_id == project_id),
-                    None)
+        return next((entity.git_token for entity in self.project_git_tokens if entity.project_id == project_id), None)
 
     def is_prophecy_managed(self, fabric_id: str) -> bool:
         if self.get_fabric(fabric_id) is not None:
@@ -238,8 +258,9 @@ class FabricConfig(BaseModel):
         return False
 
     def is_fabric_emr_fabric(self, fabric_id: str) -> bool:
-        return any((fabric for fabric in self.fabrics if
-                    fabric.id == fabric_id and fabric.provider == FabricProviderType.EMR))
+        return any(
+            (fabric for fabric in self.fabrics if fabric.id == fabric_id and fabric.provider == FabricProviderType.EMR)
+        )
 
     def db_fabrics(self) -> List[str]:
         return [fabric.id for fabric in self.fabrics if fabric.provider == FabricProviderType.Databricks]
@@ -248,12 +269,18 @@ class FabricConfig(BaseModel):
         return fabric_id in self.db_fabrics()
 
     def emr_fabrics(self) -> List[FabricInfo]:
-        return [fabric for fabric in self.fabrics if
-                (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.EMR)]
+        return [
+            fabric
+            for fabric in self.fabrics
+            if (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.EMR)
+        ]
 
     def dataproc_fabrics(self) -> List[FabricInfo]:
-        return [fabric for fabric in self.fabrics if
-                (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)]
+        return [
+            fabric
+            for fabric in self.fabrics
+            if (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)
+        ]
 
     def list_all_fabrics(self) -> List[str]:
         return [fabric.id for fabric in self.fabrics]
@@ -287,25 +314,21 @@ class JobsState(BaseModel):
         return [job for job in self.jobs_to_process if job.type != SchedulerType.Databricks]
 
     def contains_job(self, job_id: str, fabric_uid: str) -> bool:
-        return any(
-            job.id == job_id and job.fabric_id == fabric_uid for job in self.jobs_to_process)
+        return any(job.id == job_id and job.fabric_id == fabric_uid for job in self.jobs_to_process)
 
     def all_jobs_for_id(self, job_id: str) -> List[JobInfo]:
         return [job for job in self.jobs_to_process if job.id == job_id]
 
     def job_for_id_and_fabric(self, job_id: str, fabric_id: str) -> Optional[JobInfo]:
-        return next(
-            (job for job in self.all_jobs_for_id(job_id) if job.fabric_id == fabric_id), None)
+        return next((job for job in self.all_jobs_for_id(job_id) if job.fabric_id == fabric_id), None)
 
     def filter_job(self, job_info) -> List[JobInfo]:
-        return [job for job in self.jobs if
-                not (job.id == job_info.id and job.fabric_id == job_info.fabric_id)]
+        return [job for job in self.jobs if not (job.id == job_info.id and job.fabric_id == job_info.fabric_id)]
 
     def update_state(self, jobs_responses: List[Either]):
-        filtered_response: List[JobInfoAndOperation] = [response.right for
-                                                        response
-                                                        in jobs_responses if
-                                                        response.is_right]
+        filtered_response: List[JobInfoAndOperation] = [
+            response.right for response in jobs_responses if response.is_right
+        ]
         # Important to do all operations in this order,
         # first we delete
         # then we refresh
@@ -364,10 +387,7 @@ class ConfigsOverride(BaseModel):
 
     def find_fabric_override_for_job(self, job_id: str) -> Optional[str]:
         if self.mode == DeploymentMode.SelectiveJob:
-            return next(
-                (entity.fabric_id for entity in self.jobs_and_fabric if entity.job_id == job_id),
-                None
-            )
+            return next((entity.fabric_id for entity in self.jobs_and_fabric if entity.job_id == job_id), None)
         return None
 
     def is_job_to_run(self, job_id) -> bool:
@@ -399,13 +419,13 @@ class NexusConfig(BaseModel):
 
 
 class SystemConfig(BaseModel):
-    customer_name: Optional[str] = 'dev'
-    control_plane_name: Optional[str] = 'execution'
-    prophecy_salt: Optional[str] = 'execution'
+    customer_name: Optional[str] = "dev"
+    control_plane_name: Optional[str] = "execution"
+    prophecy_salt: Optional[str] = "execution"
     nexus: Optional[NexusConfig] = None
 
     def get_dbfs_base_path(self):
-        return f'{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}'
+        return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     def get_s3_base_path(self):
         return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
@@ -424,7 +444,12 @@ def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
 
 
 def load_system_config(system_config_path: str, is_based_on_file: bool = True):
-    if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file and os.path.exists(system_config_path):
+    if (
+        system_config_path is not None
+        and len(system_config_path) > 0
+        and is_based_on_file
+        and os.path.exists(system_config_path)
+    ):
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
     else:
@@ -432,7 +457,12 @@ def load_system_config(system_config_path: str, is_based_on_file: bool = True):
 
 
 def load_configs_override(configs_override_path, is_based_on_file: bool = True):
-    if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file and os.path.exists(configs_override_path):
+    if (
+        configs_override_path is not None
+        and len(configs_override_path) > 0
+        and is_based_on_file
+        and os.path.exists(configs_override_path)
+    ):
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
     else:
@@ -448,9 +478,17 @@ def load_fabric_config(fabric_config_path):
 
 
 class ProjectConfig:
-    def __init__(self, jobs_state: JobsState, fabric_config: FabricConfig, system_config: SystemConfig,
-                 config_override: ConfigsOverride, based_on_file: bool = True, skip_builds: bool = False,
-                 migrate: bool = False, conf_folder: str = ""):
+    def __init__(
+        self,
+        jobs_state: JobsState,
+        fabric_config: FabricConfig,
+        system_config: SystemConfig,
+        config_override: ConfigsOverride,
+        based_on_file: bool = True,
+        skip_builds: bool = False,
+        migrate: bool = False,
+        conf_folder: str = "",
+    ):
         self.jobs_state = jobs_state
         self.system_config = system_config
         self.configs_override = config_override
@@ -462,9 +500,18 @@ class ProjectConfig:
         self.fabric_config = fabric_config.resolve_env_vars()
 
     @staticmethod
-    def from_path(project: Project, job_state_path: str, system_config_path: str, configs_override_path: str,
-                  fabric_config_path: str, fabric_ids: str, job_ids: str, skip_build: bool, conf_folder: str,
-                  migrate: bool):
+    def from_path(
+        project: Project,
+        job_state_path: str,
+        system_config_path: str,
+        configs_override_path: str,
+        fabric_config_path: str,
+        fabric_ids: str,
+        job_ids: str,
+        skip_build: bool,
+        conf_folder: str,
+        migrate: bool,
+    ):
 
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -479,14 +526,15 @@ class ProjectConfig:
 
             if not is_based_on_file:
                 # only cli case for databricks/ fabrics
-                host = os.environ.get("DATABRICKS_HOST", 'test')
-                token = os.environ.get("DATABRICKS_TOKEN", 'test')
+                host = os.environ.get("DATABRICKS_HOST", "test")
+                token = os.environ.get("DATABRICKS_TOKEN", "test")
                 if not fabric_ids:
                     allowed_fabrics = project.fabrics()
                 else:
                     allowed_fabrics = fabric_ids.split(",")
-                fabric_list = [FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in
-                               allowed_fabrics]
+                fabric_list = [
+                    FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in allowed_fabrics
+                ]
                 fabrics_config = FabricConfig(fabrics=fabric_list)
 
             else:
@@ -523,21 +571,38 @@ class ProjectConfig:
                     configs.jobs_and_fabric = [JobAndFabric.create(f"jobs/{job}", "") for job in allowed_jobs]
                     configs.mode = DeploymentMode.SelectiveJob
 
-            return ProjectConfig(jobs, fabrics_config, system, configs, based_on_file=is_based_on_file,
-                                 skip_builds=skip_build, migrate=migrate)
+            return ProjectConfig(
+                jobs,
+                fabrics_config,
+                system,
+                configs,
+                based_on_file=is_based_on_file,
+                skip_builds=skip_build,
+                migrate=migrate,
+            )
 
     # best used when invoking from execution.
     @classmethod
-    def from_conf_folder(cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool,
-                         migrate: bool):
+    def from_conf_folder(
+        cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
+    ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
         config_override = os.path.join(conf_folder, "override.yml")
         fabric_config = os.path.join(conf_folder, "fabrics.yml")
 
-        return ProjectConfig.from_path(project, jobs_state, system_config, config_override, fabric_config, fabric_ids,
-                                       job_ids,
-                                       skip_builds, conf_folder, migrate)
+        return ProjectConfig.from_path(
+            project,
+            jobs_state,
+            system_config,
+            config_override,
+            fabric_config,
+            fabric_ids,
+            job_ids,
+            skip_builds,
+            conf_folder,
+            migrate,
+        )
 
 
 def await_futures_and_update_states(futures: List[Future], step_id: str):

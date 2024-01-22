@@ -1,7 +1,5 @@
 import json
-import os
 from abc import ABC
-from pathlib import Path
 from urllib.parse import urljoin
 from urllib.parse import urlparse
 
@@ -25,7 +23,7 @@ _hdfs_delete_path = f"{base_path}/hdfs/delete"
 _file_upload_path = f"{base_path}/file/upload"
 _file_delete_path = f"{base_path}/file/delete"
 _json_headers = {"Accept": "application/json", "Content-Type": "application/json"}
-_file_headers = {"Accept": "application/json", "Content-Type": "multipart/form-data"}
+_file_headers = {"Accept": "application/json"}
 
 
 class OpenSourceRestClient(AirflowRestClient, ABC):
@@ -50,11 +48,10 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
 
     def delete_dag_file(self, dag_id: str):
         current_dag_location = self._get_dag_location(dag_id)
-        params = {"file_path": current_dag_location}
         rel_path = _hdfs_delete_path if self._is_hdfs else _file_delete_path
-        uploader_url_with_path = urljoin(self.uploader_url, rel_path)
+        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?file_path={current_dag_location}")
         try:
-            requests.post(uploader_url_with_path, auth=self.uploader_auth, params=params, headers=_json_headers)
+            requests.post(uploader_url_with_path, auth=self.uploader_auth, headers=_json_headers)
         except requests.RequestException as e:
             response_info = (
                 f"Status Code: {e.response.status_code}, Response Text: {e.response.text}"
@@ -69,25 +66,13 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
         return self._set_pause_state(dag_id, True)
 
     def upload_dag(self, dag_id: str, file_path: str):
-        current_dag_location = self._get_dag_location(dag_id)
-        params = {"destination_dir": self.dag_home}
-        rel_path = _hdfs_upload_path if self._is_hdfs else _file_upload_path
-        uploader_url_with_path = urljoin(self.uploader_url, rel_path)
         try:
-            with open(file_path, "rb") as f:
-                files = {"file": (f"{dag_id}.zip", f, "application/x-gzip")}
-                requests.post(
-                    uploader_url_with_path,
-                    auth=self.uploader_auth,
-                    files=files,
-                    params=params,
-                    headers=_file_headers,
-                )
+            self.put_object_from_file(self.dag_home, f"{dag_id}.zip", file_path)
         except Exception as e:
-            raise DagUploadFailedException(f"Failed to upload DAG file: {current_dag_location}", e)
-        finally:
-            if Path(file_path).exists():
-                os.remove(file_path)
+            raise DagUploadFailedException(f"Failed to upload DAG file from path {file_path}", e)
+        # finally:
+        #     if Path(file_path).exists():
+        #         os.remove(file_path)
 
     def unpause_dag(self, dag_id: str) -> DAG:
         return self._set_pause_state(dag_id, False)
@@ -112,10 +97,11 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
     def _get_dag_location(self, dag_id: str) -> str:
         return f"{self.dag_home}/{dag_id}.zip"
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(20), wait=wait_fixed(15), reraise=True)
+    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(30), wait=wait_fixed(15), reraise=True)
     def _set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
         response = requests.patch(
             url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
+            auth=self.airflow_auth,
             data=json.dumps({"is_paused": is_paused}),
             headers=_json_headers,
         )
@@ -124,17 +110,15 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
         return DAG.create(response_data)
 
     def put_object_from_file(self, upload_path: str, file_name: str, file_path: str):
-        params = {"destination_dir": upload_path}
         rel_path = _hdfs_upload_path if self._is_hdfs else _file_upload_path
-        uploader_url_with_path = urljoin(self.uploader_url, rel_path)
+        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?destination_dir={upload_path}")
         try:
-            with open(file_path, "rb") as f:
-                files = {"file": (file_name, f, "application/x-gzip")}
+            with open(file_path, "rb") as binary_file:
+                files = {"file": (file_name, binary_file, "application/zip")}
                 requests.post(
                     uploader_url_with_path,
                     auth=self.uploader_auth,
                     files=files,
-                    params=params,
                     headers=_file_headers,
                 )
         except requests.RequestException as e:
@@ -143,21 +127,16 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
                 if e.response
                 else "No response"
             )
-            raise DagUploadFailedException(
-                f"Failed to upload file {file_path}/{file_name} to {upload_path}. {response_info}", e
-            )
+            raise DagUploadFailedException(f"Failed to upload file {file_path} to {upload_path}. {response_info}", e)
         except Exception as e:
-            raise DagUploadFailedException(f"Failed to upload file {file_path}/{file_name} to {upload_path}", e)
+            raise DagUploadFailedException(f"Failed to upload file {file_path} to {upload_path}", e)
 
     def put_object(self, upload_path: str, file_name: str, content: str):
-        params = {"destination_dir": upload_path}
         rel_path = _hdfs_upload_path if self._is_hdfs else _file_upload_path
-        uploader_url_with_path = urljoin(self.uploader_url, rel_path)
-        files = {"file": (file_name, content.encode(), "application/x-gzip")}
+        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?destination_dir={upload_path}")
+        files = {"file": (file_name, content.encode(), "application/zip")}
         try:
-            requests.post(
-                uploader_url_with_path, auth=self.uploader_auth, files=files, params=params, headers=_file_headers
-            )
+            requests.post(uploader_url_with_path, auth=self.uploader_auth, files=files, headers=_file_headers)
         except requests.RequestException as e:
             response_info = (
                 f"Status Code: {e.response.status_code}, Response Text: {e.response.text}"
