@@ -109,12 +109,12 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
         response_data = response.json()
         return DAG.create(response_data)
 
-    def put_object_from_file(self, upload_path: str, file_name: str, file_path: str):
+    def put_object_from_file(self, upload_directory: str, local_file_name: str, local_file_path: str):
         rel_path = _hdfs_upload_path if self._is_hdfs else _file_upload_path
-        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?destination_dir={upload_path}")
+        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?destination_dir={upload_directory}")
         try:
-            with open(file_path, "rb") as binary_file:
-                files = {"file": (file_name, binary_file, "application/zip")}
+            with open(local_file_path, "rb") as binary_file:
+                files = {"file": (local_file_name, binary_file, "application/zip")}
                 requests.post(
                     uploader_url_with_path,
                     auth=self.uploader_auth,
@@ -127,14 +127,14 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
                 if e.response
                 else "No response"
             )
-            raise DagUploadFailedException(f"Failed to upload file {file_path} to {upload_path}. {response_info}", e)
+            raise DagUploadFailedException(f"Failed to upload file {local_file_path} to {upload_directory}. {response_info}", e)
         except Exception as e:
-            raise DagUploadFailedException(f"Failed to upload file {file_path} to {upload_path}", e)
+            raise DagUploadFailedException(f"Failed to upload file {local_file_path} to {upload_directory}", e)
 
-    def put_object(self, upload_path: str, file_name: str, content: str):
+    def put_object(self, upload_directory: str, file_name: str, content: str):
         rel_path = _hdfs_upload_path if self._is_hdfs else _file_upload_path
-        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?destination_dir={upload_path}")
-        files = {"file": (file_name, content.encode(), "application/zip")}
+        uploader_url_with_path = urljoin(urljoin(self.uploader_url, rel_path), f"?destination_dir={upload_directory}")
+        files = {"file": (file_name, content.encode())}
         try:
             requests.post(uploader_url_with_path, auth=self.uploader_auth, files=files, headers=_file_headers)
         except requests.RequestException as e:
@@ -143,6 +143,6 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
                 if e.response
                 else "No response"
             )
-            raise DagUploadFailedException(f"Failed to upload content to {upload_path}/{file_name}. {response_info}", e)
+            raise DagUploadFailedException(f"Failed to upload content to {upload_directory}/{file_name}. {response_info}", e)
         except Exception as e:
-            raise DagUploadFailedException(f"Failed to upload content to {upload_path}/{file_name} ", e)
+            raise DagUploadFailedException(f"Failed to upload content to {upload_directory}/{file_name} ", e)

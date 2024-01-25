@@ -120,7 +120,7 @@ class MwaaInfo(BaseModel):
     environment_name: str
 
 
-class OpenSourceAirflow(BaseModel):
+class OpenSourceAirflowInfo(BaseModel):
     airflow_url: str
     airflow_username: str
     airflow_password: str
@@ -160,7 +160,7 @@ class FabricInfo(BaseModel):
     provider: Optional[FabricProviderType]  # composer/mwaa/prophecy/databricks/dataproc
     composer: Optional[ComposerInfo] = None
     mwaa: Optional[MwaaInfo] = None
-    airflow_oss: Optional[OpenSourceAirflow] = None
+    airflow_oss: Optional[OpenSourceAirflowInfo] = None
     databricks: Optional[DatabricksInfo] = None
     emr: Optional[EMRInfo] = None
     dataproc: Optional[DataprocInfo] = None
@@ -280,6 +280,13 @@ class FabricConfig(BaseModel):
             fabric
             for fabric in self.fabrics
             if (fabric.type == FabricType.Spark and fabric.provider == FabricProviderType.Dataproc)
+        ]
+
+    def airflow_open_source_fabrics(self) -> List[FabricInfo]:
+        return [
+            fabric
+            for fabric in self.fabrics
+            if (fabric.type == FabricType.Airflow and fabric.provider == FabricProviderType.OpenSource)
         ]
 
     def list_all_fabrics(self) -> List[str]:
@@ -428,6 +435,9 @@ class SystemConfig(BaseModel):
         return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     def get_s3_base_path(self):
+        return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
+
+    def get_hdfs_base_path(self):
         return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     @staticmethod

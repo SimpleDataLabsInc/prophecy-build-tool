@@ -409,7 +409,9 @@ class AirflowJobDeployment:
             airflow_job
             for airflow_job in self._jobs_state.airflow_jobs
             if not any(
-                airflow_job.id == job_id for job_id in list(all_jobs.keys())  # check from available airflow jobs.
+                airflow_job.id == job_id
+                for job_id in list(all_jobs.keys())
+                # check from available airflow jobs.
             )
             and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
         ]
@@ -871,7 +873,6 @@ class DataprocPipelineConfigurations:
 
         return await_futures_and_update_states(futures, self._STEP_ID)
 
-    # Do for EMR and spark submit (HDFS) as well?
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
         upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
         dataproc_info = fabric_info.dataproc
@@ -889,6 +890,106 @@ class DataprocPipelineConfigurations:
         except Exception as e:
             log(
                 f"{Colors.FAIL}Failed to upload pipeline configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
+                exception=e,
+                step_id=self._STEP_ID,
+            )
+            return Either(left=e)
+
+
+class SparkSubmitPipelineConfigurations:
+    _STEP_ID = "SPARK_SUBMIT_pipeline_configurations"
+
+    def __init__(self, project: Project, airflow_jobs: AirflowJobDeployment, project_config: ProjectConfig):
+        self.airflow_jobs = airflow_jobs
+        self.pipeline_configurations = project.pipeline_configurations
+        self.project = project
+        self.project_config = project_config
+        self._deployment_state = project_config.jobs_state
+        self._fabric_config = project_config.fabric_config
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+
+    def _spark_submit_fabrics(self):
+        return self._fabric_config.airflow_open_source_fabrics()
+
+    def summary(self) -> List[str]:
+        summary = []
+        for ids in self.pipeline_configurations.keys():
+            if len(self._spark_submit_fabrics()) > 0:
+                summary.append(f"Uploading pipeline spark-submit-configurations for pipeline {ids}")
+
+        return summary
+
+    def headers(self) -> List[StepMetadata]:
+        all_configs = [value for sublist in self.pipeline_configurations.values() for value in sublist]
+        if len(all_configs) > 0 and len(self._spark_submit_fabrics()) > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID,
+                    f"Upload {len(all_configs)} pipeline spark-submit-configurations",
+                    Operation.Upload,
+                    StepType.PipelineConfiguration,
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        futures = []
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.headers()) > 0:
+                log(f"\n\n{Colors.OKBLUE} Uploading spark-submit configurations {Colors.ENDC}\n\n")
+
+            def execute_job(
+                fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
+            ):
+                futures.append(
+                    executor.submit(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
+                            f_info, configuration_relative_directory, configuration_file_name, configuration_content
+                        )
+                    )
+                )
+
+            for pipeline_id, configurations in self.pipeline_configurations.items():
+                path = self.project_config.system_config.get_hdfs_base_path()
+                pipeline_path = (
+                    f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
+                )
+                for configuration_name, configuration_content in configurations.items():
+                    configuration_file_name = f"{configuration_name}.jsn"
+                    configuration_relative_directory = pipeline_path
+
+                    for fabric_info in self._spark_submit_fabrics():
+
+                        if fabric_info.airflow_oss is not None:
+                            execute_job(
+                                fabric_info,
+                                configuration_relative_directory,
+                                configuration_file_name,
+                                configuration_content,
+                            )
+
+        return await_futures_and_update_states(futures, self._STEP_ID)
+
+    def _upload_configuration(
+        self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name, configuration_content
+    ):
+        upload_directory = f"{fabric_info.airflow_oss.location}/{configuration_relative_directory}"
+        try:
+            client = self._rest_client_factory.open_source_hdfs_client(str(fabric_info.id))
+            client.put_object(upload_directory, configuration_file_name, configuration_content)
+
+            log(
+                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_directory}{Colors.ENDC}",
+                step_id=self._STEP_ID,
+            )
+
+            return Either(right=True)
+
+        except Exception as e:
+            log(
+                f"{Colors.FAIL}Failed to upload pipeline configuration for path {upload_directory} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
