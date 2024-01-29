@@ -37,6 +37,8 @@ SECRET_SCOPE = "secret_scope"
 
 DBFS_FILE_STORE = "dbfs:/FileStore"
 S3_FILE_STORE = "s3://"
+HDFS_FILE_STORE = "hdfs://"
+LOCAL_FILE_STORE = "/"
 PROPHECY_ARTIFACTS = "prophecy/artifacts"
 
 NEW_JOB_STATE_FILE = "new_state.yml"
