@@ -1,7 +1,9 @@
 import json
+import os
 from abc import ABC
 from urllib.parse import urljoin
 from urllib.parse import urlparse
+from pathlib import Path
 
 import requests
 from requests import HTTPError
@@ -70,9 +72,9 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
             self.put_object_from_file(self.dag_home, f"{dag_id}.zip", file_path)
         except Exception as e:
             raise DagUploadFailedException(f"Failed to upload DAG file from path {file_path}", e)
-        # finally:
-        #     if Path(file_path).exists():
-        #         os.remove(file_path)
+        finally:
+            if Path(file_path).exists():
+                os.remove(file_path)
 
     def unpause_dag(self, dag_id: str) -> DAG:
         return self._set_pause_state(dag_id, False)
