@@ -267,7 +267,6 @@ class AirflowJobDeployment:
         jobs = {}
 
         for job_id, parsed_job in self._project.jobs.items():
-
             fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
             fabric_override = str(fabric_override) if fabric_override is not None else None
 
@@ -284,7 +283,6 @@ class AirflowJobDeployment:
                 and self.deployment_run_override_config.is_job_to_run(job_id)
                 and does_fabric_exist
             ):
-
                 rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
                 rdc = self._project.load_airflow_folder(job_id)
 
@@ -333,7 +331,6 @@ class AirflowJobDeployment:
         return valid_airflow_jobs, invalid_airflow_jobs, airflow_jobs_without_code
 
     def _validate_airflow_job(self, job_id: str, job_data: AirflowJob):
-
         is_prophecy_managed_fabric = self._fabrics_config.is_prophecy_managed(job_data.fabric_id)
         rdc = job_data.rdc
 
@@ -360,7 +357,6 @@ class AirflowJobDeployment:
         prophecy_managed_dbt_jobs = {}
 
         for job_id, job_data in self.valid_airflow_jobs.items():
-
             is_job_enabled = job_data.is_enabled
             is_prophecy_managed_fabric = self._fabrics_config.is_prophecy_managed(job_data.fabric_id)
 
@@ -422,7 +418,6 @@ class AirflowJobDeployment:
     """
 
     def _jobs_with_fabric_changed(self) -> List[JobInfo]:
-
         return [
             airflow_job
             for airflow_job in self._jobs_state.airflow_jobs
@@ -630,7 +625,6 @@ class AirflowGitSecrets:
         summary = []
 
         if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
-
             for project_git_tokens in self.fabric_config.project_git_tokens:
                 git_tokens = project_git_tokens.git_token
                 project_id = project_git_tokens.project_id
@@ -654,11 +648,9 @@ class AirflowGitSecrets:
             return []
 
     def deploy(self):
-
         futures = []
 
         if len(self.airflow_jobs.prophecy_managed_dbt_jobs) > 0:
-
             if len(self.fabric_config.project_git_tokens) > 0:
                 log(f"\n\n{Colors.OKBLUE} Uploading project git tokens {Colors.ENDC}\n\n")
 
@@ -748,7 +740,6 @@ class EMRPipelineConfigurations:
             return []
 
     def deploy(self):
-
         futures = []
 
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -765,7 +756,6 @@ class EMRPipelineConfigurations:
                 )
 
             for pipeline_id, configurations in self.pipeline_configurations.items():
-
                 path = self.project_config.system_config.get_s3_base_path()
                 pipeline_path = (
                     f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
@@ -775,7 +765,6 @@ class EMRPipelineConfigurations:
                     configuration_path = f"{pipeline_path}/{configuration_name}.jsn"
 
                     for fabric_info in self._fabric_config.emr_fabrics():
-
                         if fabric_info.emr is not None:
                             execute_job(fabric_info, configuration_content, configuration_path)
 
@@ -867,7 +856,6 @@ class DataprocPipelineConfigurations:
                     configuration_path = f"{pipeline_path}/{configuration_name}.jsn"
 
                     for fabric_info in self._fabric_config.dataproc_fabrics():
-
                         if fabric_info.dataproc is not None:
                             execute_job(fabric_info, configuration_content, configuration_path)
 
@@ -961,7 +949,6 @@ class SparkSubmitPipelineConfigurations:
                     configuration_relative_directory = pipeline_path
 
                     for fabric_info in self._spark_submit_fabrics():
-
                         if fabric_info.airflow_oss is not None:
                             execute_job(
                                 fabric_info,

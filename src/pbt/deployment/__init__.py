@@ -22,8 +22,9 @@ class EntityIdToFabricId:
         self.fabric_id = fabric_id
 
 
-def invert_entity_to_fabric_mapping(entity_id_dict: Dict[str, List[EntityIdToFabricId]]) -> \
-        Dict[str, List[EntityIdToFabricId]]:
+def invert_entity_to_fabric_mapping(
+    entity_id_dict: Dict[str, List[EntityIdToFabricId]]
+) -> Dict[str, List[EntityIdToFabricId]]:
     result = {}
 
     for entity_uri, list_of_entities in entity_id_dict.items():
@@ -37,7 +38,6 @@ def invert_entity_to_fabric_mapping(entity_id_dict: Dict[str, List[EntityIdToFab
 
 # creating an abstract class helps to morge both airflow and databricks jobs and have common behavior for both of them.
 class JobData(ABC):
-
     @property
     @abstractmethod
     def name(self) -> Optional[str]:

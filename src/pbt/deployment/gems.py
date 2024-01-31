@@ -28,14 +28,12 @@ class GemsDeployment:
 
     def headers(self) -> List[StepMetadata]:
         if self._does_gems_exist():
-            return [StepMetadata(GEMS, "Gems will be built and uploaded",
-                                 Operation.Build, StepType.Pipeline)]
+            return [StepMetadata(GEMS, "Gems will be built and uploaded", Operation.Build, StepType.Pipeline)]
         else:
             return []
 
     def deploy(self):
         if self._does_gems_exist():
-
             log(step_status=Status.RUNNING, step_id=GEMS)
             gem_path = os.path.join(self.project.project_path, "gems")
             package_builder = PackageBuilder(gem_path, self.project.project_language)
@@ -59,9 +57,7 @@ class GemsDeployment:
 
 
 class PackageBuilder:
-
     def __init__(self, path: str, language: str):
-
         self.path = path
         self.language = language
 
@@ -92,8 +88,9 @@ class PackageBuilder:
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
 
-        process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
-                                   cwd=self.path)
+        process = subprocess.Popen(
+            command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=self.path
+        )
 
         def log_output(pipe, log_function):
             while True:
@@ -105,14 +102,12 @@ class PackageBuilder:
                 response = output.decode().strip()
 
                 # stripping unnecessary logs
-                if not re.search(r'Progress \(\d+\):', response):
+                if not re.search(r"Progress \(\d+\):", response):
                     log_function(response)
 
         # Create threads to read and log stdout and stderr simultaneously
-        stdout_thread = threading.Thread(target=log_output,
-                                         args=(process.stdout, lambda msg: log(msg, step_id=GEMS)))
-        stderr_thread = threading.Thread(target=log_output,
-                                         args=(process.stderr, lambda msg: log(msg, step_id=GEMS)))
+        stdout_thread = threading.Thread(target=log_output, args=(process.stdout, lambda msg: log(msg, step_id=GEMS)))
+        stderr_thread = threading.Thread(target=log_output, args=(process.stderr, lambda msg: log(msg, step_id=GEMS)))
 
         # Start threads
         stdout_thread.start()

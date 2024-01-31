@@ -49,6 +49,7 @@ class FabricProviderType(enum.Enum):
 class DeploymentMode(enum.Enum):
     FullProject = "FullProject"
     SelectiveJob = "SelectiveJob"
+    FullBuildWithSelectiveDeploy = "FullBuildWithSelectiveDeploy"
 
 
 class BucketAndPathExtractor:
@@ -522,7 +523,6 @@ class ProjectConfig:
         conf_folder: str,
         migrate: bool,
     ):
-
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
         if is_online_mode() and len(conf_folder) > 0:
@@ -533,7 +533,6 @@ class ProjectConfig:
             return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
 
         else:
-
             if not is_based_on_file:
                 # only cli case for databricks/ fabrics
                 host = os.environ.get("DATABRICKS_HOST", "test")
@@ -571,8 +570,14 @@ class ProjectConfig:
             # configs
             try:
                 configs = load_configs_override(configs_override_path, is_based_on_file)
+
+                if configs.mode == DeploymentMode.SelectiveJob and project.does_project_contains_dynamic_pipeline():
+                    # if it contains dynamic pipeline, we need to build all pipelines.
+                    configs.mode = DeploymentMode.FullBuildWithSelectiveDeploy
+
                 configs.filter_jobs(job_ids)
                 jobs.filter_provided_jobs(job_ids)
+
             except ConfigFileNotFoundException:
                 configs = ConfigsOverride.empty()
                 configs.mode = DeploymentMode.FullProject  # only build what's needed.

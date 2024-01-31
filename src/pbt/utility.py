@@ -1,13 +1,14 @@
 import os
+import re
 from enum import Enum
 from typing import Optional, Any
 
+from .utils.constants import SCALA_LANGUAGE
 from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel
 
 
 # class mimicking Either behaviour to capture both success and failure
 class Either:
-
     def __init__(self, left=None, right=None):
         self.left = left
         self.right = right
@@ -21,10 +22,15 @@ class Either:
         return self.right is not None
 
 
-def custom_print(message: Optional[Any] = None, exception=None,
-                 step_id=None,
-                 step_metadata: Optional[StepMetadata] = None,
-                 step_status: Optional[Status] = None, level: LogLevel = LogLevel.INFO, indent: int = 0) -> None:
+def custom_print(
+        message: Optional[Any] = None,
+        exception=None,
+        step_id=None,
+        step_metadata: Optional[StepMetadata] = None,
+        step_status: Optional[Status] = None,
+        level: LogLevel = LogLevel.INFO,
+        indent: int = 0,
+) -> None:
     if is_online_mode():
         # Custom print: Print all variables.
         if step_metadata is not None:
@@ -36,15 +42,15 @@ def custom_print(message: Optional[Any] = None, exception=None,
 
         print(log_event.to_json(), flush=True)
     else:
-        prefix_space = ''
+        prefix_space = ""
         if indent != 0:
-            prefix_space = ' ' * indent
+            prefix_space = " " * indent
         # Regular print: Skip stepName.
         if exception is not None:
-            print(f'{prefix_space}{message}', exception)
+            print(f"{prefix_space}{message}", exception)
         else:
             if message is not None:
-                print(f'{prefix_space}{message}')
+                print(f"{prefix_space}{message}")
 
 
 def is_online_mode() -> bool:
@@ -57,10 +63,7 @@ def is_online_mode() -> bool:
 def remove_null_items_recursively(item):
     # If the item is a dictionary
     if isinstance(item, dict):
-        return {
-            k: remove_null_items_recursively(v)
-            for k, v in item.items() if v is not None
-        }
+        return {k: remove_null_items_recursively(v) for k, v in item.items() if v is not None}
 
     # If the item is a list
     elif isinstance(item, list):
@@ -73,3 +76,19 @@ def remove_null_items_recursively(item):
     # If the item is neither a dictionary, a list, nor an enum
     else:
         return item
+
+
+def python_pipeline_name(pipeline_name: str):
+    # todo combine in a single regex
+    regex_match = r"[^\w\d.]+"
+    underscore_regex = r"(_)\1+"
+    result = re.sub(regex_match, "_", pipeline_name)
+    return re.sub(underscore_regex, "_", result)
+
+
+def get_package_name(project_language: str, pipeline_name: str):
+    if project_language == SCALA_LANGUAGE:
+        return f"{pipeline_name}.jar"
+    else:
+        result = python_pipeline_name(pipeline_name)
+        return f"{result}-1.0-py3-none-any.whl"

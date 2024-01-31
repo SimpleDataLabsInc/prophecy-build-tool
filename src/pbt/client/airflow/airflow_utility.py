@@ -9,13 +9,11 @@ def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
     fabric_info = project_config.fabric_config.get_fabric(fabric_id)
 
     if fabric_info is not None and fabric_info.type == FabricType.Airflow:
-
         composer = fabric_info.composer
         mwaa = fabric_info.mwaa
         oss = fabric_info.airflow_oss
 
         if composer is not None:
-
             return ComposerRestClient(
                 composer.airflow_url, composer.project_id, composer.client_id, composer.key_json, composer.dag_location
             )

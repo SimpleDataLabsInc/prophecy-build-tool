@@ -23,7 +23,6 @@ pattern = re.compile(r"^g[c]?s://([a-z0-9][-a-z0-9.]*[a-z0-9]):?/(.*)?$")
 
 
 class GCSPathInfo:
-
     def __init__(self, bucket: str, path: Optional[str]):
         self.bucket = bucket
         self.path = path
@@ -45,10 +44,17 @@ class ComposerRestClient(AirflowRestClient, ABC):
     _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
     _CONNECTIONS_SECRET_PREFIX = "airflow-connections-"
     _pattern = re.compile(pattern)
-    _headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+    _headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
-    def __init__(self, airflow_url: str, project_id: str, client_id: Optional[str], key_json: str, dag_location: str,
-                 location: Optional[str] = None):
+    def __init__(
+        self,
+        airflow_url: str,
+        project_id: str,
+        client_id: Optional[str],
+        key_json: str,
+        dag_location: str,
+        location: Optional[str] = None,
+    ):
         self.airflow_url = airflow_url
         self.project_id = project_id
         self.client_id = client_id
@@ -98,9 +104,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
             try:
                 client.get_secret(name=secret_name)
-                client.add_secret_version(
-                    request={"parent": secret_name, "payload": {"data": value.encode('UTF-8')}}
-                )
+                client.add_secret_version(request={"parent": secret_name, "payload": {"data": value.encode("UTF-8")}})
             except Exception as e:
                 print(f"Failed to get secret: {secret_name}, trying to create default one", e)
 
@@ -109,15 +113,15 @@ class ComposerRestClient(AirflowRestClient, ABC):
                     request={
                         "parent": parent,
                         "secret_id": key,
-                        "secret": {
-                            "replication": {"automatic": {}}
-                        },
+                        "secret": {"replication": {"automatic": {}}},
                     }
                 )
-                client.add_secret_version(request={
-                    "parent": secret.name,
-                    "payload": value.encode('UTF-8'),
-                })
+                client.add_secret_version(
+                    request={
+                        "parent": secret.name,
+                        "payload": value.encode("UTF-8"),
+                    }
+                )
 
         except Exception as e:
             print("Failed to create Secret manager client", e)
@@ -129,8 +133,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         return True
 
     def get_dag(self, dag_id: str) -> DAG:
-        response = requests.request('GET', f"{self.airflow_url}/api/v1/dags/{dag_id}",
-                                    headers=self._headers)
+        response = requests.request("GET", f"{self.airflow_url}/api/v1/dags/{dag_id}", headers=self._headers)
         response.raise_for_status()
         response_data = response.json()
 
@@ -139,7 +142,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         return dag
 
     def delete_dag(self, dag_id: str) -> str:
-        response = requests.request('DELETE', f"{self.airflow_url}/api/v1/dags/{dag_id}")
+        response = requests.request("DELETE", f"{self.airflow_url}/api/v1/dags/{dag_id}")
         response.raise_for_status()
         return response.text
 
@@ -165,25 +168,29 @@ class ComposerRestClient(AirflowRestClient, ABC):
         return client
 
     def _get_authenticated_session(self):
-
         if self.client_id is not None and len(self.client_id) > 0:
-            print(f'Client Id {self.client_id}')
-            credentials = service_account.IDTokenCredentials \
-                .from_service_account_info(json.loads(self.key_json_file)) \
-                .with_target_audience(self.client_id) \
+            print(f"Client Id {self.client_id}")
+            credentials = (
+                service_account.IDTokenCredentials.from_service_account_info(json.loads(self.key_json_file))
+                .with_target_audience(self.client_id)
                 .with_scopes(self._SCOPES)
+            )
 
         else:
-            credentials = service_account.Credentials.from_service_account_info(json.loads(self.key_json_file)) \
-                .with_scopes(self._SCOPES)
+            credentials = service_account.Credentials.from_service_account_info(
+                json.loads(self.key_json_file)
+            ).with_scopes(self._SCOPES)
         return AuthorizedSession(credentials)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(20), wait=wait_fixed(15), reraise=True)
     def _set_pause_state(self, dag_id: str, is_paused: bool) -> DAG:
         session = self._get_authenticated_session()
-        response = session.request(method='PATCH', url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
-                                   data=json.dumps({"is_paused": is_paused}),
-                                   headers=self._headers)
+        response = session.request(
+            method="PATCH",
+            url=f"{self.airflow_url}/api/v1/dags/{dag_id}",
+            data=json.dumps({"is_paused": is_paused}),
+            headers=self._headers,
+        )
         response.raise_for_status()
         response_data = response.json()
         return DAG.create(response_data)

@@ -4,7 +4,6 @@ from ...utils.project_models import DAG
 
 
 class AirflowRestClient(ABC):
-
     @abstractmethod
     def delete_dag_file(self, dag_id: str):
         pass

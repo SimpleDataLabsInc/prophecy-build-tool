@@ -7,14 +7,26 @@ from typing import Optional, List
 import yaml
 
 from ..utility import custom_print as log
-from ..utils.constants import PBT_FILE_NAME, LANGUAGE, JOBS, PIPELINES, \
-    PIPELINE_CONFIGURATIONS, CONFIGURATIONS, JSON_EXTENSION, BASE_PIPELINE, PROJECT_ID_PLACEHOLDER_REGEX, \
-    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, GEMS, \
-    PROJECT_URL_PLACEHOLDER_REGEX
+from ..utils.constants import (
+    PBT_FILE_NAME,
+    LANGUAGE,
+    JOBS,
+    PIPELINES,
+    PIPELINE_CONFIGURATIONS,
+    CONFIGURATIONS,
+    JSON_EXTENSION,
+    BASE_PIPELINE,
+    PROJECT_ID_PLACEHOLDER_REGEX,
+    PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX,
+    PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX,
+    GEMS,
+    PROJECT_URL_PLACEHOLDER_REGEX,
+)
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 
 SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
-    r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)")
+    r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
+)
 
 
 def is_cross_project_pipeline(pipeline):
@@ -22,16 +34,22 @@ def is_cross_project_pipeline(pipeline):
 
     if match:
         git_uri, sub_path, tag, project_subscription_project_id, path = match.groups()
-        return project_subscription_project_id, tag.split('/')[1], path
+        return project_subscription_project_id, tag.split("/")[1], path
     else:
         return None, None, None
+
+
+def wrap_main_file_in_try_except(main_file_content: str) -> str:
+    contents_line = "\n".join([f"  {line}" for line in main_file_content.split("\n")])
+
+    return f"try:\n{contents_line}\nexcept Exception as e:\n  pass"
 
 
 def _read_file_content(file_path: str) -> Optional[str]:
     if not os.path.exists(file_path):
         return None
         # If the file exists, read its content
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         content = file.read()
         return content
 
@@ -40,12 +58,14 @@ class Project:
     _DATABRICKS_JOB_JSON = "databricks-job.json"
     _CODE_FOLDER = "code"
 
-    def __init__(self, project_path: str,
-                 project_id: Optional[str] = None,
-                 release_tag: Optional[str] = None,
-                 release_version: Optional[str] = None,
-                 dependant_project_list: Optional[str] = None):
-
+    def __init__(
+        self,
+        project_path: str,
+        project_id: Optional[str] = None,
+        release_tag: Optional[str] = None,
+        release_version: Optional[str] = None,
+        dependant_project_list: Optional[str] = None,
+    ):
         self.project_id = project_id
         self.project_path = project_path
 
@@ -98,7 +118,7 @@ class Project:
 
     @property
     def name(self) -> str:
-        return self.pbt_project_dict.get('name')
+        return self.pbt_project_dict.get("name")
 
     def load_databricks_job(self, job_id: str) -> Optional[str]:
         try:
@@ -116,10 +136,12 @@ class Project:
         return os.path.join(self.project_path, job_id, self._CODE_FOLDER)
 
     def load_airflow_folder(self, job_id):
-        return {path: self._replace_placeholders(path, content)
-                for path, content in
-                self._read_directory(os.path.join(self.project_path, job_id, self._CODE_FOLDER)).items()
-                }
+        return {
+            path: self._replace_placeholders(path, content)
+            for path, content in self._read_directory(
+                os.path.join(self.project_path, job_id, self._CODE_FOLDER)
+            ).items()
+        }
 
     def load_airflow_folder_with_placeholder(self, job_id):
         return self._read_directory(os.path.join(self.project_path, job_id, self._CODE_FOLDER))
@@ -149,24 +171,37 @@ class Project:
                     return full_path
 
     def get_py_pipeline_main_file(self, pipeline_id):
-        try:
-            main_file = os.path.join(self.project_path, pipeline_id, self._CODE_FOLDER, "main.py")
+        if self.does_project_contains_dynamic_pipeline():
+            return self._uber_main_py_file()
+        else:
+            try:
+                main_file = os.path.join(self.project_path, pipeline_id, self._CODE_FOLDER, "main.py")
+                data = _read_file_content(main_file)
+                return data
+            except Exception:
+                return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
+
+    def _uber_main_py_file(self):
+        main_file = ""
+        for pipeline in self.pipelines.keys():
+            main_file = os.path.join(self.project_path, pipeline, self._CODE_FOLDER, "main.py")
             data = _read_file_content(main_file)
-            return data
-        except Exception:
-            return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
+            if data is not None:
+                main_file = main_file + "\n\n" + wrap_main_file_in_try_except(data)
+
+        return main_file
 
     def get_pipeline_absolute_path(self, pipeline_id):
         return os.path.join(os.path.join(self.project_path, pipeline_id), "code")
 
     def get_pipeline_id(self, pipeline_name):
-        return next((k for k, v in self.pipelines.items() if v['name'] == pipeline_name), None)
+        return next((k for k, v in self.pipelines.items() if v["name"] == pipeline_name), None)
 
     def get_pipeline_name(self, pipeline_id):
         try:
             pipeline_path = pipeline_id
             pipelines = self.pipelines
-            return pipelines.get(pipeline_path, {}).get('name', pipeline_path.split('/')[-1])
+            return pipelines.get(pipeline_path, {}).get("name", pipeline_path.split("/")[-1])
         except Exception:
             return self.dependant_project.get_pipeline_name(pipeline_id)
 
@@ -174,10 +209,9 @@ class Project:
         rdc = {}
 
         for dir_path, dir_names, filenames in os.walk(base_path):
-
             # Add resources to RDC
-            if 'resources' in dir_names:
-                resource_dir_path = os.path.join(dir_path, 'resources')
+            if "resources" in dir_names:
+                resource_dir_path = os.path.join(dir_path, "resources")
                 for resource_subdir_path, _, resource_filenames in os.walk(resource_dir_path):
                     for resource_filename in resource_filenames:
                         resource_full_path = os.path.join(resource_subdir_path, resource_filename)
@@ -188,7 +222,7 @@ class Project:
 
             # Add generated code to RDC
             for filename in filenames:
-                if filename.endswith(('.py', '.json', '.conf', '.scala', 'pom.xml')):
+                if filename.endswith((".py", ".json", ".conf", ".scala", "pom.xml")):
                     full_path = os.path.join(dir_path, filename)
                     content = _read_file_content(full_path)
                     if content is not None:
@@ -244,11 +278,13 @@ class Project:
         return pipeline_configurations
 
     def _replace_placeholders(self, path: str, content: str) -> str:
-        if path.endswith('.json') or path.endswith('.scala') or path.endswith('.py'):
-            content = content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id) \
-                .replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version) \
-                .replace(PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, self.release_tag) \
+        if path.endswith(".json") or path.endswith(".scala") or path.endswith(".py"):
+            content = (
+                content.replace(PROJECT_ID_PLACEHOLDER_REGEX, self.project_id)
+                .replace(PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX, self.release_version)
+                .replace(PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX, self.release_tag)
                 .replace(PROJECT_URL_PLACEHOLDER_REGEX, self.md_url)
+            )
 
         return content
 
@@ -264,12 +300,19 @@ class Project:
                     return root, file
 
     def fabrics(self) -> List[str]:
-        return list(set([content.get('fabricUID', None) for content in self.jobs.values() if
-                         content.get('fabricUID', None) is not None]))
+        return list(
+            set(
+                [
+                    content.get("fabricUID", None)
+                    for content in self.jobs.values()
+                    if content.get("fabricUID", None) is not None
+                ]
+            )
+        )
 
     def _stripPrefix(self, value, prefix):
         if value.startswith(prefix):
-            return value[len(prefix):]
+            return value[len(prefix) :]
         return value
 
     def _find_path(self):
@@ -277,9 +320,9 @@ class Project:
             db_jobs = self.load_databricks_job(job_id)
             if db_jobs is not None:
                 json_content = json.loads(db_jobs)
-                for component in json_content['components']:
+                for component in json_content["components"]:
                     for c_name, c_content in component.items():
-                        path = c_content['path']
+                        path = c_content["path"]
 
                         if path.startswith("dbfs:/FileStore/prophecy/artifacts/"):
                             return path
@@ -309,9 +352,27 @@ class Project:
             return None, None, None
         return self.dependant_project.is_cross_project_pipeline(from_path)
 
+    def does_project_contains_dynamic_pipeline(self):
+        for job in self.jobs.keys():
+            rdc = self.load_airflow_folder_with_placeholder(job)
+            if rdc is not None and rdc.get("prophecy-job.json"):
+                prophecy_json = json.loads(rdc.get("prophecy-job.json"))
+                if "metainfo" in prophecy_json and "dynamicPipelineStatus" in prophecy_json["metainfo"]:
+                    dynamic_pipeline_status = prophecy_json["metainfo"]["dynamicPipelineStatus"]
+                    is_dynamic = (
+                        dynamic_pipeline_status["databricks"]
+                        | dynamic_pipeline_status["dataproc"]
+                        | dynamic_pipeline_status["emr"]
+                    )
+
+                    # if is true then return true otherwise False.
+                    if is_dynamic:
+                        return is_dynamic
+
+        return False
+
 
 class DependentProject(ABC):
-
     def is_cross_project_pipeline(self, pipeline_id):
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         if pid is not None and tag is not None and path is not None:
@@ -345,7 +406,7 @@ class DependentProjectCli(DependentProject, ABC):
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         for project in self.dependant_projects:
             if path in project.pipelines:
-                return project.pipelines[path]['name']
+                return project.pipelines[path]["name"]
 
         return None
 
