@@ -21,22 +21,6 @@ from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
 
 
-def get_package_name(project_language: str, pipeline_name: str):
-    if project_language == SCALA_LANGUAGE:
-        return f"{pipeline_name}.jar"
-    else:
-        result = python_pipeline_name(pipeline_name)
-        return f"{result}-1.0-py3-none-any.whl"
-
-
-def python_pipeline_name(pipeline_name: str):
-    # todo combine in a single regex
-    regex_match = r"[^\w\d.]+"
-    underscore_regex = r"(_)\1+"
-    result = re.sub(regex_match, "_", pipeline_name)
-    return re.sub(underscore_regex, "_", result)
-
-
 class PipelineDeployment:
     def __init__(
             self,

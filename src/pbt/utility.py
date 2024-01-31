@@ -1,7 +1,9 @@
 import os
+import re
 from enum import Enum
 from typing import Optional, Any
 
+from .utils.constants import SCALA_LANGUAGE
 from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel
 
 
@@ -21,13 +23,13 @@ class Either:
 
 
 def custom_print(
-    message: Optional[Any] = None,
-    exception=None,
-    step_id=None,
-    step_metadata: Optional[StepMetadata] = None,
-    step_status: Optional[Status] = None,
-    level: LogLevel = LogLevel.INFO,
-    indent: int = 0,
+        message: Optional[Any] = None,
+        exception=None,
+        step_id=None,
+        step_metadata: Optional[StepMetadata] = None,
+        step_status: Optional[Status] = None,
+        level: LogLevel = LogLevel.INFO,
+        indent: int = 0,
 ) -> None:
     if is_online_mode():
         # Custom print: Print all variables.
@@ -74,3 +76,19 @@ def remove_null_items_recursively(item):
     # If the item is neither a dictionary, a list, nor an enum
     else:
         return item
+
+
+def python_pipeline_name(pipeline_name: str):
+    # todo combine in a single regex
+    regex_match = r"[^\w\d.]+"
+    underscore_regex = r"(_)\1+"
+    result = re.sub(regex_match, "_", pipeline_name)
+    return re.sub(underscore_regex, "_", result)
+
+
+def get_package_name(project_language: str, pipeline_name: str):
+    if project_language == SCALA_LANGUAGE:
+        return f"{pipeline_name}.jar"
+    else:
+        result = python_pipeline_name(pipeline_name)
+        return f"{result}-1.0-py3-none-any.whl"

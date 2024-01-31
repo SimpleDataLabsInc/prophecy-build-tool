@@ -7,9 +7,8 @@ from .DatabricksPipelineUploader import DatabricksPipelineUploader
 from .DataprocPipelineUploader import DataprocPipelineUploader
 from .EMRPipelineUploader import EMRPipelineUploader
 from .HdfsPipelineUploader import HdfsPipelineUploader
-from ..pipeline import get_package_name
 from ...entities.project import Project, is_cross_project_pipeline
-from ...utility import Either, custom_print as log
+from ...utility import Either, custom_print as log, get_package_name
 from ...utils.project_config import ProjectConfig
 from ...utils.project_models import Colors, LogLevel, Status
 

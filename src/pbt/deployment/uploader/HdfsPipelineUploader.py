@@ -1,11 +1,10 @@
 from abc import ABC
 
 from . import PipelineUploader
-from ..pipeline import python_pipeline_name
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment.jobs.databricks import get_fabric_label
 from ...entities.project import Project
-from ...utility import Either, custom_print as log
+from ...utility import Either, custom_print as log, python_pipeline_name
 from ...utils.project_config import OpenSourceAirflowInfo, ProjectConfig
 from ...utils.project_models import Colors
 
