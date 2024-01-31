@@ -5,24 +5,20 @@ import subprocess
 import sys
 import tempfile
 import threading
-from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
-
-from requests import HTTPError
 
 from . import JobData
 from .uploader.PipelineUploaderManager import PipelineUploadManager
 from ..client.nexus import NexusClient
-from ..client.rest_client_factory import RestClientFactory
 from ..deployment.jobs.airflow import AirflowJobDeployment
-from ..deployment.jobs.databricks import DatabricksJobsDeployment, get_fabric_label
-from ..entities.project import Project, is_cross_project_pipeline
+from ..deployment.jobs.databricks import DatabricksJobsDeployment
+from ..entities.project import Project
 from ..utility import Either, custom_print as log, is_online_mode
 from ..utils.constants import SCALA_LANGUAGE
 from ..utils.exceptions import ProjectBuildFailedException
-from ..utils.project_config import DataprocInfo, DeploymentMode, EMRInfo, OpenSourceAirflowInfo, ProjectConfig
-from ..utils.project_models import Colors, LogLevel, Operation, Status, StepMetadata, StepType
+from ..utils.project_config import DeploymentMode, ProjectConfig
+from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
 
 
 def get_package_name(project_language: str, pipeline_name: str):
@@ -43,13 +39,13 @@ def python_pipeline_name(pipeline_name: str):
 
 class PipelineDeployment:
     def __init__(
-        self,
-        project: Project,
-        databricks_jobs: DatabricksJobsDeployment,
-        airflow_jobs: AirflowJobDeployment,
-        project_config: ProjectConfig,
-        job_ids: Optional[List[str]] = None,
-        pipelines_to_build: Optional[List[str]] = None,
+            self,
+            project: Project,
+            databricks_jobs: DatabricksJobsDeployment,
+            airflow_jobs: AirflowJobDeployment,
+            project_config: ProjectConfig,
+            job_ids: Optional[List[str]] = None,
+            pipelines_to_build: Optional[List[str]] = None,
     ):
         self.job_ids = job_ids
         self.pipelines_to_build = pipelines_to_build
@@ -332,13 +328,13 @@ class PipelineDeployment:
 # if it's not present in nexus, then build the jar upload to nexus and return it back.
 class PackageBuilderAndUploader:
     def __init__(
-        self,
-        project: Project,
-        pipeline_id: str,
-        pipeline_name: str,
-        project_config: ProjectConfig = None,
-        are_tests_enabled: bool = False,
-        fabrics: List = [],
+            self,
+            project: Project,
+            pipeline_id: str,
+            pipeline_name: str,
+            project_config: ProjectConfig = None,
+            are_tests_enabled: bool = False,
+            fabrics: List = [],
     ):
         self._pipeline_id = pipeline_id
         self._pipeline_name = pipeline_name
@@ -566,6 +562,5 @@ class PackageBuilderAndUploader:
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")
 
         return return_code
-
 
 # Create for Synapse / Azure
