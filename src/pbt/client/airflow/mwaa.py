@@ -6,29 +6,31 @@ from abc import ABC
 
 import boto3
 import requests
-from tenacity import retry_if_exception_type, stop_after_attempt, wait_fixed, retry
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import AirflowRestClient
-from ...utils.exceptions import DagNotAvailableException, DagFileDeletionFailedException, DagUploadFailedException, DagListParsingFailedException
+from ...utils.exceptions import (
+    DagFileDeletionFailedException,
+    DagListParsingFailedException,
+    DagNotAvailableException,
+    DagUploadFailedException,
+)
 from ...utils.project_models import DAG
 
 
 class MWAARestClient(AirflowRestClient, ABC):
-
     def __init__(self, environment_name: str, region: str, access_key: str, secret_key: str):
         self.environment_name = environment_name
         self.aws_s3_client = boto3.client(
-            "s3",
-            region_name=region,
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key
+            "s3", region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key
         )
 
-        self.mwaa_client = boto3.client("mwaa", region_name=region, aws_access_key_id=access_key,
-                                        aws_secret_access_key=secret_key)
+        self.mwaa_client = boto3.client(
+            "mwaa", region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key
+        )
 
         self.environment = self.mwaa_client.get_environment(Name=environment_name)
-        self.dag_s3_path = self.environment['Environment']['DagS3Path']
+        self.dag_s3_path = self.environment["Environment"]["DagS3Path"]
         self._source_bucket = self._extract_bucket_name_from_arn()
 
     def create_secret(self, key: str, value: str) -> bool:
@@ -45,7 +47,8 @@ class MWAARestClient(AirflowRestClient, ABC):
                 return False
         except Exception as e:
             raise DagFileDeletionFailedException(
-                f"Error deleting file {relative_path} from bucket {self._source_bucket}", e)
+                f"Error deleting file {relative_path} from bucket {self._source_bucket}", e
+            )
 
     # todo improve both pause and unpause.
     def pause_dag(self, dag_id: str) -> DAG:
@@ -65,16 +68,18 @@ class MWAARestClient(AirflowRestClient, ABC):
             self.aws_s3_client.upload_file(file_path, self._source_bucket, relative_path)
         except Exception as e:
             print(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
-            raise DagUploadFailedException(
-                f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
+            raise DagUploadFailedException(f"Error uploading file {file_path} to bucket {self._source_bucket}", e)
 
-    @retry(retry=retry_if_exception_type(DagNotAvailableException), stop=stop_after_attempt(20),
-           wait=wait_fixed(15),
-           reraise=True)
+    @retry(
+        retry=retry_if_exception_type(DagNotAvailableException),
+        stop=stop_after_attempt(20),
+        wait=wait_fixed(15),
+        reraise=True,
+    )
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
         dag_list = self._extract_and_load_list_json(response)
-        dag = next((dag for dag in dag_list if dag['dag_id'] == dag_id and dag['paused'] is not None), None)
+        dag = next((dag for dag in dag_list if dag["dag_id"] == dag_id and dag["paused"] is not None), None)
 
         if dag is not None:
             return DAG.create_from_mwaa(dag)
@@ -92,20 +97,14 @@ class MWAARestClient(AirflowRestClient, ABC):
         return ExpiringValue(lambda: self._create_cli_token(), 60 * 60 * 24)
 
     def _headers(self):
-        return {
-            "Authorization": f"Bearer {self._expiry_cli_token().get_value()['CliToken']}",
-            "User-Agent": "Prophecy"
-        }
+        return {"Authorization": f"Bearer {self._expiry_cli_token().get_value()['CliToken']}", "User-Agent": "Prophecy"}
 
     def _clean_response(self, text):
         try:
             return json.loads(text)  # Try to parse the text as JSON
         except json.JSONDecodeError:
             # If unsuccessful, perform string transformations and return the result
-            cleaned_text = "{\"" + text.strip() \
-                .replace(", ", "\", \"") \
-                .replace(": ", "\":\"") \
-                .replace(",\"", ", \"") + "\"}"
+            cleaned_text = '{"' + text.strip().replace(", ", '", "').replace(": ", '":"').replace(',"', ', "') + '"}'
             return json.loads(cleaned_text)
 
     def _execute_airflow_command(self, command: str):
@@ -119,15 +118,15 @@ class MWAARestClient(AirflowRestClient, ABC):
 
         decoded_response = json.loads(response_body)
 
-        if decoded_response.get('stdout', None) is not None:
-            return base64.b64decode(decoded_response['stdout']).decode('utf-8')
+        if decoded_response.get("stdout", None) is not None:
+            return base64.b64decode(decoded_response["stdout"]).decode("utf-8")
         else:
-            raise Exception(base64.b64decode(decoded_response['stderr']).decode('utf-8'))
+            raise Exception(base64.b64decode(decoded_response["stderr"]).decode("utf-8"))
 
     def _extract_bucket_name_from_arn(self) -> str:
         s3_arn_regex = r"arn:aws:s3:::(.+)"
 
-        match = re.match(s3_arn_regex, self.environment['Environment']['SourceBucketArn'])
+        match = re.match(s3_arn_regex, self.environment["Environment"]["SourceBucketArn"])
         if match:
             return match.group(1)  # Return the captured group
         else:
@@ -135,7 +134,7 @@ class MWAARestClient(AirflowRestClient, ABC):
 
     def _extract_and_load_list_json(self, data):
         # Using regular expression to find the JSON part
-        match = re.search(r'\[.*\]', data)
+        match = re.search(r"\[.*\]", data)
         if match:
             json_part = match.group()
             try:

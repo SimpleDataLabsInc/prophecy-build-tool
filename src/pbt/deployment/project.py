@@ -5,17 +5,26 @@ from typing import List
 import yaml
 
 from .gems import GemsDeployment
-from ..deployment.jobs.airflow import AirflowJobDeployment, AirflowGitSecrets, EMRPipelineConfigurations, \
-    DataprocPipelineConfigurations
-from ..deployment.jobs.databricks import DatabricksJobsDeployment, ScriptComponents, PipelineConfigurations, \
-    DBTComponents
+from ..deployment.jobs.airflow import (
+    AirflowGitSecrets,
+    AirflowJobDeployment,
+    DataprocPipelineConfigurations,
+    EMRPipelineConfigurations,
+    SparkSubmitPipelineConfigurations,
+)
+from ..deployment.jobs.databricks import (
+    DBTComponents,
+    DatabricksJobsDeployment,
+    PipelineConfigurations,
+    ScriptComponents,
+)
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
-from ..utility import custom_print as log, Either, is_online_mode
+from ..utility import Either, custom_print as log, is_online_mode
 from ..utility import remove_null_items_recursively
 from ..utils.constants import NEW_JOB_STATE_FILE
 from ..utils.project_config import ProjectConfig
-from ..utils.project_models import StepMetadata, Operation, StepType, Status, Colors
+from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
 
 
 class ProjectDeployment:
@@ -27,28 +36,38 @@ class ProjectDeployment:
         self._airflow_jobs = AirflowJobDeployment(project, project_config)
 
         self._script_component = ScriptComponents(project, self._databricks_jobs, project_config)
-        self._pipeline_configurations = PipelineConfigurations(project, self._databricks_jobs,
-                                                               project_config)
+        self._pipeline_configurations = PipelineConfigurations(project, self._databricks_jobs, project_config)
+        self._spark_submit_pipeline_configurations = SparkSubmitPipelineConfigurations(
+            project, self._airflow_jobs, project_config
+        )
         self._emr_pipeline_configurations = EMRPipelineConfigurations(project, self._airflow_jobs, project_config)
 
-        self._dataproc_pipeline_configurations = DataprocPipelineConfigurations(project, self._airflow_jobs,
-                                                                                project_config)
+        self._dataproc_pipeline_configurations = DataprocPipelineConfigurations(
+            project, self._airflow_jobs, project_config
+        )
 
         self._dbt_component = DBTComponents(project, self._databricks_jobs, project_config)
         self._airflow_git_secrets = AirflowGitSecrets(project, self._airflow_jobs, project_config)
 
-        self._pipelines = PipelineDeployment(project, self._databricks_jobs, self._airflow_jobs,
-                                             project_config)
+        self._pipelines = PipelineDeployment(project, self._databricks_jobs, self._airflow_jobs, project_config)
 
         # add gems Deployment.
         self._gems = GemsDeployment(project, project_config)
 
     def headers(self):
-        summary = self._gems.summary() + self._script_component.summary() + \
-                  self._dbt_component.summary() + self._airflow_git_secrets.summary() + \
-                  self._pipeline_configurations.summary() + self._emr_pipeline_configurations.summary() + \
-                  self._dataproc_pipeline_configurations.summary() + self._pipelines.summary() + \
-                  self._databricks_jobs.summary() + self._airflow_jobs.summary()
+        summary = (
+            self._gems.summary()
+            + self._script_component.summary()
+            + self._dbt_component.summary()
+            + self._airflow_git_secrets.summary()
+            + self._pipeline_configurations.summary()
+            + self._spark_submit_pipeline_configurations.summary()
+            + self._emr_pipeline_configurations.summary()
+            + self._dataproc_pipeline_configurations.summary()
+            + self._pipelines.summary()
+            + self._databricks_jobs.summary()
+            + self._airflow_jobs.summary()
+        )
 
         if len(summary) == 0:
             summary = ["No Job and pipelines to build"]
@@ -62,11 +81,12 @@ class ProjectDeployment:
             self._dbt_component.headers(),
             self._airflow_git_secrets.headers(),
             self._pipeline_configurations.headers(),
+            self._spark_submit_pipeline_configurations.headers(),
             self._emr_pipeline_configurations.headers(),
             self._dataproc_pipeline_configurations.headers(),
             self._pipelines.headers(),
             self._databricks_jobs.headers(),
-            self._airflow_jobs.headers()
+            self._airflow_jobs.headers(),
         )
 
         headers = sum(header_components, [])
@@ -88,7 +108,9 @@ class ProjectDeployment:
     def validate(self, treat_warning_as_errors):
         self._pipelines.validate(treat_warning_as_errors)
 
-    def test(self, ):
+    def test(
+        self,
+    ):
         self._pipelines.test()
 
     def _deploy_gems(self):
@@ -113,7 +135,8 @@ class ProjectDeployment:
         airflow_git_secrets_responses = self._airflow_git_secrets.deploy()
 
         if airflow_git_secrets_responses is not None and any(
-                response.is_left for response in airflow_git_secrets_responses):
+            response.is_left for response in airflow_git_secrets_responses
+        ):
             raise Exception("Airflow git secrets deployment failed.")
 
     def _deploy_pipeline_configs(self):
@@ -126,15 +149,25 @@ class ProjectDeployment:
         emr_pipeline_config_responses = self._emr_pipeline_configurations.deploy()
 
         if emr_pipeline_config_responses is not None and any(
-                response.is_left for response in emr_pipeline_config_responses):
+            response.is_left for response in emr_pipeline_config_responses
+        ):
             raise Exception("EMR pipeline config deployment failed.")
 
     def _deploy_dataproc_pipeline_config(self):
         dataproc_pipeline_config_responses = self._dataproc_pipeline_configurations.deploy()
 
         if dataproc_pipeline_config_responses is not None and any(
-                response.is_left for response in dataproc_pipeline_config_responses):
+            response.is_left for response in dataproc_pipeline_config_responses
+        ):
             raise Exception("Dataproc pipeline config deployment failed.")
+
+    def _deploy_spark_submit_pipeline_config(self):
+        spark_submit_pipeline_config_responses = self._spark_submit_pipeline_configurations.deploy()
+
+        if spark_submit_pipeline_config_responses is not None and any(
+                response.is_left for response in spark_submit_pipeline_config_responses
+        ):
+            raise Exception("Spark Submit pipeline config deployment failed.")
 
     def _deploy_pipelines(self):
         pipeline_responses = self._pipelines.deploy()
@@ -160,6 +193,7 @@ class ProjectDeployment:
         self._deploy_dbt_components()
         self._deploy_airflow_git_secrets()
         self._deploy_pipeline_configs()
+        self._deploy_spark_submit_pipeline_config()
         self._deploy_emr_pipeline_config()
         self._deploy_dataproc_pipeline_config()
 
@@ -186,7 +220,7 @@ class ProjectDeployment:
             path = os.path.join(base_path, NEW_JOB_STATE_FILE)
             yaml_str = yaml.dump(data=remove_null_items_recursively(new_state_config.dict()))
 
-            with open(path, 'w') as file:
+            with open(path, "w") as file:
                 file.write(yaml_str)
 
         # Only fail when there is a failure in jobs deployment.
@@ -205,19 +239,22 @@ class ProjectDeployment:
             log(f"\n\n{Colors.OKCYAN}Migrating project to new version. \n{Colors.ENDC}")
             try:
                 fabric_config_str = yaml.dump(
-                    data=remove_null_items_recursively(self.project_config.fabric_config_without_conf_replace.dict()))
+                    data=remove_null_items_recursively(self.project_config.fabric_config_without_conf_replace.dict())
+                )
                 system_config_str = yaml.dump(
-                    data=remove_null_items_recursively(self.project_config.system_config.dict()))
+                    data=remove_null_items_recursively(self.project_config.system_config.dict())
+                )
                 config_override_str = yaml.dump(
-                    data=remove_null_items_recursively(self.project_config.configs_override.dict()))
+                    data=remove_null_items_recursively(self.project_config.configs_override.dict())
+                )
 
-                with open(os.path.join(base_path, "fabrics.yml"), 'w') as file:
+                with open(os.path.join(base_path, "fabrics.yml"), "w") as file:
                     file.write(fabric_config_str)
 
-                with open(os.path.join(base_path, "system.yml"), 'w') as file:
+                with open(os.path.join(base_path, "system.yml"), "w") as file:
                     file.write(system_config_str)
 
-                with open(os.path.join(base_path, "override.yml"), 'w') as file:
+                with open(os.path.join(base_path, "override.yml"), "w") as file:
                     file.write(config_override_str)
 
                 log(f"\n\n{Colors.OKCYAN}Successfully migrated project to new version.\n{Colors.ENDC}")
