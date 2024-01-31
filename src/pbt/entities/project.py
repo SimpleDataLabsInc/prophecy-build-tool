@@ -27,6 +27,12 @@ def is_cross_project_pipeline(pipeline):
         return None, None, None
 
 
+def wrap_main_file_in_try_except(main_file_content: str) -> str:
+    contents_line = '\n'.join([f"  {line}" for line in main_file_content.split("\n")])
+
+    return f"try:\n{contents_line}\nexcept Exception as e:\n  pass"
+
+
 def _read_file_content(file_path: str) -> Optional[str]:
     if not os.path.exists(file_path):
         return None
@@ -149,12 +155,25 @@ class Project:
                     return full_path
 
     def get_py_pipeline_main_file(self, pipeline_id):
-        try:
-            main_file = os.path.join(self.project_path, pipeline_id, self._CODE_FOLDER, "main.py")
+        if self.does_project_contains_dynamic_pipeline():
+            return self._uber_main_py_file()
+        else:
+            try:
+                main_file = os.path.join(self.project_path, pipeline_id, self._CODE_FOLDER, "main.py")
+                data = _read_file_content(main_file)
+                return data
+            except Exception:
+                return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
+
+    def _uber_main_py_file(self):
+        main_file = ""
+        for pipeline in self.pipelines.keys():
+            main_file = os.path.join(self.project_path, pipeline, self._CODE_FOLDER, "main.py")
             data = _read_file_content(main_file)
-            return data
-        except Exception:
-            return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
+            if data is not None:
+                main_file = main_file + "\n\n" + wrap_main_file_in_try_except(data)
+
+        return main_file
 
     def get_pipeline_absolute_path(self, pipeline_id):
         return os.path.join(os.path.join(self.project_path, pipeline_id), "code")
@@ -308,6 +327,22 @@ class Project:
         if from_path in self.pipelines:
             return None, None, None
         return self.dependant_project.is_cross_project_pipeline(from_path)
+
+    def does_project_contains_dynamic_pipeline(self):
+        for job in self.jobs.keys():
+            rdc = self.load_airflow_folder_with_placeholder(job)
+            if rdc is not None and rdc.get('prophecy-job.json'):
+                prophecy_json = json.loads(rdc.get('prophecy-job.json'))
+                if 'metainfo' in prophecy_json and 'dynamicPipelineStatus' in prophecy_json['metainfo']:
+                    dynamic_pipeline_status = prophecy_json['metainfo']['dynamicPipelineStatus']
+                    is_dynamic = dynamic_pipeline_status['databricks'] | dynamic_pipeline_status['dataproc'] | \
+                                 dynamic_pipeline_status['emr']
+
+                    # if is true then return true otherwise False.
+                    if is_dynamic:
+                        return is_dynamic
+
+        return False
 
 
 class DependentProject(ABC):

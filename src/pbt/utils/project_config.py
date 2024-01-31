@@ -47,6 +47,7 @@ class FabricProviderType(enum.Enum):
 class DeploymentMode(enum.Enum):
     FullProject = "FullProject"
     SelectiveJob = "SelectiveJob"
+    FullBuildWithSelectiveDeploy = "FullBuildWithSelectiveDeploy"
 
 
 class BucketAndPathExtractor:
@@ -412,7 +413,8 @@ def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
 
 
 def load_system_config(system_config_path: str, is_based_on_file: bool = True):
-    if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file and os.path.exists(system_config_path):
+    if system_config_path is not None and len(system_config_path) > 0 and is_based_on_file and os.path.exists(
+            system_config_path):
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
     else:
@@ -420,7 +422,8 @@ def load_system_config(system_config_path: str, is_based_on_file: bool = True):
 
 
 def load_configs_override(configs_override_path, is_based_on_file: bool = True):
-    if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file and os.path.exists(configs_override_path):
+    if configs_override_path is not None and len(configs_override_path) > 0 and is_based_on_file and os.path.exists(
+            configs_override_path):
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
     else:
@@ -501,8 +504,14 @@ class ProjectConfig:
             # configs
             try:
                 configs = load_configs_override(configs_override_path, is_based_on_file)
+
+                if configs.mode == DeploymentMode.SelectiveJob and project.does_project_contains_dynamic_pipeline():
+                    # if it contains dynamic pipeline, we need to build all pipelines.
+                    configs.mode = DeploymentMode.FullBuildWithSelectiveDeploy
+
                 configs.filter_jobs(job_ids)
                 jobs.filter_provided_jobs(job_ids)
+
             except ConfigFileNotFoundException:
                 configs = ConfigsOverride.empty()
                 configs.mode = DeploymentMode.FullProject  # only build what's needed.

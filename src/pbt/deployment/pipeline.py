@@ -791,8 +791,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
 
             if self.project.project_language == "python":
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
-                pipeline_name = self.pipeline_id.split("/")[1]
-                launcher_path = f"{self.dataproc_info.bare_path_prefix()}/{self.base_path}/{self.to_path}/pipeline/{pipeline_name}/launcher.py".lstrip(
+                launcher_path = f"{self.dataproc_info.bare_path_prefix()}/{self.base_path}/{self.to_path}/pipeline/launcher.py".lstrip(
                     '/')
                 client.put_object(self.dataproc_info.bare_bucket(), launcher_path, content)
 
