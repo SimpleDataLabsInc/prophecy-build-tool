@@ -523,7 +523,6 @@ class ProjectConfig:
         conf_folder: str,
         migrate: bool,
     ):
-
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
         if is_online_mode() and len(conf_folder) > 0:
@@ -534,7 +533,6 @@ class ProjectConfig:
             return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
 
         else:
-
             if not is_based_on_file:
                 # only cli case for databricks/ fabrics
                 host = os.environ.get("DATABRICKS_HOST", "test")

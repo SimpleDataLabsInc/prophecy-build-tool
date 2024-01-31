@@ -569,8 +569,10 @@ class ProphecyBuildTool:
             print(f"[INFO]: Pipelines found [{pipelines_count}]: {list(pipelines.keys())}")
 
             if pipelines_count != len(pipeline_filter):
-                print("\n[ERROR]: Filtered pipelines doesn't match with passed filter"
-                      "\n Please check for any typo in Pipeline Filter")
+                print(
+                    "\n[ERROR]: Filtered pipelines doesn't match with passed filter"
+                    "\n Please check for any typo in Pipeline Filter"
+                )
                 sys.exit(1)
 
         if self._verify_unit_test_env():

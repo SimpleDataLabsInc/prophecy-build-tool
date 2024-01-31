@@ -165,7 +165,7 @@ class ProjectDeployment:
         spark_submit_pipeline_config_responses = self._spark_submit_pipeline_configurations.deploy()
 
         if spark_submit_pipeline_config_responses is not None and any(
-                response.is_left for response in spark_submit_pipeline_config_responses
+            response.is_left for response in spark_submit_pipeline_config_responses
         ):
             raise Exception("Spark Submit pipeline config deployment failed.")
 

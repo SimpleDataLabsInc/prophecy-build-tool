@@ -48,8 +48,12 @@ class DatabricksClient:
 
             self.upload_src_path(src_path=temp_file.name, destination_path=path)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def upload_src_path(self, src_path: str, destination_path: str):
         self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True)
 
@@ -59,48 +63,64 @@ class DatabricksClient:
     def delete(self, path: str):
         self.dbfs.delete(path, recursive=True)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def create_secret_scope_if_not_exist(self, secret_scope: str):
-
         response = self.secret.list_scopes()
 
-        if any(scope['name'] == secret_scope for scope in response['scopes']) is False:
-            self.secret.create_scope(secret_scope, initial_manage_principal="users", scope_backend_type=None,
-                                     backend_azure_keyvault=None)
+        if any(scope["name"] == secret_scope for scope in response["scopes"]) is False:
+            self.secret.create_scope(
+                secret_scope, initial_manage_principal="users", scope_backend_type=None, backend_azure_keyvault=None
+            )
         else:
             return True
 
     def create_secret(self, scope: str, key: str, value: str):
         self.secret.put_secret(scope, key, value, None)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def create_job(self, content: Dict[str, str]):
         return self.job.create_job(content)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def get_job(self, scheduler_job_id: str):
         return self.job.get_job(scheduler_job_id)
 
     def delete_job(self, job_id: str):
         self.job.delete_job(job_id)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def pause_job(self, scheduler_job_id: str) -> Either:
         response = self.job.get_job(scheduler_job_id)
 
         try:
-            pause_status = response['settings']['schedule']['pause_status']
+            pause_status = response["settings"]["schedule"]["pause_status"]
         except KeyError as e:
             print(f"No pause_status found in job {scheduler_job_id} settings")
             return Either(left=e)
 
-        if pause_status != 'Paused':
+        if pause_status != "Paused":
             updated_settings = dict(response)
-            updated_settings['settings']['schedule']['pause_status'] = 'Paused'
+            updated_settings["settings"]["schedule"]["pause_status"] = "Paused"
             self.job_client.update_job(scheduler_job_id, new_settings=updated_settings)
             print(f"Job {scheduler_job_id} has been paused.")
             return Either(right=True)
@@ -108,25 +128,33 @@ class DatabricksClient:
             print(f"Job {scheduler_job_id} is already paused.")
             return Either(right=False)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def reset_job(self, scheduler_job_id: str, update_request: Dict[str, str]):
-        new_settings = {'job_id': scheduler_job_id, 'new_settings': update_request}
+        new_settings = {"job_id": scheduler_job_id, "new_settings": update_request}
 
         self.job.reset_job(new_settings)
 
     def patch_job_acl(self, scheduler_job_id: str, acl):
-        print(f'patching job acl {scheduler_job_id} and acl {acl}')
+        print(f"patching job acl {scheduler_job_id} and acl {acl}")
         self.permission.patch_job(scheduler_job_id, acl)
 
-    @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(5),
-           wait=wait_exponential(multiplier=2, max=30), reraise=True)
+    @retry(
+        retry=retry_if_exception_type(HTTPError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, max=30),
+        reraise=True,
+    )
     def find_job(self, job_name) -> Optional[str]:
         try:
-            jobs = self.job.list_jobs(name=job_name)['jobs']
+            jobs = self.job.list_jobs(name=job_name)["jobs"]
             if jobs is not None:
                 if len(jobs) == 1:
-                    return jobs[0]['job_id']
+                    return jobs[0]["job_id"]
                 else:
                     raise DuplicateJobNameException(f"Found more than one job with name {job_name}")
             return None
@@ -139,5 +167,4 @@ class PermissionsApi(object):
         self.client = client
 
     def patch_job(self, scheduler_job_id: str, data):
-        return self.client.perform_query(
-            'PATCH', f'/2.0/preview/permissions/jobs/{scheduler_job_id}', data=data)
+        return self.client.perform_query("PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data)

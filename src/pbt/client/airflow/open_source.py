@@ -129,7 +129,9 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
                 if e.response
                 else "No response"
             )
-            raise DagUploadFailedException(f"Failed to upload file {local_file_path} to {upload_directory}. {response_info}", e)
+            raise DagUploadFailedException(
+                f"Failed to upload file {local_file_path} to {upload_directory}. {response_info}", e
+            )
         except Exception as e:
             raise DagUploadFailedException(f"Failed to upload file {local_file_path} to {upload_directory}", e)
 
@@ -145,6 +147,8 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
                 if e.response
                 else "No response"
             )
-            raise DagUploadFailedException(f"Failed to upload content to {upload_directory}/{file_name}. {response_info}", e)
+            raise DagUploadFailedException(
+                f"Failed to upload content to {upload_directory}/{file_name}. {response_info}", e
+            )
         except Exception as e:
             raise DagUploadFailedException(f"Failed to upload content to {upload_directory}/{file_name} ", e)

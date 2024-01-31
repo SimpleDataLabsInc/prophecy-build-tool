@@ -21,7 +21,6 @@ class DagUploadFailedException(PBTException):
 
 
 class DagListParsingFailedException(PBTException):
-
     def __init__(self, message, e):
         self.message = message
         self.e = e

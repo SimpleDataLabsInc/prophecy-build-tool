@@ -42,14 +42,14 @@ class LogLevel(enum.Enum):
 
 
 class Colors:
-    HEADER = '\033[95m'  # Purple
-    OKBLUE = '\033[94m'  # Blue
-    MAGENTA = '\033[35m'
-    OKCYAN = '\033[96m'  # Cyan
-    OKGREEN = '\033[92m'  # Green
-    WARNING = '\033[93m'  # Yellow
-    FAIL = '\033[91m'  # Red
-    ENDC = '\033[0m'  # Reset color
+    HEADER = "\033[95m"  # Purple
+    OKBLUE = "\033[94m"  # Blue
+    MAGENTA = "\033[35m"
+    OKCYAN = "\033[96m"  # Cyan
+    OKGREEN = "\033[92m"  # Green
+    WARNING = "\033[93m"  # Yellow
+    FAIL = "\033[91m"  # Red
+    ENDC = "\033[0m"  # Reset color
 
 
 def to_dict_recursive(obj):
@@ -61,18 +61,17 @@ def to_dict_recursive(obj):
     elif isinstance(obj, dict):
         # Skip keys with None values
         return {key: to_dict_recursive(value) for key, value in obj.items() if value is not None}
-    elif hasattr(obj, '__dict__'):
+    elif hasattr(obj, "__dict__"):
         return to_dict_recursive(
-            {key: value for key, value in obj.__dict__.items() if not isinstance(value, type) and value is not None})
-    elif hasattr(obj, '__slots__'):
-        return to_dict_recursive(
-            {slot: getattr(obj, slot) for slot in obj.__slots__ if getattr(obj, slot) is not None})
+            {key: value for key, value in obj.__dict__.items() if not isinstance(value, type) and value is not None}
+        )
+    elif hasattr(obj, "__slots__"):
+        return to_dict_recursive({slot: getattr(obj, slot) for slot in obj.__slots__ if getattr(obj, slot) is not None})
     else:
         return obj
 
 
 class StepMetadata:
-
     def __init__(self, id: str, heading: str, operation: Operation, type: StepType):
         self.id = id.replace("\\W", "_")
         self.heading = heading
@@ -181,14 +180,21 @@ class ScriptComponentsModel:
 
 
 class DAG:
-
-    def __init__(self, dag_id: str, description: Optional[str] = None, file_token: Optional[str] = None,
-                 fileloc: Optional[str] = None,
-                 is_active: Optional[bool] = None, is_paused: bool = True, is_subdag: Optional[bool] = None,
-                 owners: List[str] = None,
-                 root_dag_id: Optional[str] = None, schedule_interval: Optional[str] = None,
-                 next_dagrun: Optional[str] = None,
-                 tags: List[str] = []):
+    def __init__(
+        self,
+        dag_id: str,
+        description: Optional[str] = None,
+        file_token: Optional[str] = None,
+        fileloc: Optional[str] = None,
+        is_active: Optional[bool] = None,
+        is_paused: bool = True,
+        is_subdag: Optional[bool] = None,
+        owners: List[str] = None,
+        root_dag_id: Optional[str] = None,
+        schedule_interval: Optional[str] = None,
+        next_dagrun: Optional[str] = None,
+        tags: List[str] = [],
+    ):
         self.dag_id = dag_id
         self.description = description
         self.file_token = file_token
@@ -204,32 +210,44 @@ class DAG:
 
     @staticmethod
     def create(responses: dict):
-        dag_id = responses.get('dag_id')
-        description = responses.get('description', None)
-        file_token = responses.get('file_token', None)
-        fileloc = responses.get('fileloc', None)
-        is_active = responses.get('is_active', None)
-        is_paused = responses.get('is_paused', None)
-        is_subdag = responses.get('is_subdag', None)
-        owners = responses.get('owners', [])
-        root_dag_id = responses.get('root_dag_id', None)
+        dag_id = responses.get("dag_id")
+        description = responses.get("description", None)
+        file_token = responses.get("file_token", None)
+        fileloc = responses.get("fileloc", None)
+        is_active = responses.get("is_active", None)
+        is_paused = responses.get("is_paused", None)
+        is_subdag = responses.get("is_subdag", None)
+        owners = responses.get("owners", [])
+        root_dag_id = responses.get("root_dag_id", None)
 
         try:
-            schedule_interval = responses.get('schedule_interval', {}).get('value', None)
+            schedule_interval = responses.get("schedule_interval", {}).get("value", None)
         except AttributeError:
             schedule_interval = None
 
-        next_dagrun = responses.get('next_dagrun', None)
-        tags = responses.get('tags', [])
-        return DAG(dag_id, description, file_token, fileloc, is_active, is_paused, is_subdag, owners, root_dag_id,
-                   schedule_interval, next_dagrun, tags)
+        next_dagrun = responses.get("next_dagrun", None)
+        tags = responses.get("tags", [])
+        return DAG(
+            dag_id,
+            description,
+            file_token,
+            fileloc,
+            is_active,
+            is_paused,
+            is_subdag,
+            owners,
+            root_dag_id,
+            schedule_interval,
+            next_dagrun,
+            tags,
+        )
 
     # different from the scala release.
     @staticmethod
     def create_from_mwaa(response: dict):
-        dag_id = response.get('dag_id')
-        fileloc = response.get('filepath', None)
-        is_paused = response.get('paused', None)
-        owner = response.get('owner', None)
+        dag_id = response.get("dag_id")
+        fileloc = response.get("filepath", None)
+        is_paused = response.get("paused", None)
+        owner = response.get("owner", None)
         owners = [] if owner is None else ([owner] if isinstance(owner, str) else owner)
         return DAG(dag_id, fileloc=fileloc, is_paused=is_paused is None or bool(is_paused), owners=owners)
