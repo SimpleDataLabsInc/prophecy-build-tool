@@ -498,6 +498,7 @@ class DatabricksJobsDeployment:
 class DBTComponents:
     _DBT_SECRETS_COMPONENT_STEP_NAME = "DBTSecretsComponents"
     _DBT_PROFILES_COMPONENT_STEP_NAME = "DBTProfileComponents"
+    _DBT_CONTENT_COMPONENT_STEP_NAME = "DBTContentComponents"
 
     def __init__(self, project: Project, databricks_jobs: DatabricksJobsDeployment,
                  project_config: ProjectConfig):
@@ -521,13 +522,16 @@ class DBTComponents:
                                                                                       None) is not None:
                     summary.append(f"Uploading dbt profiles for job {job_id} component {components.get('nodeName')} ")
 
+                if components.get('path', None) is not None and components.get('content', None) is not None:
+                    summary.append(f"Uploading dbt content for job {job_id} component {components.get('nodeName')} ")
+
         return summary
 
     def headers(self):
-        return self._dbt_secrets_headers() + self._dbt_profiles_to_build_headers()
+        return self._dbt_secrets_headers() + self._dbt_profiles_to_build_headers() + self._dbt_content_headers()
 
     def deploy(self):
-        return self._upload_dbt_secrets() + self._upload_dbt_profiles()
+        return self._upload_dbt_secrets() + self._upload_dbt_profiles() + self._upload_dbt_contents()
 
     @property
     def dbt_component_from_jobs(self) -> Dict[str, DbtComponentsModel]:
@@ -573,6 +577,7 @@ class DBTComponents:
             log(f"{Colors.OKGREEN}Successfully uploaded dbt profile {components['profilePath']}{Colors.ENDC}",
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
             return Either(right=True)
+
         except Exception as e:
             log(f"{Colors.FAIL}Error while uploading dbt profile {components['profilePath']}{Colors.ENDC}", exception=e,
                 step_id=self._DBT_PROFILES_COMPONENT_STEP_NAME)
@@ -620,6 +625,38 @@ class DBTComponents:
 
             return Either(left=e)
 
+    def _upload_dbt_contents(self):
+        futures = []
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            if len(self._dbt_content_headers()) > 0:
+                log(f"\n\n{Colors.OKBLUE}Uploading DBT content{Colors.ENDC}\n\n")
+
+            for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
+                for dbt_component in dbt_component_model.components:
+                    if dbt_component.get('path', None) is not None and dbt_component.get('content', None) is not None:
+                        futures.append(executor.submit(
+                            lambda comp=dbt_component, fabric_id=dbt_component_model.fabric_id:
+                                self._upload_dbt_content(comp, fabric_id)))
+
+        return await_futures_and_update_states(futures, self._DBT_CONTENT_COMPONENT_STEP_NAME)
+
+    def _upload_dbt_content(self, component, fabric_id):
+        path = component['path']
+        content = component['content']
+
+        try:
+            client = self.databricks_jobs.get_databricks_client(fabric_id)
+            client.upload_content(content, path)
+
+            log(f"{Colors.OKGREEN}Successfully uploaded dbt content {path}{Colors.ENDC}",
+                step_id=self._DBT_CONTENT_COMPONENT_STEP_NAME)
+            return Either(right=True)
+        except Exception as e:
+            log(f"{Colors.FAIL}Error while uploading dbt content {path}{Colors.ENDC}", exception=e,
+                step_id=self._DBT_CONTENT_COMPONENT_STEP_NAME)
+            return Either(left=e)
+
     def _dbt_profiles_to_build_headers(self):
         total_dbt_profiles = 0
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
@@ -633,6 +670,20 @@ class DBTComponents:
             return [StepMetadata(self._DBT_PROFILES_COMPONENT_STEP_NAME, f"Upload {total_dbt_profiles} dbt profiles",
                                  Operation.Upload,
                                  StepType.DbtProfile)]
+        else:
+            return []
+
+    def _dbt_content_headers(self):
+        total_dbt_content = 0
+        for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
+            for components in dbt_component_model.components:
+                if components.get('path', None) is not None and components.get('content', None) is not None:
+                    total_dbt_content = total_dbt_content + 1
+
+        if total_dbt_content > 0:
+            return [StepMetadata(self._DBT_CONTENT_COMPONENT_STEP_NAME, f"Upload {total_dbt_content} dbt content",
+                                 Operation.Upload,
+                                 StepType.DbtContent)]
         else:
             return []
 

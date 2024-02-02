@@ -25,6 +25,7 @@ class StepType(enum.Enum):
     Script = "Script"
     DbtProfile = "DbtProfile"
     DbtSecret = "DbtSecret"
+    DbtContent = "DbtContent"
     AirflowGitSecrets = "AirflowGitSecrets"
     Summary = "Summary"
     Subgraph = "Subgraph"  # why this?
@@ -42,13 +43,13 @@ class LogLevel(enum.Enum):
 
 
 class Colors:
-    HEADER = '\033[95m'  # Purple
-    OKBLUE = '\033[94m'  # Blue
+    HEADER = '\033[35m'  # Purple
+    OKBLUE = '\033[34m'  # Blue
     MAGENTA = '\033[35m'
-    OKCYAN = '\033[96m'  # Cyan
-    OKGREEN = '\033[92m'  # Green
-    WARNING = '\033[93m'  # Yellow
-    FAIL = '\033[91m'  # Red
+    OKCYAN = '\033[36m'  # Cyan
+    OKGREEN = '\033[32m'  # Green
+    WARNING = '\033[33m'  # Yellow
+    FAIL = '\033[31m'  # Red
     ENDC = '\033[0m'  # Reset color
 
 
