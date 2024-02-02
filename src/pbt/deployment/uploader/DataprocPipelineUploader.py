@@ -21,6 +21,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
             fabric_id: str,
             fabric_name: str,
             dataproc_info: DataprocInfo,
+            is_subscribed_project: bool
     ):
         self.project = project
         self.project_config = project_config
@@ -41,6 +42,7 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
                 "/"
             )
         )
+        self.is_subscribed_project = is_subscribed_project
 
     def upload_pipeline(self, path: str):
         try:
@@ -54,10 +56,18 @@ class DataprocPipelineUploader(PipelineUploader, ABC):
             )
 
             if self.project.project_language == "python":
+                pipeline_name = self.project.get_pipeline_name(self.pipeline_id)
                 content = self.project.get_py_pipeline_main_file(self.pipeline_id)
-                launcher_path = f"{self.dataproc_info.bare_path_prefix()}/{self.base_path}/{self.to_path}/pipeline/launcher.py".lstrip(
-                    "/"
-                )
+
+                if not self.is_subscribed_project and self.project.does_project_contains_dynamic_pipeline():
+                    launcher_path = f"{self.dataproc_info.bare_path_prefix()}/{self.base_path}/{self.to_path}/pipeline/launcher.py".lstrip(
+                        "/"
+                    )
+                else:
+                    launcher_path = f"{self.dataproc_info.bare_path_prefix()}/{self.base_path}/{self.to_path}/pipeline/{pipeline_name}/launcher.py".lstrip(
+                        "/"
+                    )
+
                 client.put_object(self.dataproc_info.bare_bucket(), launcher_path, content)
 
                 log(

@@ -528,6 +528,7 @@ class DatabricksJobsDeployment:
 class DBTComponents:
     _DBT_SECRETS_COMPONENT_STEP_NAME = "DBTSecretsComponents"
     _DBT_PROFILES_COMPONENT_STEP_NAME = "DBTProfileComponents"
+    _DBT_CONTENT_COMPONENT_STEP_NAME = "DBTContentComponents"
 
     def __init__(self, project: Project, databricks_jobs: DatabricksJobsDeployment, project_config: ProjectConfig):
         self.databricks_jobs = databricks_jobs
