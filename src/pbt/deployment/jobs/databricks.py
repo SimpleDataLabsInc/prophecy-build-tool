@@ -612,7 +612,7 @@ class DBTComponents:
 
             sql_client.create_secret(dbt_component_model.secret_scope, dbt_component['secretKey'], master_token)
 
-            log(f"{Colors.OKGREEN}Successfully uploaded dbt secret for component {dbt_component['nodeName']}{Colors.ENDC}",
+            log(f"{Colors.OKGREEN}Successfully uploaded dbt secret for component {dbt_component['nodeName']} and for scope {dbt_component_model.secret_scope}{Colors.ENDC}",
                 step_id=self._DBT_SECRETS_COMPONENT_STEP_NAME)
 
             return Either(right=True)
