@@ -98,6 +98,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
                             fabric_id,
                             fabric_name,
                             dataproc_info,
+                            subscribed_project_id is not None,
                         )
 
                     elif oss_info is not None:
@@ -200,6 +201,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
                     fabric_id,
                     fabric_name,
                     dataproc_info,
+                    subscribed_project_id is not None,
                 )
 
             elif oss_info is not None:
