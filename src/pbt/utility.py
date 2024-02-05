@@ -23,13 +23,13 @@ class Either:
 
 
 def custom_print(
-        message: Optional[Any] = None,
-        exception=None,
-        step_id=None,
-        step_metadata: Optional[StepMetadata] = None,
-        step_status: Optional[Status] = None,
-        level: LogLevel = LogLevel.INFO,
-        indent: int = 0,
+    message: Optional[Any] = None,
+    exception=None,
+    step_id=None,
+    step_metadata: Optional[StepMetadata] = None,
+    step_status: Optional[Status] = None,
+    level: LogLevel = LogLevel.INFO,
+    indent: int = 0,
 ) -> None:
     if is_online_mode():
         # Custom print: Print all variables.

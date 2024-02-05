@@ -13,15 +13,15 @@ from ...utils.project_models import Colors
 
 class DatabricksPipelineUploader(PipelineUploader, ABC):
     def __init__(
-            self,
-            project: Project,
-            project_config: ProjectConfig,
-            pipeline_id: str,
-            to_path: str,
-            file_path: str,
-            file_name: str,
-            fabric_id: str,
-            fabric_name: str,
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        pipeline_id: str,
+        to_path: str,
+        file_path: str,
+        file_name: str,
+        fabric_id: str,
+        fabric_name: str,
     ):
         self.project = project
         self.project_config = project_config

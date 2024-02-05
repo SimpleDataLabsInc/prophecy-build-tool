@@ -10,16 +10,16 @@ from ...utils.project_models import Colors
 
 class EMRPipelineUploader(PipelineUploader, ABC):
     def __init__(
-            self,
-            project: Project,
-            project_config: ProjectConfig,
-            pipeline_id: str,
-            from_path: str,
-            to_path: str,
-            file_name: str,
-            fabric_id: str,
-            fabric_name: str,
-            emr_info: EMRInfo,
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        pipeline_id: str,
+        from_path: str,
+        to_path: str,
+        file_name: str,
+        fabric_id: str,
+        fabric_name: str,
+        emr_info: EMRInfo,
     ):
         self.project = project
         self.project_config = project_config

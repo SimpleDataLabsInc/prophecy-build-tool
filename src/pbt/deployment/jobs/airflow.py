@@ -1,7 +1,7 @@
 import base64
-import binascii
 import hashlib
 import os
+import re
 import zipfile
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
@@ -16,6 +16,7 @@ from ...deployment import EntityIdToFabricId, JobData, JobInfoAndOperation, Oper
 from ...entities.project import Project
 from ...utility import Either, custom_print as log
 from ...utils.constants import FABRIC_UID
+from ...utils.exceptions import DagNotAvailableException
 from ...utils.project_config import FabricInfo, JobInfo, ProjectConfig, await_futures_and_update_states, update_state
 from ...utils.project_models import Colors, Operation, StepMetadata, StepType
 
@@ -28,9 +29,9 @@ def generate_secure_content(content: str, salt: str) -> str:
     salt_bytes = salt.encode("utf-8")
 
     derived_key = hashlib.pbkdf2_hmac("sha256", password, salt_bytes, iterations, dklen=key_length // 8)
-    hash_bytes = binascii.hexlify(derived_key)
 
-    return base64.b64encode(hash_bytes).decode("utf-8").replace("\\W+", "_")
+    base64_encoded = base64.b64encode(derived_key).decode("utf-8")
+    return re.sub(r"\W+", "_", base64_encoded)
 
 
 def calculate_checksum(input_str, salt=None):
@@ -166,7 +167,7 @@ class AirflowJob(JobData, ABC):
 
     @property
     def has_dbt_component(self):
-        return any(value.get("component", None) == "dbt" for value in self.prophecy_job_json_dict["processes"].values())
+        return any(value.get("component", None) == "DBT" for value in self.prophecy_job_json_dict["processes"].values())
 
     def _initialize_prophecy_job_json(self) -> dict:
         try:
@@ -495,12 +496,25 @@ class AirflowJobDeployment:
         fabric_label = get_fabric_label(fabric_name, job_data.fabric_id)
         try:
             client.upload_dag(dag_name, zipped_dag_name)
+
+            # start of try-catch
             try:
                 client.unpause_dag(dag_name)
                 log(
                     f"{Colors.OKGREEN}Successfully un-paused dag:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
                     step_id=self._ADD_JOBS_STEP_ID,
                 )
+
+            except DagNotAvailableException as e:
+                log(
+                    f"{Colors.FAIL}Dag:{dag_name} for job:{job_id} and fabric:{fabric_label} not available after exhausting all the retries,"
+                    f" please check with administrator{Colors.ENDC}",
+                    exception=e,
+                    step_id=self._ADD_JOBS_STEP_ID,
+                )
+
+                return Either(left=e)
+
             except Exception as e:
                 log(
                     f"{Colors.FAIL}Failed to un-pause dag with name:{dag_name} for job:{job_id} and fabric:{fabric_label}{Colors.ENDC}",
@@ -509,6 +523,8 @@ class AirflowJobDeployment:
                 )
 
                 return Either(left=e)
+
+            # end of try-catch
 
             log(
                 f"{Colors.OKGREEN}Successfully added job:{dag_name} for job_id:{job_id} on fabric:{fabric_label}{Colors.ENDC}",
@@ -685,14 +701,15 @@ class AirflowGitSecrets:
         # todo fix this
         execution_db_suffix = os.getenv("EXECUTION_DB_SUFFIX", "dev")
         client = self.airflow_jobs.get_airflow_client(job_data.fabric_id)
+
         try:
-            client.create_secret(
-                generate_secure_content(f"{execution_db_suffix}_{project_id}", "gitSecretSalt"), git_tokens
-            )
+            key = generate_secure_content(f"{execution_db_suffix}_{project_id}", "gitSecretSalt")
+            client.create_secret(key, git_tokens)
             log(
                 f"{Colors.OKGREEN}Successfully created git secrets for project {project_id}{Colors.ENDC}",
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID,
             )
+            return Either(right=True)
 
         except Exception as e:
             log(

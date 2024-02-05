@@ -11,7 +11,6 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import secretmanager, storage
 from google.cloud.storage import Blob
 from google.oauth2 import service_account
-from google.oauth2.gdch_credentials import ServiceAccountCredentials
 from requests import HTTPError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
@@ -58,13 +57,13 @@ class ComposerRestClient(AirflowRestClient, ABC):
         self.airflow_url = airflow_url
         self.project_id = project_id
         self.client_id = client_id
-        self.key_json_file = key_json
+        self.key_json = json.loads(key_json)
         self.dag_location = dag_location
         self.location = location
 
         self.file_path = self._create_key_json_file(key_json)
 
-        self.storage_handler = storage.Client.from_service_account_info(json.loads(key_json), project=project_id)
+        self.storage_handler = storage.Client.from_service_account_info(self.key_json, project=project_id)
 
     def delete_dag_file(self, dag_id: str):
         gcs_path_info = GCSPathInfo.get_gcs_path_info(self.dag_location)
@@ -97,14 +96,17 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
     # todo maybe we can add labmda function to print in right format
     def create_secret(self, key: str, value: str) -> bool:
-        client = None
         try:
             client = self._get_secrets_manager()
             secret_name = f"projects/{self.project_id}/secrets/{key}"
 
             try:
                 client.get_secret(name=secret_name)
-                client.add_secret_version(request={"parent": secret_name, "payload": {"data": value.encode("UTF-8")}})
+                client.add_secret_version(
+                    parent=secret_name,
+                    payload=secretmanager.SecretPayload(value.encode("UTF-8")),
+                )
+
             except Exception as e:
                 print(f"Failed to get secret: {secret_name}, trying to create default one", e)
 
@@ -117,18 +119,13 @@ class ComposerRestClient(AirflowRestClient, ABC):
                     }
                 )
                 client.add_secret_version(
-                    request={
-                        "parent": secret.name,
-                        "payload": value.encode("UTF-8"),
-                    }
+                    parent=secret.name,
+                    payload=secretmanager.SecretPayload(value.encode("UTF-8")),
                 )
 
         except Exception as e:
             print("Failed to create Secret manager client", e)
             return False
-        finally:
-            if client is not None:
-                client.__exit__()
 
         return True
 
@@ -163,23 +160,21 @@ class ComposerRestClient(AirflowRestClient, ABC):
 
     def _get_secrets_manager(self):
         # fill up how to get the credentials
-        credentials = ServiceAccountCredentials.from_service_account_file(self.key_json_file)
-        client = secretmanager.SecretManagerServiceClient(credentials=credentials)
+        creds = service_account.Credentials.from_service_account_info(self.key_json)
+        client = secretmanager.SecretManagerServiceClient(credentials=creds)
         return client
 
     def _get_authenticated_session(self):
         if self.client_id is not None and len(self.client_id) > 0:
             print(f"Client Id {self.client_id}")
             credentials = (
-                service_account.IDTokenCredentials.from_service_account_info(json.loads(self.key_json_file))
+                service_account.IDTokenCredentials.from_service_account_info(self.key_json)
                 .with_target_audience(self.client_id)
                 .with_scopes(self._SCOPES)
             )
 
         else:
-            credentials = service_account.Credentials.from_service_account_info(
-                json.loads(self.key_json_file)
-            ).with_scopes(self._SCOPES)
+            credentials = service_account.Credentials.from_service_account_info(self.key_json).with_scopes(self._SCOPES)
         return AuthorizedSession(credentials)
 
     @retry(retry=retry_if_exception_type(HTTPError), stop=stop_after_attempt(20), wait=wait_fixed(15), reraise=True)

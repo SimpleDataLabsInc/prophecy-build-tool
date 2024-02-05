@@ -11,16 +11,16 @@ from ...utils.project_models import Colors
 
 class DataprocPipelineUploader(PipelineUploader, ABC):
     def __init__(
-            self,
-            project: Project,
-            project_config: ProjectConfig,
-            pipeline_id: str,
-            from_path: str,
-            to_path: str,
-            file_name: str,
-            fabric_id: str,
-            fabric_name: str,
-            dataproc_info: DataprocInfo,
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        pipeline_id: str,
+        from_path: str,
+        to_path: str,
+        file_name: str,
+        fabric_id: str,
+        fabric_name: str,
+        dataproc_info: DataprocInfo,
     ):
         self.project = project
         self.project_config = project_config
