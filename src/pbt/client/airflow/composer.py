@@ -11,7 +11,6 @@ from google.auth.transport.requests import AuthorizedSession
 from google.cloud import secretmanager, storage
 from google.cloud.storage import Blob
 from google.oauth2 import service_account
-from google.oauth2.gdch_credentials import ServiceAccountCredentials
 from requests import HTTPError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 

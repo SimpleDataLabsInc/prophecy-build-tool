@@ -241,7 +241,7 @@ class AirflowJobDeployment:
             log(f"{Colors.OKBLUE}\n\nDeploying airflow jobs{Colors.ENDC}\n")
 
         responses = self._deploy_remove_jobs() + self._deploy_pause_jobs() + \
-                    self._deploy_add_jobs() + self._deploy_rename_jobs()
+            self._deploy_add_jobs() + self._deploy_rename_jobs()
 
         self._deploy_skipped_jobs()
 
