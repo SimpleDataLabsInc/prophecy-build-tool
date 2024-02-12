@@ -16,9 +16,9 @@ def test_build_path_default():
     assert "Building pipeline pipelines/report_top_customers" in result.output
     assert "Building pipeline pipelines/farmers-markets-irs" in result.output
 
+
 def test_build_v2_path_default():
     runner = CliRunner()
-    #build_v2("--path PROJECT_PATH", "")
     result = runner.invoke(build_v2, ["--path", PROJECT_PATH])
     assert result.exit_code == 1  # TODO @pankaj, why is exit code 1?
     assert "Found 4 pipelines" in result.output

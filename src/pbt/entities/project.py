@@ -207,7 +207,7 @@ class Project:
 
     def _read_directory(self, base_path: str):
         rdc = {}
-        IGNORE_DIRS = ['build', 'dist', '__pycache__']
+        IGNORE_DIRS = ["build", "dist", "__pycache__"]
 
         for dir_path, dir_names, filenames in os.walk(base_path):
             if os.path.basename(dir_path) in IGNORE_DIRS:
