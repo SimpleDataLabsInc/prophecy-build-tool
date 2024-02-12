@@ -15,12 +15,12 @@ from ...utils.project_models import Colors, LogLevel, Status
 
 class PipelineUploadManager(PipelineUploader, ABC):
     def __init__(
-            self,
-            project: Project,
-            project_config: ProjectConfig,
-            pipeline_id: str,
-            pipeline_name: str,
-            all_fabrics: List[str],
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        pipeline_id: str,
+        pipeline_name: str,
+        all_fabrics: List[str],
     ):
         self.project = project
         self.project_config = project_config
@@ -98,6 +98,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
                             fabric_id,
                             fabric_name,
                             dataproc_info,
+                            subscribed_project_id is not None,
                         )
 
                     elif oss_info is not None:
@@ -200,6 +201,7 @@ class PipelineUploadManager(PipelineUploader, ABC):
                     fabric_id,
                     fabric_name,
                     dataproc_info,
+                    subscribed_project_id is not None,
                 )
 
             elif oss_info is not None:

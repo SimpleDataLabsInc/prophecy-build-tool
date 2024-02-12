@@ -23,13 +23,13 @@ from ..utils.project_models import Colors, Operation, Status, StepMetadata, Step
 
 class PipelineDeployment:
     def __init__(
-            self,
-            project: Project,
-            databricks_jobs: DatabricksJobsDeployment,
-            airflow_jobs: AirflowJobDeployment,
-            project_config: ProjectConfig,
-            job_ids: Optional[List[str]] = None,
-            pipelines_to_build: Optional[List[str]] = None,
+        self,
+        project: Project,
+        databricks_jobs: DatabricksJobsDeployment,
+        airflow_jobs: AirflowJobDeployment,
+        project_config: ProjectConfig,
+        job_ids: Optional[List[str]] = None,
+        pipelines_to_build: Optional[List[str]] = None,
     ):
         self.job_ids = job_ids
         self.pipelines_to_build = pipelines_to_build
@@ -312,13 +312,13 @@ class PipelineDeployment:
 # if it's not present in nexus, then build the jar upload to nexus and return it back.
 class PackageBuilderAndUploader:
     def __init__(
-            self,
-            project: Project,
-            pipeline_id: str,
-            pipeline_name: str,
-            project_config: ProjectConfig = None,
-            are_tests_enabled: bool = False,
-            fabrics: List = [],
+        self,
+        project: Project,
+        pipeline_id: str,
+        pipeline_name: str,
+        project_config: ProjectConfig = None,
+        are_tests_enabled: bool = False,
+        fabrics: List = [],
     ):
         self._pipeline_id = pipeline_id
         self._pipeline_name = pipeline_name
@@ -546,5 +546,6 @@ class PackageBuilderAndUploader:
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")
 
         return return_code
+
 
 # Create for Synapse / Azure
