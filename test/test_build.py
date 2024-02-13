@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from src.pbt import build
+from src.pbt import build, build_v2
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
@@ -15,6 +15,18 @@ def test_build_path_default():
     assert "Building pipeline pipelines/join_agg_sort" in result.output
     assert "Building pipeline pipelines/report_top_customers" in result.output
     assert "Building pipeline pipelines/farmers-markets-irs" in result.output
+
+
+def test_build_v2_path_default():
+    runner = CliRunner()
+    result = runner.invoke(build_v2, ["--path", PROJECT_PATH])
+    assert result.exit_code == 1  # TODO @pankaj, why is exit code 1?
+    assert "Found 4 pipelines" in result.output
+    assert "Building pipelines 4" in result.output
+    assert "Building pipeline `customers_orders" in result.output
+    assert "Building pipeline `join_agg_sort" in result.output
+    assert "Building pipeline `report_top_customers" in result.output
+    assert "Building pipeline `farmers-markets-irs" in result.output
 
 
 def test_build_path_pipeline_filter():
