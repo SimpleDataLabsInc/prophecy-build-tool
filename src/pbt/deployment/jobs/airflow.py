@@ -79,13 +79,13 @@ def zip_folder(rdc: dict, output_path):
 
 class AirflowJob(JobData, ABC):
     def __init__(
-            self,
-            job_pbt: dict,
-            prophecy_job_yaml: str,
-            rdc: Dict[str, str],
-            rdc_with_placeholder: Dict[str, str],
-            sha: Optional[str],
-            fabric_override: Optional[str] = None,
+        self,
+        job_pbt: dict,
+        prophecy_job_yaml: str,
+        rdc: Dict[str, str],
+        rdc_with_placeholder: Dict[str, str],
+        sha: Optional[str],
+        fabric_override: Optional[str] = None,
     ):
         self.job_pbt = job_pbt
         self.prophecy_job_yaml = prophecy_job_yaml
@@ -105,10 +105,10 @@ class AirflowJob(JobData, ABC):
         prophecy_job_yaml_dict = self.prophecy_job_json_dict
 
         return (
-                self.job_pbt is not None
-                and self.prophecy_job_yaml is not None
-                and self.rdc is not None
-                and prophecy_job_yaml_dict.get("metainfo", {}).get("fabricId", None) is not None
+            self.job_pbt is not None
+            and self.prophecy_job_yaml is not None
+            and self.rdc is not None
+            and prophecy_job_yaml_dict.get("metainfo", {}).get("fabricId", None) is not None
         )
 
     # we can't use pbt file because it doesn't have fabric per pipeline which airflow jobs supports
@@ -125,9 +125,11 @@ class AirflowJob(JobData, ABC):
                 pipeline_id = properties.get("pipelineId", None)
                 pipeline_id_newer_format = properties.get("pipeline", {})
 
-                if pipeline_id_newer_format and pipeline_id_newer_format.get("type",
-                                                                             None) == "literal" and pipeline_id_newer_format.get(
-                        "value", None):
+                if (
+                    pipeline_id_newer_format
+                    and pipeline_id_newer_format.get("type", None) == "literal"
+                    and pipeline_id_newer_format.get("value", None)
+                ):
                     pipeline_id = pipeline_id_newer_format.get("value")
 
                 if cluster_size is not None and pipeline_id:
@@ -260,10 +262,10 @@ class AirflowJobDeployment:
             log(f"{Colors.OKBLUE}\n\nDeploying airflow jobs{Colors.ENDC}\n")
 
         responses = (
-                self._deploy_remove_jobs()
-                + self._deploy_pause_jobs()
-                + self._deploy_add_jobs()
-                + self._deploy_rename_jobs()
+            self._deploy_remove_jobs()
+            + self._deploy_pause_jobs()
+            + self._deploy_add_jobs()
+            + self._deploy_rename_jobs()
         )
 
         self._deploy_skipped_jobs()
@@ -281,14 +283,14 @@ class AirflowJobDeployment:
             job_fabric = str(job_fabric) if job_fabric is not None else None
 
             does_fabric_exist = (
-                    self._fabrics_config.get_fabric(job_fabric) is not None
-                    or self._fabrics_config.get_fabric(fabric_override) is not None
+                self._fabrics_config.get_fabric(job_fabric) is not None
+                or self._fabrics_config.get_fabric(fabric_override) is not None
             )
 
             if (
-                    "Databricks" not in parsed_job.get("scheduler", None)
-                    and self.deployment_run_override_config.is_job_to_run(job_id)
-                    and does_fabric_exist
+                "Databricks" not in parsed_job.get("scheduler", None)
+                and self.deployment_run_override_config.is_job_to_run(job_id)
+                and does_fabric_exist
             ):
                 rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
                 rdc = self._project.load_airflow_folder(job_id)
@@ -416,7 +418,7 @@ class AirflowJobDeployment:
                 for job_id in list(all_jobs.keys())
                 # check from available airflow jobs.
             )
-               and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
+            and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
         ]
 
     """
@@ -471,7 +473,7 @@ class AirflowJobDeployment:
             job_id: job_info
             for job_id, job_info in old_enabled_job_which_are_disabled_in_new.items()
             if not self._all_removed_airflow_jobs()
-               and not any(airflow_job.id == job_id for airflow_job in self._all_removed_airflow_jobs())
+            and not any(airflow_job.id == job_id for airflow_job in self._all_removed_airflow_jobs())
         }
 
         return jobs_not_in_removed_jobs
@@ -772,8 +774,7 @@ class EMRPipelineConfigurations:
             def execute_job(_fabric_info, _config_content, _config_path):
                 futures.append(
                     executor.submit(
-                        lambda f_info=_fabric_info, conf_content=_config_content,
-                               conf_path=_config_path: self._upload_configuration(
+                        lambda f_info=_fabric_info, conf_content=_config_content, conf_path=_config_path: self._upload_configuration(
                             f_info, conf_content, conf_path
                         )
                     )
@@ -865,8 +866,7 @@ class DataprocPipelineConfigurations:
             def execute_job(fabric_info, configuration_content, configuration_path):
                 futures.append(
                     executor.submit(
-                        lambda f_info=fabric_info, conf_content=configuration_content,
-                               conf_path=configuration_path: self._upload_configuration(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path: self._upload_configuration(
                             f_info, conf_content, conf_path
                         )
                     )
@@ -954,12 +954,11 @@ class SparkSubmitPipelineConfigurations:
                 log(f"\n\n{Colors.OKBLUE} Uploading spark-submit configurations {Colors.ENDC}\n\n")
 
             def execute_job(
-                    fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
+                fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
             ):
                 futures.append(
                     executor.submit(
-                        lambda f_info=fabric_info, conf_content=configuration_content,
-                               conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
                             f_info, configuration_relative_directory, configuration_file_name, configuration_content
                         )
                     )
@@ -986,8 +985,7 @@ class SparkSubmitPipelineConfigurations:
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(
-            self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name,
-            configuration_content
+        self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name, configuration_content
     ):
         upload_directory = f"{fabric_info.airflow_oss.location}/{configuration_relative_directory}"
         try:
