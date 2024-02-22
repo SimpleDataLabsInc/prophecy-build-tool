@@ -252,7 +252,7 @@ class PipelineDeployment:
             except ProjectBuildFailedException:
                 build_success = False
 
-            if build_success:
+            if not build_success:
                 build_errors = True
 
             if build_success:
@@ -262,11 +262,11 @@ class PipelineDeployment:
             else:
                 log(f"\n{Colors.FAIL}Build for pipeline `{pipeline_name}` failed {Colors.ENDC}", indent=1)
 
-        if build_errors:
-            sys.exit(1)
-        else:
+        if not build_errors:
             if ignore_build_errors:
                 log(f"\n{Colors.WARNING}Ignoring builds Errors as --ignore-build-errors is passed.{Colors.ENDC}")
+            else:
+                sys.exit(1)
 
     @property
     def _pipeline_to_list_fabrics_selective_job(self) -> Dict[str, List[str]]:
