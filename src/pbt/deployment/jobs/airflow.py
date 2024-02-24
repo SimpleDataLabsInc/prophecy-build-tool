@@ -122,9 +122,17 @@ class AirflowJob(JobData, ABC):
                 properties = process.get("properties", {})
 
                 cluster_size = properties.get("clusterSize", None)
-                pipeline_id = properties.get("pipelineId", {})
+                pipeline_id = properties.get("pipelineId", None)
+                pipeline_id_newer_format = properties.get("pipeline", {})
 
-                if cluster_size is not None:
+                if (
+                    pipeline_id_newer_format
+                    and pipeline_id_newer_format.get("type", None) == "literal"
+                    and pipeline_id_newer_format.get("value", None)
+                ):
+                    pipeline_id = pipeline_id_newer_format.get("value")
+
+                if cluster_size is not None and pipeline_id:
                     # shady stuff but can't help
                     pipeline_and_fabric_ids.append(EntityIdToFabricId(pipeline_id, cluster_size.split("/")[0]))
 
