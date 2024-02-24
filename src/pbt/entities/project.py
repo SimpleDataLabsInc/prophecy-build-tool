@@ -207,12 +207,19 @@ class Project:
 
     def _read_directory(self, base_path: str):
         rdc = {}
+        IGNORE_DIRS = ["build", "dist", "__pycache__"]
 
         for dir_path, dir_names, filenames in os.walk(base_path):
+            if os.path.basename(dir_path) in IGNORE_DIRS:
+                continue
+
             # Add resources to RDC
             if "resources" in dir_names:
                 resource_dir_path = os.path.join(dir_path, "resources")
                 for resource_subdir_path, _, resource_filenames in os.walk(resource_dir_path):
+                    if os.path.basename(resource_subdir_path) in IGNORE_DIRS:
+                        continue
+
                     for resource_filename in resource_filenames:
                         resource_full_path = os.path.join(resource_subdir_path, resource_filename)
                         resource_content = _read_file_content(resource_full_path)
