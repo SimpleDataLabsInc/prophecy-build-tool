@@ -123,7 +123,7 @@ class AirflowJob(JobData, ABC):
 
                 cluster_size = properties.get("clusterSize", None)
                 pipeline_id = properties.get("pipelineId", None)
-                pipeline_id_newer_format = properties.get("pipeline", {})
+                pipeline_id_newer_format = properties.get("pipelineId", {})
 
                 if (
                     pipeline_id_newer_format
