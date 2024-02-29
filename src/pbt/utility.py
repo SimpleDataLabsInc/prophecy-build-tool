@@ -92,3 +92,11 @@ def get_package_name(project_language: str, pipeline_name: str):
     else:
         result = python_pipeline_name(pipeline_name)
         return f"{result}-1.0-py3-none-any.whl"
+
+
+def get_temp_aws_role_creds(role_arn: str, access_key: str, secret_key: str):
+    import boto3
+
+    sts_client = boto3.client("sts", aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+    sts_assumed_role = sts_client.assume_role(RoleArn=role_arn, RoleSessionName="ProphecyReleaseAssumedRoleSession")
+    return sts_assumed_role["Credentials"]

@@ -43,7 +43,9 @@ class RestClientFactory:
             emr = self._get_fabric_info(fabric_id).emr
 
             if emr is not None:
-                client = S3Client(emr.region, emr.access_key_id, emr.secret_access_key, emr.session_token)
+                client = S3Client(
+                    emr.region, emr.access_key_id, emr.secret_access_key, emr.session_token, emr.assumed_role
+                )
                 self.fabric_id_to_rest_client[fabric_id] = client
                 return client
 
