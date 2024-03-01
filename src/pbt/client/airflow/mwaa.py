@@ -17,7 +17,7 @@ from ...utils.exceptions import (
     DagUploadFailedException,
 )
 from ...utils.project_models import DAG
-from ....pbt.utility import get_temp_aws_role_creds
+from ...utility import get_temp_aws_role_creds
 
 
 class MWAARestClient(AirflowRestClient, ABC):

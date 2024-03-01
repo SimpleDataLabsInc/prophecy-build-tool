@@ -2,7 +2,7 @@ from typing import Optional
 
 import boto3
 from botocore.client import BaseClient
-from ...pbt.utility import get_temp_aws_role_creds
+from ..utility import get_temp_aws_role_creds
 
 
 class S3Client:
