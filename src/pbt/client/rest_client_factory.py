@@ -43,7 +43,9 @@ class RestClientFactory:
             emr = self._get_fabric_info(fabric_id).emr
 
             if emr is not None:
-                client = S3Client(emr.region, emr.access_key_id, emr.secret_access_key, emr.session_token)
+                client = S3Client(
+                    emr.region, emr.access_key_id, emr.secret_access_key, emr.session_token, emr.assumed_role
+                )
                 self.fabric_id_to_rest_client[fabric_id] = client
                 return client
 
@@ -83,7 +85,7 @@ class RestClientFactory:
                 composer.airflow_url, composer.project_id, composer.client_id, composer.key_json, composer.dag_location
             )
         elif mwaa is not None:
-            client = MWAARestClient(mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key)
+            client = MWAARestClient(mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key, mwaa.assumed_role)
 
         elif oss is not None:
             return OpenSourceRestClient(

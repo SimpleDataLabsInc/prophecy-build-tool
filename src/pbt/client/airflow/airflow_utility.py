@@ -19,7 +19,9 @@ def create_airflow_client(fabric_id: str, project_config: ProjectConfig):
             )
 
         elif mwaa is not None:
-            return MWAARestClient(mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key)
+            return MWAARestClient(
+                mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key, mwaa.assumed_role
+            )
 
         elif oss is not None:
             return OpenSourceRestClient(

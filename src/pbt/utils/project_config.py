@@ -74,6 +74,7 @@ class EMRInfo(BaseModel):
     access_key_id: str
     secret_access_key: str
     session_token: Optional[str] = None
+    assumed_role: Optional[str] = None
 
     def bucket_path_extractor(self):
         return BucketAndPathExtractor(self.bucket, "s3://")
@@ -119,6 +120,7 @@ class MwaaInfo(BaseModel):
     airflow_url: str
     dag_location: str
     environment_name: str
+    assumed_role: Optional[str]
 
 
 class OpenSourceAirflowInfo(BaseModel):
