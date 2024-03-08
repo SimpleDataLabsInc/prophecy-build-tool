@@ -3,6 +3,7 @@ import datetime
 import json
 import re
 from abc import ABC
+from typing import Optional
 
 import boto3
 import requests
@@ -16,18 +17,44 @@ from ...utils.exceptions import (
     DagUploadFailedException,
 )
 from ...utils.project_models import DAG
+from ...utility import get_temp_aws_role_creds
 
 
 class MWAARestClient(AirflowRestClient, ABC):
-    def __init__(self, environment_name: str, region: str, access_key: str, secret_key: str):
+    def __init__(
+        self, environment_name: str, region: str, access_key: str, secret_key: str, assumed_role: Optional[str]
+    ):
         self.environment_name = environment_name
-        self.aws_s3_client = boto3.client(
-            "s3", region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key
-        )
 
-        self.mwaa_client = boto3.client(
-            "mwaa", region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key
-        )
+        if assumed_role:
+            temporary_credentials = get_temp_aws_role_creds(assumed_role, access_key, secret_key)
+            temporary_access_key = temporary_credentials["AccessKeyId"]
+            temporary_secret_key = temporary_credentials["SecretAccessKey"]
+            temporary_session_token = temporary_credentials["SessionToken"]
+            self.aws_s3_client = boto3.client(
+                "s3",
+                region_name=region,
+                aws_access_key_id=temporary_access_key,
+                aws_secret_access_key=temporary_secret_key,
+                aws_session_token=temporary_session_token,
+            )
+
+            self.mwaa_client = boto3.client(
+                "mwaa",
+                region_name=region,
+                aws_access_key_id=temporary_access_key,
+                aws_secret_access_key=temporary_secret_key,
+                aws_session_token=temporary_session_token,
+            )
+
+        else:
+            self.aws_s3_client = boto3.client(
+                "s3", region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key
+            )
+
+            self.mwaa_client = boto3.client(
+                "mwaa", region_name=region, aws_access_key_id=access_key, aws_secret_access_key=secret_key
+            )
 
         self.environment = self.mwaa_client.get_environment(Name=environment_name)
         self.dag_s3_path = self.environment["Environment"]["DagS3Path"]
