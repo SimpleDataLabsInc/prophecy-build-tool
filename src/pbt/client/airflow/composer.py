@@ -104,7 +104,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
                 client.get_secret(name=secret_name)
                 client.add_secret_version(
                     parent=secret_name,
-                    payload=secretmanager.SecretPayload(value.encode("UTF-8")),
+                    payload=secretmanager.SecretPayload(data=value.encode("UTF-8")),
                 )
 
             except Exception as e:
@@ -120,7 +120,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
                 )
                 client.add_secret_version(
                     parent=secret.name,
-                    payload=secretmanager.SecretPayload(value.encode("UTF-8")),
+                    payload=secretmanager.SecretPayload(data=value.encode("UTF-8")),
                 )
 
         except Exception as e:
