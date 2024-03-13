@@ -684,7 +684,8 @@ class AirflowGitSecrets:
 
             job_data = list(self.airflow_jobs.prophecy_managed_dbt_jobs.values())[0]
 
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            # making this single threaded for now.
+            with ThreadPoolExecutor(max_workers=1) as executor:
                 for project_git_tokens in self.fabric_config.project_git_tokens:
                     git_tokens = project_git_tokens.git_token
                     project_id = project_git_tokens.project_id
