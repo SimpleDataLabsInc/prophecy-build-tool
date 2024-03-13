@@ -85,7 +85,9 @@ class RestClientFactory:
                 composer.airflow_url, composer.project_id, composer.client_id, composer.key_json, composer.dag_location
             )
         elif mwaa is not None:
-            client = MWAARestClient(mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key, mwaa.assumed_role)
+            client = MWAARestClient(
+                mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key, mwaa.assumed_role
+            )
 
         elif oss is not None:
             return OpenSourceRestClient(

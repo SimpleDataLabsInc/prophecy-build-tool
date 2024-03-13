@@ -14,7 +14,6 @@ class S3Client:
         aws_session_token: Optional[str] = None,
         assumed_role: Optional[str] = None,
     ):
-
         if assumed_role:
             temporary_credentials = get_temp_aws_role_creds(assumed_role, access_key, secret_key)
             self.s3: BaseClient = boto3.client(
