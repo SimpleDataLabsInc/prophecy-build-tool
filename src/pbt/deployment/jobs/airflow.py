@@ -730,6 +730,7 @@ class AirflowGitSecrets:
                 exception=e,
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID,
             )
+            return Either(left=e)
 
 
 class EMRPipelineConfigurations:
@@ -772,7 +773,7 @@ class EMRPipelineConfigurations:
     def deploy(self):
         futures = []
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             if len(self.headers()) > 0:
                 log(f"\n\n{Colors.OKBLUE}Uploading EMR pipeline configurations {Colors.ENDC}\n\n")
 
@@ -864,7 +865,7 @@ class DataprocPipelineConfigurations:
     def deploy(self):
         futures = []
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             if len(self.headers()) > 0:
                 log(f"\n\n{Colors.OKBLUE} Uploading dataproc configurations {Colors.ENDC}\n\n")
 
@@ -954,7 +955,7 @@ class SparkSubmitPipelineConfigurations:
     def deploy(self):
         futures = []
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             if len(self.headers()) > 0:
                 log(f"\n\n{Colors.OKBLUE} Uploading spark-submit configurations {Colors.ENDC}\n\n")
 

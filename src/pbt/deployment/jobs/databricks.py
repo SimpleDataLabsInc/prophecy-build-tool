@@ -811,7 +811,7 @@ class ScriptComponents:
         if len(self.headers()) > 0:
             log(f"\n\n{Colors.OKBLUE}Uploading script components from job{Colors.ENDC}\n\n")
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             for job_id, script_components in self._script_components_from_jobs().items():
                 for scripts in script_components.scripts:
                     futures.append(
@@ -896,7 +896,7 @@ class PipelineConfigurations:
     def deploy(self):
         futures = []
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=2) as executor:
             if len(self.pipeline_configurations.items()) > 0:
                 count = sum(len(v) for v in self.pipeline_configurations.values())
                 log(f"\n\n{Colors.OKBLUE} Uploading {count} pipeline configurations {Colors.ENDC}\n\n")
