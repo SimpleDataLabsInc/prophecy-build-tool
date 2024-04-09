@@ -86,7 +86,12 @@ class RestClientFactory:
             )
         elif mwaa is not None:
             client = MWAARestClient(
-                mwaa.environment_name, mwaa.region, mwaa.access_key, mwaa.secret_key, mwaa.assumed_role
+                mwaa.environment_name,
+                mwaa.region,
+                mwaa.access_key,
+                mwaa.secret_key,
+                mwaa.assumed_role,
+                mwaa.custom_host,
             )
 
         elif oss is not None:
