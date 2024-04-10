@@ -10,6 +10,7 @@ import requests
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import AirflowRestClient
+from ...utility import get_temp_aws_role_creds
 from ...utils.exceptions import (
     DagFileDeletionFailedException,
     DagListParsingFailedException,
@@ -17,14 +18,20 @@ from ...utils.exceptions import (
     DagUploadFailedException,
 )
 from ...utils.project_models import DAG
-from ...utility import get_temp_aws_role_creds
 
 
 class MWAARestClient(AirflowRestClient, ABC):
     def __init__(
-        self, environment_name: str, region: str, access_key: str, secret_key: str, assumed_role: Optional[str]
+        self,
+        environment_name: str,
+        region: str,
+        access_key: str,
+        secret_key: str,
+        assumed_role: Optional[str],
+        custom_host: Optional[str],
     ):
         self.environment_name = environment_name
+        self.custom_host = custom_host
 
         if assumed_role:
             temporary_credentials = get_temp_aws_role_creds(assumed_role, access_key, secret_key)
@@ -135,7 +142,12 @@ class MWAARestClient(AirflowRestClient, ABC):
             return json.loads(cleaned_text)
 
     def _execute_airflow_command(self, command: str):
-        url = f"https://{self._expiry_cli_token().get_value()['WebServerHostname']}/aws_mwaa/cli"
+        if self.custom_host:
+            host = self.custom_host.strip()
+        else:
+            host = self._expiry_cli_token().get_value()["WebServerHostname"]
+        host_with_protocol = host if host.startswith("http") else f"https://{host}"
+        url = f"{host_with_protocol}/aws_mwaa/cli"
         response = requests.post(url, headers=self._headers(), data=command)
         response.raise_for_status()  # Raise an HTTPError if the status is 4xx, 5xx
         return response.text  # Get the response body as text

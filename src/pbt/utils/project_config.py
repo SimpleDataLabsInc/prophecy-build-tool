@@ -121,6 +121,7 @@ class MwaaInfo(BaseModel):
     dag_location: str
     environment_name: str
     assumed_role: Optional[str]
+    custom_host: Optional[str]
 
 
 class OpenSourceAirflowInfo(BaseModel):
