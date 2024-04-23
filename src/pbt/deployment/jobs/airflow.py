@@ -62,6 +62,7 @@ def filter_job_files(rdc: Dict[str, str]):
         or "__init__.py" in file_name
         or "tasks/" in file_name
         or "utils.py" in file_name
+        or "utils/" in file_name
     }
     k = sorted(filtered_files.items())
     return k
