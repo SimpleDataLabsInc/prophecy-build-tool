@@ -268,9 +268,16 @@ def test_v2(path, driver_library_path):
     help="Pipeline names(comma separated) which can be used to filter pipelines to be tested",
     default="",
 )
-def test(path, driver_library_path, pipelines):
+@click.option(
+    "--generate-pytest-coverage-reports",
+    help="Flag to enable generating XML reports using pytest-cov plugin",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def test(path, driver_library_path, pipelines, generate_pytest_coverage_reports):
     pbt = ProphecyBuildTool(path)
-    pbt.test(driver_library_path, pipelines)
+    pbt.test(driver_library_path, pipelines, generate_pytest_coverage_reports)
 
 
 if __name__ == "pbt":
