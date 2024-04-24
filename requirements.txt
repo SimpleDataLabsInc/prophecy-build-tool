@@ -17,3 +17,5 @@ google-cloud-secret-manager==2.16.2 # similiar to what we have in execution serv
 boto3~=1.26.157
 requests~=2.31.0
 tenacity==8.2.3
+pytest-html
+pytest-cov

@@ -40,6 +40,7 @@ setuptools.setup(
     extras_require={
         "test": [
             "pytest-html",
+            "pytest-cov",
             "pytest",
             "pyspark==3.3.0",
             "mock",  # or any other testing-specific packages you need
