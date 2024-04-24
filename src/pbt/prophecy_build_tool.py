@@ -586,7 +586,9 @@ class ProphecyBuildTool:
                     if os.path.isfile(os.path.join(path_pipeline_absolute, f"test{os.sep}TestSuite.py")):
                         # unique_key_for_jars = \
                         self._setJarsNeededForUT(build_jars)
-                        unit_test_results[path_pipeline] = self.test_python(path_pipeline_absolute, path_pipeline,                                                           generate_pytest_coverage_reports)
+                        unit_test_results[path_pipeline] = self.test_python(
+                            path_pipeline_absolute, path_pipeline, generate_pytest_coverage_reports
+                        )
                         self.removeJarsKeyFromEnv()
                 elif self.project_language == "scala":
                     unit_test_results[path_pipeline] = self.test_scala(path_pipeline_absolute)
@@ -718,30 +720,30 @@ class ProphecyBuildTool:
                 ),
                 # Run the unit test (with test coverage enabled if required)
                 Process(
-                        [
-                            self.python_cmd,
-                            "-m",
-                            "pytest",
-                            "-v",
-                            "--cov=test",
-                            "--cov-report=xml",
-                            f"test{os.sep}TestSuite.py",
-                        ],
-                        path_pipeline_absolute,
-                        is_shell=(self.operating_system == "win32"),
-                    ) if generate_pytest_coverage_reports else
-                Process(
-                        [
-                            self.python_cmd,
-                            "-m",
-                            "pytest",
-                            "-v",
-                            f"test{os.sep}TestSuite.py",
-                        ],
-                        path_pipeline_absolute,
-                        is_shell=(self.operating_system == "win32"),
-                    )
-                    ,
+                    [
+                        self.python_cmd,
+                        "-m",
+                        "pytest",
+                        "-v",
+                        "--cov=test",
+                        "--cov-report=xml",
+                        f"test{os.sep}TestSuite.py",
+                    ],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
+                )
+                if generate_pytest_coverage_reports
+                else Process(
+                    [
+                        self.python_cmd,
+                        "-m",
+                        "pytest",
+                        "-v",
+                        f"test{os.sep}TestSuite.py",
+                    ],
+                    path_pipeline_absolute,
+                    is_shell=(self.operating_system == "win32"),
+                ),
             ]
         )
 
