@@ -723,7 +723,7 @@ class ProphecyBuildTool:
                         "-m",
                         "pytest",
                         "-v",
-                        "--cov=test",  # generate coverage for module code
+                        "--cov=test",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
                         f"test{os.sep}TestSuite.py",
                     ],
