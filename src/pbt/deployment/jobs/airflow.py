@@ -180,7 +180,7 @@ class AirflowJob(JobData, ABC):
 
     @property
     def has_dbt_component(self):
-        return any(value.get("component", None) == "DBT" for value in self.prophecy_job_json_dict["processes"].values())
+        return any(value.get("component", None) == "Model" for value in self.prophecy_job_json_dict["processes"].values())
 
     def _initialize_prophecy_job_json(self) -> dict:
         try:
@@ -501,13 +501,14 @@ class AirflowJobDeployment:
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
-        client = self.get_airflow_client(fabric_id=job_data.fabric_id)
 
         fabric_config = self._fabrics_config.get_fabric(job_data.fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
 
         fabric_label = get_fabric_label(fabric_name, job_data.fabric_id)
+
         try:
+            client = self.get_airflow_client(fabric_id=job_data.fabric_id)
             client.upload_dag(dag_name, zipped_dag_name)
 
             # start of try-catch
@@ -616,15 +617,15 @@ class AirflowJobDeployment:
         return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Pause])
 
     def _pause_job(self, job_id: str, job_info: JobInfo):
-        client = self.get_airflow_client(job_info.fabric_id)
-
         if len(job_info.external_job_id) > 0:
             dag_name = job_info.external_job_id
         else:
             dag_name = sanitize_job(job_id)
 
         job_info.pause(True)
+
         try:
+            client = self.get_airflow_client(job_info.fabric_id)
             client.pause_dag(dag_name)
             log(
                 f"{Colors.OKGREEN}Successfully paused job {dag_name} for job_id {job_id}{Colors.ENDC}",
@@ -712,11 +713,9 @@ class AirflowGitSecrets:
             return []
 
     def _create_git_secrets(self, project_id, job_data, git_tokens):
-        # todo fix this
         execution_db_suffix = os.getenv("EXECUTION_DB_SUFFIX", "dev")
-        client = self.airflow_jobs.get_airflow_client(job_data.fabric_id)
-
         try:
+            client = self.airflow_jobs.get_airflow_client(job_data.fabric_id)
             key = generate_secure_content(f"{execution_db_suffix}_{project_id}", "gitSecretSalt")
             client.create_secret(key, git_tokens)
             log(
@@ -895,6 +894,7 @@ class DataprocPipelineConfigurations:
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
         upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
         dataproc_info = fabric_info.dataproc
+
         try:
             client = self._rest_client_factory.dataproc_client(str(fabric_info.id))
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)

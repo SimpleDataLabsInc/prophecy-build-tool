@@ -165,6 +165,7 @@ class ComposerRestClient(AirflowRestClient, ABC):
         return client
 
     def _get_authenticated_session(self):
+
         if self.client_id is not None and len(self.client_id) > 0:
             print(f"Client Id {self.client_id}")
             credentials = (
