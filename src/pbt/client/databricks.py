@@ -26,6 +26,7 @@ class DatabricksClient:
         self.secret = SecretApi(ApiClient(host=host, token=token, api_version="2.0"))
         self.permission = PermissionsApi(ApiClient(host=host, token=token, api_version="2.0"))
 
+
     @classmethod
     def from_environment_variables(cls):
         config = EnvironmentVariableConfigProvider()
