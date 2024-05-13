@@ -716,13 +716,15 @@ class ProphecyBuildTool:
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 ),
-                # Run the unit test
+                # Run the unit test (with test coverage enabled if required)
                 Process(
                     [
                         self.python_cmd,
                         "-m",
                         "pytest",
                         "-v",
+                        "--cov=test",  # generate coverage for module test
+                        "--cov-report=xml",  # XML format
                         f"test{os.sep}TestSuite.py",
                     ],
                     path_pipeline_absolute,
