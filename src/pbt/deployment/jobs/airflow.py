@@ -84,13 +84,13 @@ def zip_folder(rdc: dict, output_path):
 
 class AirflowJob(JobData, ABC):
     def __init__(
-        self,
-        job_pbt: dict,
-        prophecy_job_yaml: str,
-        rdc: Dict[str, str],
-        rdc_with_placeholder: Dict[str, str],
-        sha: Optional[str],
-        fabric_override: Optional[str] = None,
+            self,
+            job_pbt: dict,
+            prophecy_job_yaml: str,
+            rdc: Dict[str, str],
+            rdc_with_placeholder: Dict[str, str],
+            sha: Optional[str],
+            fabric_override: Optional[str] = None,
     ):
         self.job_pbt = job_pbt
         self.prophecy_job_yaml = prophecy_job_yaml
@@ -110,10 +110,10 @@ class AirflowJob(JobData, ABC):
         prophecy_job_yaml_dict = self.prophecy_job_json_dict
 
         return (
-            self.job_pbt is not None
-            and self.prophecy_job_yaml is not None
-            and self.rdc is not None
-            and prophecy_job_yaml_dict.get("metainfo", {}).get("fabricId", None) is not None
+                self.job_pbt is not None
+                and self.prophecy_job_yaml is not None
+                and self.rdc is not None
+                and prophecy_job_yaml_dict.get("metainfo", {}).get("fabricId", None) is not None
         )
 
     # we can't use pbt file because it doesn't have fabric per pipeline which airflow jobs supports
@@ -131,9 +131,9 @@ class AirflowJob(JobData, ABC):
                 pipeline_id_newer_format = properties.get("pipelineId", {})
 
                 if (
-                    pipeline_id_newer_format
-                    and pipeline_id_newer_format.get("type", None) == "literal"
-                    and pipeline_id_newer_format.get("value", None)
+                        pipeline_id_newer_format
+                        and pipeline_id_newer_format.get("type", None) == "literal"
+                        and pipeline_id_newer_format.get("value", None)
                 ):
                     pipeline_id = pipeline_id_newer_format.get("value")
 
@@ -180,7 +180,8 @@ class AirflowJob(JobData, ABC):
 
     @property
     def has_dbt_component(self):
-        return any(value.get("component", None) == "DBT" for value in self.prophecy_job_json_dict["processes"].values())
+        return any(
+            value.get("component", None) == "Model" for value in self.prophecy_job_json_dict["processes"].values())
 
     def _initialize_prophecy_job_json(self) -> dict:
         try:
@@ -267,10 +268,10 @@ class AirflowJobDeployment:
             log(f"{Colors.OKBLUE}\n\nDeploying airflow jobs{Colors.ENDC}\n")
 
         responses = (
-            self._deploy_remove_jobs()
-            + self._deploy_pause_jobs()
-            + self._deploy_add_jobs()
-            + self._deploy_rename_jobs()
+                self._deploy_remove_jobs()
+                + self._deploy_pause_jobs()
+                + self._deploy_add_jobs()
+                + self._deploy_rename_jobs()
         )
 
         self._deploy_skipped_jobs()
@@ -288,14 +289,14 @@ class AirflowJobDeployment:
             job_fabric = str(job_fabric) if job_fabric is not None else None
 
             does_fabric_exist = (
-                self._fabrics_config.get_fabric(job_fabric) is not None
-                or self._fabrics_config.get_fabric(fabric_override) is not None
+                    self._fabrics_config.get_fabric(job_fabric) is not None
+                    or self._fabrics_config.get_fabric(fabric_override) is not None
             )
 
             if (
-                "Databricks" not in parsed_job.get("scheduler", None)
-                and self.deployment_run_override_config.is_job_to_run(job_id)
-                and does_fabric_exist
+                    "Databricks" not in parsed_job.get("scheduler", None)
+                    and self.deployment_run_override_config.is_job_to_run(job_id)
+                    and does_fabric_exist
             ):
                 rdc_with_placeholders = self._project.load_airflow_folder_with_placeholder(job_id)
                 rdc = self._project.load_airflow_folder(job_id)
@@ -501,13 +502,14 @@ class AirflowJobDeployment:
         dag_name = job_data.dag_name
         zipped_dag_name = get_zipped_dag_name(dag_name)
         zip_folder(self._project.load_airflow_folder(job_id), zipped_dag_name)
-        client = self.get_airflow_client(fabric_id=job_data.fabric_id)
 
         fabric_config = self._fabrics_config.get_fabric(job_data.fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
 
         fabric_label = get_fabric_label(fabric_name, job_data.fabric_id)
+
         try:
+            client = self.get_airflow_client(fabric_id=job_data.fabric_id)
             client.upload_dag(dag_name, zipped_dag_name)
 
             # start of try-catch
@@ -616,15 +618,15 @@ class AirflowJobDeployment:
         return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Pause])
 
     def _pause_job(self, job_id: str, job_info: JobInfo):
-        client = self.get_airflow_client(job_info.fabric_id)
-
         if len(job_info.external_job_id) > 0:
             dag_name = job_info.external_job_id
         else:
             dag_name = sanitize_job(job_id)
 
         job_info.pause(True)
+
         try:
+            client = self.get_airflow_client(job_info.fabric_id)
             client.pause_dag(dag_name)
             log(
                 f"{Colors.OKGREEN}Successfully paused job {dag_name} for job_id {job_id}{Colors.ENDC}",
@@ -712,11 +714,9 @@ class AirflowGitSecrets:
             return []
 
     def _create_git_secrets(self, project_id, job_data, git_tokens):
-        # todo fix this
         execution_db_suffix = os.getenv("EXECUTION_DB_SUFFIX", "dev")
-        client = self.airflow_jobs.get_airflow_client(job_data.fabric_id)
-
         try:
+            client = self.airflow_jobs.get_airflow_client(job_data.fabric_id)
             key = generate_secure_content(f"{execution_db_suffix}_{project_id}", "gitSecretSalt")
             client.create_secret(key, git_tokens)
             log(
@@ -731,6 +731,7 @@ class AirflowGitSecrets:
                 exception=e,
                 step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID,
             )
+            return Either(left=e)
 
 
 class EMRPipelineConfigurations:
@@ -895,6 +896,7 @@ class DataprocPipelineConfigurations:
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
         upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
         dataproc_info = fabric_info.dataproc
+
         try:
             client = self._rest_client_factory.dataproc_client(str(fabric_info.id))
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
