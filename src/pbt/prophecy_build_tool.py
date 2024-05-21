@@ -29,7 +29,6 @@ class ProphecyBuildTool:
         project_id: str = "",
         prophecy_url: str = "",
         ignore_parse_errors: bool = False,
-        user_id: str = "",
     ):
         if not path_root:
             self._error("Path of project not passed as argument using --path.")
