@@ -171,15 +171,15 @@ class DatabricksJobsDeployment:
 
         return all_headers
 
-    def deploy(self) -> List[Either]:
+    def deploy(self, user_id) -> List[Either]:
         if len(self.headers()) > 0:
             log(f"{Colors.OKBLUE}\nDeploying databricks jobs{Colors.ENDC}\n\n")
 
         responses = (
-            self._deploy_add_jobs()
-            + self._deploy_refresh_jobs()
-            + self._deploy_delete_jobs()
-            + self._deploy_pause_jobs()
+            self._deploy_add_jobs(user_id)
+            + self._deploy_refresh_jobs(user_id)
+            + self._deploy_delete_jobs(user_id)
+            + self._deploy_pause_jobs(user_id)
             + self._deploy_skipping_jobs()
         )
 
@@ -289,7 +289,7 @@ class DatabricksJobsDeployment:
 
     """Deploy Jobs """
 
-    def _deploy_add_job(self, job_id, job_data, step_id):
+    def _deploy_add_job(self, job_id, job_data, step_id, user_id):
         fabric_id = job_data.fabric_id
         fabric_config = self.project_config.fabric_config.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
@@ -302,9 +302,9 @@ class DatabricksJobsDeployment:
 
             scheduler_job_id = None
             if not is_online_mode() and not self.project_config.based_on_file:
-                scheduler_job_id = client.find_job(job_data.name)
+                scheduler_job_id = client.find_job(job_data.name, user_id)
                 if scheduler_job_id:
-                    client.reset_job(scheduler_job_id, job_data.databricks_json)
+                    client.reset_job(scheduler_job_id, job_data.databricks_json, user_id)
                     log(
                         f"{Colors.OKGREEN}Refreshed job {job_id} in fabric {fabric_label} databricks job-id:{scheduler_job_id}{Colors.ENDC}",
                         step_id=step_id,
@@ -312,7 +312,7 @@ class DatabricksJobsDeployment:
                     operation = OperationType.REFRESH
 
             if not scheduler_job_id:
-                response = client.create_job(job_data.databricks_json)
+                response = client.create_job(job_data.databricks_json, user_id)
                 log(
                     f"{Colors.OKGREEN}Created job {job_id} in fabric {fabric_label} response {response['job_id']}{Colors.ENDC}",
                     step_id=step_id,
@@ -320,7 +320,7 @@ class DatabricksJobsDeployment:
                 scheduler_job_id = response["job_id"]
 
             job_info = JobInfo.create_job(
-                job_data.name, job_id, fabric_id, scheduler_job_id, self.project.release_tag, job_data.is_paused
+                job_data.name, job_id, fabric_id, scheduler_job_id, self.project.release_tag, job_data.is_paused, user_id
             )
 
             return Either(right=JobInfoAndOperation(job_info, operation))
@@ -333,7 +333,7 @@ class DatabricksJobsDeployment:
             )
             return Either(left=e)
 
-    def _deploy_add_jobs(self):
+    def _deploy_add_jobs(self, user_id: str = "Prophecy"):
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
 
@@ -344,7 +344,7 @@ class DatabricksJobsDeployment:
                     futures.append(
                         executor.submit(
                             lambda j_id=job_id, j_data=job_data: self._deploy_add_job(
-                                j_id, j_data, self._ADD_JOBS_STEP_ID
+                                j_id, j_data, self._ADD_JOBS_STEP_ID, user_id
                             )
                         )
                     )
@@ -356,7 +356,7 @@ class DatabricksJobsDeployment:
 
         return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Add])
 
-    def _deploy_refresh_jobs(self):
+    def _deploy_refresh_jobs(self, user_id: str = "Prophecy"):
         futures = []
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -365,7 +365,7 @@ class DatabricksJobsDeployment:
 
                 if fabric_id is not None:
                     futures.append(
-                        executor.submit(lambda j_id=job_id, j_info=job_info: self._reset_and_patch_job(j_id, j_info))
+                        executor.submit(lambda j_id=job_id, j_info=job_info: self._reset_and_patch_job(j_id, j_info, user_id))
                     )
                 else:
                     log(
@@ -374,7 +374,7 @@ class DatabricksJobsDeployment:
 
         return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Refresh])
 
-    def _reset_and_patch_job(self, job_id, job_info):
+    def _reset_and_patch_job(self, job_id, job_info, user_id):
         fabric_id = job_info.fabric_id
         fabric_config = self.fabric_configs.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
@@ -389,7 +389,7 @@ class DatabricksJobsDeployment:
         try:
             client = self.get_databricks_client(fabric_id)
             job_data = self.valid_databricks_jobs.get(job_id)
-            client.reset_job(job_info.external_job_id, job_data.databricks_json)
+            client.reset_job(job_info.external_job_id, job_data.databricks_json, user_id)
 
             if job_data.acl:
                 log_success(
@@ -433,16 +433,16 @@ class DatabricksJobsDeployment:
             )
             return Either(left=e)
 
-    def _deploy_delete_jobs(self):
+    def _deploy_delete_jobs(self, user_id: str = "Prophecy"):
         futures = []
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             for job_id, job_info in self._delete_jobs().items():
-                futures.append(executor.submit(lambda j_info=job_info: self._delete_job(j_info)))
+                futures.append(executor.submit(lambda j_info=job_info: self._delete_job(j_info, user_id)))
 
         return await_futures_and_update_states(futures, self._operation_to_step_id[Operation.Remove])
 
-    def _delete_job(self, job_info: JobInfo):
+    def _delete_job(self, job_info: JobInfo, user_id):
         fabric = job_info.fabric_id
 
         if fabric is None:
@@ -458,7 +458,7 @@ class DatabricksJobsDeployment:
 
         try:
             client = self.get_databricks_client(fabric)
-            client.delete_job(job_info.external_job_id)
+            client.delete_job(job_info.external_job_id, user_id)
             log_success(
                 f"{Colors.OKGREEN}Successfully deleted job with scheduler id {job_info.external_job_id} and id {job_info.id} for fabric {fabric}{Colors.ENDC}"
             )
@@ -486,7 +486,7 @@ class DatabricksJobsDeployment:
             )
             return Either(left=e)
 
-    def _deploy_pause_jobs(self):
+    def _deploy_pause_jobs(self, user_id: str = "Prophecy"):
         futures = []
 
         def pause_job(fabric_id, job_info):
@@ -495,7 +495,7 @@ class DatabricksJobsDeployment:
 
             try:
                 client = self.get_databricks_client(fabric_id)
-                client.pause_job(external_job_id)
+                client.pause_job(external_job_id, user_id)
                 log(
                     f"{Colors.OKGREEN}Paused job {external_job_id} in fabric {fabric_name}{Colors.ENDC}",
                     step_id=self._PAUSE_JOBS_STEP_ID,

@@ -175,8 +175,8 @@ class ProjectDeployment:
         if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
             raise Exception("Pipeline deployment failed.")
 
-    def _deploy_databricks_jobs(self) -> List[Either]:
-        databricks_jobs_responses = self._databricks_jobs.deploy()
+    def _deploy_databricks_jobs(self, user_id) -> List[Either]:
+        databricks_jobs_responses = self._databricks_jobs.deploy(user_id)
 
         return databricks_jobs_responses
 
@@ -185,7 +185,7 @@ class ProjectDeployment:
 
         return airflow_jobs_responses
 
-    def deploy(self, job_ids):
+    def deploy(self, job_ids, user_id):
         if is_online_mode():
             self._deploy_gems()
 
@@ -202,7 +202,7 @@ class ProjectDeployment:
         else:
             log("\nSkipping pipeline deployment as skip_builds is set to true.\n")
 
-        databricks_responses = self._deploy_databricks_jobs()
+        databricks_responses = self._deploy_databricks_jobs(user_id)
         airflow_responses = self._deploy_airflow_jobs()
 
         new_state_config = copy.deepcopy(self.project_config.jobs_state)

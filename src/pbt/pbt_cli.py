@@ -16,9 +16,9 @@ class PBTCli(object):
         """Print headers."""
         self.project.headers()
 
-    def deploy(self, job_ids):
+    def deploy(self, job_ids, user_id):
         """Deploy pipelines."""
-        self.project.deploy(job_ids)
+        self.project.deploy(job_ids, user_id)
 
     @classmethod
     def from_conf_folder(
@@ -33,6 +33,7 @@ class PBTCli(object):
         skip_builds: bool = False,
         dependant_project_paths: str = "",
         migrate: bool = False,
+        user_id: str = "",
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)

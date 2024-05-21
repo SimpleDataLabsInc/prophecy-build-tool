@@ -207,6 +207,7 @@ def deploy(
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
+@click.option("--user-id", default = "Prophecy", help="user id of the user who requested deployment.")
 def deploy_v2(
     path: str,
     project_id: str,
@@ -218,6 +219,7 @@ def deploy_v2(
     skip_builds: bool,
     dependent_projects_path: str,
     migrate: bool,
+    user_id: str,
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -233,7 +235,7 @@ def deploy_v2(
     )
     if is_online_mode():
         pbt.headers()
-    pbt.deploy([])
+    pbt.deploy([], user_id)
 
 
 @cli.command()
