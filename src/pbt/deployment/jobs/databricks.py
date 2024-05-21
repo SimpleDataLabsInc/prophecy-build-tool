@@ -320,7 +320,7 @@ class DatabricksJobsDeployment:
                 scheduler_job_id = response["job_id"]
 
             job_info = JobInfo.create_job(
-                job_data.name, job_id, fabric_id, scheduler_job_id, self.project.release_tag, job_data.is_paused, user_id
+                job_data.name, job_id, fabric_id, scheduler_job_id, self.project.release_tag, job_data.is_paused
             )
 
             return Either(right=JobInfoAndOperation(job_info, operation))
