@@ -55,13 +55,13 @@ class DatabricksClient:
         reraise=True,
     )
     def upload_src_path(self, src_path: str, destination_path: str, user_id: str = "Prophecy"):
-        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True, headers = {"User-Agent":user_id})
+        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True, headers={"User-Agent": user_id})
 
     def path_exist(self, path: str, user_id: str = "Prophecy") -> bool:
-        return self.dbfs.get_status(DbfsPath(path), headers = {"User-Agent":user_id}) is not None
+        return self.dbfs.get_status(DbfsPath(path), headers={"User-Agent": user_id}) is not None
 
     def delete(self, path: str, user_id: str = "Prophecy"):
-        self.dbfs.delete(path, recursive=True, headers = {"User-Agent":user_id})
+        self.dbfs.delete(path, recursive=True, headers={"User-Agent": user_id})
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -70,17 +70,17 @@ class DatabricksClient:
         reraise=True,
     )
     def create_secret_scope_if_not_exist(self, secret_scope: str, user_id: str = "Prophecy"):
-        response = self.secret.list_scopes(headers = {"User-Agent" : user_id})
+        response = self.secret.list_scopes(headers={"User-Agent": user_id})
 
         if any(scope["name"] == secret_scope for scope in response["scopes"]) is False:
             self.secret.create_scope(
-                secret_scope, initial_manage_principal="users", scope_backend_type=None, backend_azure_keyvault=None, headers = {"User-Agent" : user_id}
+                secret_scope, initial_manage_principal="users", scope_backend_type=None, backend_azure_keyvault=None, headers={"User-Agent": user_id}
             )
         else:
             return True
 
     def create_secret(self, scope: str, key: str, value: str, user_id: str = "Prophecy"):
-        self.secret.put_secret(scope, key, value, None, headers = {"User-Agent" : user_id})
+        self.secret.put_secret(scope, key, value, None, headers={"User-Agent": user_id})
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -89,7 +89,7 @@ class DatabricksClient:
         reraise=True,
     )
     def create_job(self, content: Dict[str, str], user_id: str = "Prophecy"):
-        return self.job.create_job(content, headers = {"User-Agent" : user_id} )
+        return self.job.create_job(content, headers={"User-Agent": user_id} )
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -98,10 +98,10 @@ class DatabricksClient:
         reraise=True,
     )
     def get_job(self, scheduler_job_id: str, user_id: str = "Prophecy"):
-        return self.job.get_job(scheduler_job_id, headers = {"User-Agent" : user_id} )
+        return self.job.get_job(scheduler_job_id, headers={"User-Agent": user_id} )
 
     def delete_job(self, job_id: str, user_id: str = "Prophecy"):
-        self.job.delete_job(job_id, headers = {"User-Agent" : user_id})
+        self.job.delete_job(job_id, headers={"User-Agent": user_id})
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -110,7 +110,7 @@ class DatabricksClient:
         reraise=True,
     )
     def pause_job(self, scheduler_job_id: str, user_id:str = "Prophecy") -> Either:
-        response = self.job.get_job(scheduler_job_id, headers = {"User-Agent" : user_id})
+        response = self.job.get_job(scheduler_job_id, headers={"User-Agent": user_id})
 
         try:
             pause_status = response["settings"]["schedule"]["pause_status"]
@@ -121,7 +121,7 @@ class DatabricksClient:
         if pause_status != "Paused":
             updated_settings = dict(response)
             updated_settings["settings"]["schedule"]["pause_status"] = "Paused"
-            self.job_client.update_job(scheduler_job_id, new_settings=updated_settings, headers = {"User-Agent" : user_id})
+            self.job_client.update_job(scheduler_job_id, new_settings=updated_settings, headers={"User-Agent": user_id})
             print(f"Job {scheduler_job_id} has been paused.")
             return Either(right=True)
         else:
@@ -137,11 +137,11 @@ class DatabricksClient:
     def reset_job(self, scheduler_job_id: str, update_request: Dict[str, str], user_id: str = "Prophecy"):
         new_settings = {"job_id": scheduler_job_id, "new_settings": update_request}
 
-        self.job.reset_job(new_settings, headers = {"User-Agent" : user_id})
+        self.job.reset_job(new_settings, headers={"User-Agent": user_id})
 
     def patch_job_acl(self, scheduler_job_id: str, acl, user_id: str = "Prophecy"):
         print(f"patching job acl {scheduler_job_id} and acl {acl}")
-        self.permission.patch_job(scheduler_job_id, acl, headers = {"User-Agent" : user_id})
+        self.permission.patch_job(scheduler_job_id, acl, headers={"User-Agent": user_id})
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -151,7 +151,7 @@ class DatabricksClient:
     )
     def find_job(self, job_name, user_id: str = "Prophecy") -> Optional[str]:
         try:
-            jobs = self.job.list_jobs(name=job_name, headers = {"User-Agent" : user_id})["jobs"]
+            jobs = self.job.list_jobs(name=job_name, headers={"User-Agent": user_id})["jobs"]
             if jobs is not None:
                 if len(jobs) == 1:
                     return jobs[0]["job_id"]
