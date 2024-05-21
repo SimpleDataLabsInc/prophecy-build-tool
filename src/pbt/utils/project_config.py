@@ -145,7 +145,7 @@ class DatabricksInfo(BaseModel):
     user_agent: Optional[str]
 
     @staticmethod
-    def create(host: str, token: str, user_agent: Optional[str]):
+    def create(host: str, token: str, user_agent: Optional[str] = "Prophecy"):
         return DatabricksInfo(url=host, token=token, user_agent=user_agent)
 
     def resolve(self):

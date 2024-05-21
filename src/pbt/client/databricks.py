@@ -16,7 +16,7 @@ from ..utils.exceptions import DuplicateJobNameException
 
 
 class DatabricksClient:
-    def __init__(self, host: str = None, token: str = None, user_agent: Optional[str]):
+    def __init__(self, host: str = None, token: str = None, user_agent: Optional[str] = None):
         self.host = host
         self.token = token
         self.headers = {"User-Agent": user_agent or "Prophecy"}
