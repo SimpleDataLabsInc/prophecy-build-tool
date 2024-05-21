@@ -207,7 +207,7 @@ def deploy(
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
-@click.option("--user-id", default = "Prophecy", help="user id of the user who requested deployment.")
+@click.option("--user-id", default="Prophecy", help="user id of the user who requested deployment.")
 def deploy_v2(
     path: str,
     project_id: str,

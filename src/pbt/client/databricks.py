@@ -89,7 +89,7 @@ class DatabricksClient:
         reraise=True,
     )
     def create_job(self, content: Dict[str, str], user_id: str = "Prophecy"):
-        return self.job.create_job(content, headers={"User-Agent": user_id} )
+        return self.job.create_job(content, headers={"User-Agent": user_id})
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -98,7 +98,7 @@ class DatabricksClient:
         reraise=True,
     )
     def get_job(self, scheduler_job_id: str, user_id: str = "Prophecy"):
-        return self.job.get_job(scheduler_job_id, headers={"User-Agent": user_id} )
+        return self.job.get_job(scheduler_job_id, headers={"User-Agent": user_id})
 
     def delete_job(self, job_id: str, user_id: str = "Prophecy"):
         self.job.delete_job(job_id, headers={"User-Agent": user_id})
@@ -109,7 +109,7 @@ class DatabricksClient:
         wait=wait_exponential(multiplier=2, max=30),
         reraise=True,
     )
-    def pause_job(self, scheduler_job_id: str, user_id:str = "Prophecy") -> Either:
+    def pause_job(self, scheduler_job_id: str, user_id: str = "Prophecy") -> Either:
         response = self.job.get_job(scheduler_job_id, headers={"User-Agent": user_id})
 
         try:
