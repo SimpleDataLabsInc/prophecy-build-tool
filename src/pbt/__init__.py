@@ -9,7 +9,7 @@ from rich import print
 
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
-from .utility import is_online_mode
+from .utility import is_online_mode, custom_print as log
 
 
 @click.group()
@@ -221,6 +221,7 @@ def deploy_v2(
     migrate: bool,
     user_id: str,
 ):
+    log(f"user id = {user_id}")
     pbt = PBTCli.from_conf_folder(
         path,
         project_id,
