@@ -142,10 +142,11 @@ pattern = r"{{(\w+)}}"
 class DatabricksInfo(BaseModel):
     url: str
     token: str
+    user_agent: Optional[str]
 
     @staticmethod
-    def create(host: str, token: str):
-        return DatabricksInfo(url=host, token=token)
+    def create(host: str, token: str, user_agent: Optional[str] = "Prophecy"):
+        return DatabricksInfo(url=host, token=token, user_agent=user_agent)
 
     def resolve(self):
         url_match = re.match(pattern, self.url)
