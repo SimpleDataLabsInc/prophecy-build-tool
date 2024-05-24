@@ -1,10 +1,10 @@
 import os
 import re
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 from .utils.constants import SCALA_LANGUAGE
-from .utils.project_models import LogEvent, StepMetadata, Status, LogLevel
+from .utils.project_models import LogEvent, LogLevel, Status, StepMetadata
 
 
 # class mimicking Either behaviour to capture both success and failure
@@ -94,9 +94,22 @@ def get_package_name(project_language: str, pipeline_name: str):
         return f"{result}-1.0-py3-none-any.whl"
 
 
-def get_temp_aws_role_creds(role_arn: str, access_key: str, secret_key: str):
+def isBlank(input):
+    if isinstance(input, str) and input and input.strip():
+        return False
+    return True
+
+
+def get_temp_aws_role_creds(role_arn: str, _access_key: str, _secret_key: str):
     import boto3
 
-    sts_client = boto3.client("sts", aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+    if isBlank(_access_key) or isBlank(_secret_key):
+        # Retrieve credentials from the instance profile or environment
+        credentials = boto3.Session()
+    else:
+        # Use Static Credentials
+        credentials = boto3.Session(aws_access_key_id=_access_key, aws_secret_access_key=_secret_key)
+
+    sts_client = credentials.client('sts')
     sts_assumed_role = sts_client.assume_role(RoleArn=role_arn, RoleSessionName="ProphecyReleaseAssumedRoleSession")
     return sts_assumed_role["Credentials"]
