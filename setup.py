@@ -34,7 +34,7 @@ setuptools.setup(
         "google-cloud-storage==2.10.0",
         "pydantic~=1.10",
         "pydantic-yaml==1.1.1",
-        "boto3~=1.31.23",
+        "boto3~=1.34.120",
         "tenacity==8.2.3",
     ],
     extras_require={
