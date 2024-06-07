@@ -5,6 +5,7 @@ import os
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 ERROR_PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorldBuildError"
 
+
 def test_build_path_default():
     runner = CliRunner()
     result = runner.invoke(build, ["--path", PROJECT_PATH])
@@ -28,10 +29,12 @@ def test_build_v2_path_default():
     assert "Building pipeline `report_top_customers" in result.output
     assert "Building pipeline `farmers-markets-irs" in result.output
 
+
 def test_build_v2_path_default_build_errors():
     runner = CliRunner()
     result = runner.invoke(build_v2, ["--path", ERROR_PROJECT_PATH])
     assert result.exit_code == 1
+
 
 def test_build_v2_path_default_build_errors_ignore_errors():
     runner = CliRunner()
