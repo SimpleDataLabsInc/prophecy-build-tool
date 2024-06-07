@@ -1,0 +1,73 @@
+{
+  "format" : "csv",
+  "ignoreLeadingWhiteSpaceReading" : false,
+  "multiLine" : null,
+  "path" : "dbfs:/Prophecy/ashish@prophecy.io/CustomersOrders.csv",
+  "ignoreTrailingWhiteSpaceReading" : false,
+  "maxColumns" : null,
+  "writeMode" : "overwrite",
+  "separator" : ",",
+  "compression" : null,
+  "nullValue" : null,
+  "nanValue" : null,
+  "escapeQuotes" : null,
+  "charToEscapeQuoteEscaping" : null,
+  "encoding" : null,
+  "inferSchema" : null,
+  "enforceSchema" : null,
+  "quoteAll" : null,
+  "ignoreLeadingWhiteSpaceWriting" : true,
+  "locale" : null,
+  "quote" : null,
+  "timestampFormat" : null,
+  "emptyValue" : null,
+  "recursiveFileLookup" : null,
+  "partitionColumns" : null,
+  "schema" : {
+    "type": "struct",
+    "fields": [
+      {
+        "name": "customer_id",
+        "type": "integer",
+        "nullable": true,
+        "metadata": {}
+      },
+      {
+        "name": "orders",
+        "type": "long",
+        "nullable": false,
+        "metadata": {}
+      },
+      {
+        "name": "amounts",
+        "type": "double",
+        "nullable": true,
+        "metadata": {}
+      },
+      {
+        "name": "account_length_days",
+        "type": "integer",
+        "nullable": true,
+        "metadata": {}
+      }
+    ]
+  },
+  "escape" : null,
+  "unescapedQuoteHandling" : null,
+  "positiveInf" : null,
+  "comment" : null,
+  "lineSep" : null,
+  "samplingRatio" : null,
+  "dateFormat" : null,
+  "mode" : null,
+  "header" : true,
+  "columnNameOfCorruptRecord" : null,
+  "modifiedBefore" : null,
+  "ignoreTrailingWhiteSpaceWriting" : true,
+  "maxCharsPerColumn" : null,
+  "negativeInf" : null,
+  "pathGlobFilter" : null,
+  "datasetType" : "File",
+  "useSchema" : true,
+  "modifiedAfter" : null
+}
