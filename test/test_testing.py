@@ -56,9 +56,11 @@ def test_test_with_pipeline_filter_all_notfound_pipelines():
     assert "Coverage XML written to file coverage.xml" not in result.output
 
 
-def test_test_coverage_report_generation():
+def test_test_coverage_and_test_report_generation():
     runner = CliRunner()
     result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers"])
     print(result.output)
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
     assert "Coverage XML written to file coverage.xml" in result.output
+    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/report_top_customers/code/coverage.xml")))
+    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/report_top_customers/code/report.xml")))
