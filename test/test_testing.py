@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from src.pbt import test
+from src.pbt import test, test_v2
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
@@ -19,6 +19,38 @@ def test_test_path_default():
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
     assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
     assert "Unit Testing pipeline pipelines/farmers-markets-irs" in result.output
+
+
+def test_test_v2_path_default():
+    runner = CliRunner()
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH])
+    print(result.output)
+    assert "Found 2 jobs: test-job1234, job-another" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python), join_agg_sort (python), farmers-markets-irs (python)"
+        in result.output
+    )
+    assert "Testing pipelines" in result.output
+    assert "Pipeline test succeeded : `pipelines/customers_orders`" in result.output
+    assert "Pipeline test succeeded : `pipelines/report_top_customers`" in result.output
+    assert "Pipeline test succeeded : `pipelines/join_agg_sort`" in result.output
+    assert "Pipeline test succeeded : `pipelines/farmers-markets-irs`" in result.output
+
+
+def test_test_v2_path_relative():
+    runner = CliRunner()
+    result = runner.invoke(test_v2, ["--path", os.path.relpath(PROJECT_PATH, os.getcwd())])
+    print(result.output)
+    assert "Found 2 jobs: test-job1234, job-another" in result.output
+    assert (
+        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python), join_agg_sort (python), farmers-markets-irs (python)"
+        in result.output
+    )
+    assert "Testing pipelines" in result.output
+    assert "Pipeline test succeeded : `pipelines/customers_orders`" in result.output
+    assert "Pipeline test succeeded : `pipelines/report_top_customers`" in result.output
+    assert "Pipeline test succeeded : `pipelines/join_agg_sort`" in result.output
+    assert "Pipeline test succeeded : `pipelines/farmers-markets-irs`" in result.output
 
 
 def test_test_with_pipeline_filter():
