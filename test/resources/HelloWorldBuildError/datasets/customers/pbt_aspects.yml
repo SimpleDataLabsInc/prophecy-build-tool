@@ -1,0 +1,36 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: customer_id
+    type: integer
+    nullable: true
+    metadata: {}
+  - name: first_name
+    type: string
+    nullable: true
+    metadata: {}
+  - name: last_name
+    type: string
+    nullable: true
+    metadata: {}
+  - name: phone
+    type: string
+    nullable: true
+    metadata: {}
+  - name: email
+    type: string
+    nullable: true
+    metadata: {}
+  - name: country_code
+    type: string
+    nullable: true
+    metadata: {}
+  - name: account_open_date
+    type: string
+    nullable: true
+    metadata: {}
+  - name: account_flags
+    type: string
+    nullable: true
+    metadata: {}

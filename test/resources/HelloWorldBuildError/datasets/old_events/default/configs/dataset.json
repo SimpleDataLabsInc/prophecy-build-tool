@@ -1,0 +1,86 @@
+{
+  "format": "json",
+  "multiLine": true,
+  "dropFieldIfAllNull": null,
+  "path": "dbfs:/Prophecy/ashish@prophecy.io/old_events_data.json",
+  "writeMode": null,
+  "prefersDecimal": null,
+  "allowUnquotedControlChars": null,
+  "compression": null,
+  "allowComments": null,
+  "primitivesAsString": null,
+  "allowBackslashEscapingAnyCharacter": null,
+  "encoding": null,
+  "timestampFormat": null,
+  "partitionColumns": null,
+  "schema": {
+    "type": "struct",
+    "fields": [{
+      "name": "result",
+      "type": {
+        "type": "struct",
+        "fields": [{
+          "name": "count",
+          "type": "string",
+          "nullable": true,
+          "metadata": {}
+        }, {
+          "name": "events",
+          "type": {
+            "type": "array",
+            "elementType": {
+              "type": "struct",
+              "fields": [{
+                "name": "category1",
+                "type": "string",
+                "nullable": true,
+                "metadata": {}
+              }, {
+                "name": "category2",
+                "type": "string",
+                "nullable": true,
+                "metadata": {}
+              }, {
+                "name": "date",
+                "type": "string",
+                "nullable": true,
+                "metadata": {}
+              }, {
+                "name": "description",
+                "type": "string",
+                "nullable": true,
+                "metadata": {}
+              }, {
+                "name": "granularity",
+                "type": "string",
+                "nullable": true,
+                "metadata": {}
+              }, {
+                "name": "lang",
+                "type": "string",
+                "nullable": true,
+                "metadata": {}
+              }]
+            },
+            "containsNull": true
+          },
+          "nullable": true,
+          "metadata": {}
+        }]
+      },
+      "nullable": true,
+      "metadata": {}
+    }]
+  },
+  "ignoreNullFields": null,
+  "lineSep": null,
+  "samplingRatio": null,
+  "allowNumericLeadingZeros": null,
+  "dateFormat": null,
+  "mode": null,
+  "columnNameOfCorruptRecord": null,
+  "allowSingleQuotes": null,
+  "allowUnquotedFieldNames": null,
+  "datasetType": "File",
+  "useSchema": true
+}

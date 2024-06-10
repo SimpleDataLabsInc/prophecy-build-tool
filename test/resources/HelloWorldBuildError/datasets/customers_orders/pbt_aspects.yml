@@ -1,0 +1,20 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: customer_id
+    type: integer
+    nullable: true
+    metadata: {}
+  - name: orders
+    type: long
+    nullable: false
+    metadata: {}
+  - name: amounts
+    type: double
+    nullable: true
+    metadata: {}
+  - name: account_length_days
+    type: integer
+    nullable: true
+    metadata: {}

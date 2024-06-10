@@ -1,0 +1,28 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: order_id
+    type: integer
+    nullable: true
+    metadata: {}
+  - name: customer_id
+    type: integer
+    nullable: true
+    metadata: {}
+  - name: order_status
+    type: string
+    nullable: true
+    metadata: {}
+  - name: order_category
+    type: string
+    nullable: true
+    metadata: {}
+  - name: order_date
+    type: string
+    nullable: true
+    metadata: {}
+  - name: amount
+    type: double
+    nullable: true
+    metadata: {}

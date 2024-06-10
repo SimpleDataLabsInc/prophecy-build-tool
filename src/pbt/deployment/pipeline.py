@@ -262,7 +262,7 @@ class PipelineDeployment:
             else:
                 log(f"\n{Colors.FAIL}Build for pipeline `{pipeline_name}` failed {Colors.ENDC}", indent=1)
 
-        if not build_errors:
+        if build_errors:
             if ignore_build_errors:
                 log(f"\n{Colors.WARNING}Ignoring builds Errors as --ignore-build-errors is passed.{Colors.ENDC}")
             else:
