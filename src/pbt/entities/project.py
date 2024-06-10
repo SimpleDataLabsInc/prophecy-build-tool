@@ -67,7 +67,7 @@ class Project:
         dependant_project_list: Optional[str] = None,
     ):
         self.project_id = project_id
-        self.project_path = project_path
+        self.project_path = os.path.abspath(project_path)
 
         self.release_tag = release_tag
         self.release_version = release_version
