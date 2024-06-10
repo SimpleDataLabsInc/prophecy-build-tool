@@ -70,17 +70,17 @@ class DatabricksClient:
         reraise=True,
     )
     def create_secret_scope_if_not_exist(self, secret_scope: str):
-        response = self.secret.list_scopes(headers=self.headers)
+        response = self.secret.list_scopes()
 
         if any(scope["name"] == secret_scope for scope in response["scopes"]) is False:
             self.secret.create_scope(
-                secret_scope, initial_manage_principal="users", scope_backend_type=None, backend_azure_keyvault=None, headers=self.headers
+                secret_scope, initial_manage_principal="users", scope_backend_type=None, backend_azure_keyvault=None
             )
         else:
             return True
 
     def create_secret(self, scope: str, key: str, value: str):
-        self.secret.put_secret(scope, key, value, None, headers=self.headers)
+        self.secret.put_secret(scope, key, value, None)
 
     @retry(
         retry=retry_if_exception_type(HTTPError),
@@ -166,5 +166,5 @@ class PermissionsApi(object):
     def __init__(self, client: ApiClient):
         self.client = client
 
-    def patch_job(self, scheduler_job_id: str, data):
-        return self.client.perform_query("PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data)
+    def patch_job(self, scheduler_job_id: str, data, headers=None):
+        return self.client.perform_query("PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data, headers=headers)
