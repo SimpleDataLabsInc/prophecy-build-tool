@@ -18,7 +18,7 @@ class GemsDeployment:
         self.project_config = project_config
 
     def _does_gems_exist(self):
-        return self.project.non_empty_gems_directory() and len(self.project.gems) > 0
+        return self.project.non_empty_gems_directory() and self.project.gems
 
     def summary(self):
         if self._does_gems_exist():
