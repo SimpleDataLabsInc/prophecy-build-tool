@@ -20,6 +20,7 @@ from ..utils.constants import (
     PROJECT_RELEASE_VERSION_PLACEHOLDER_REGEX,
     PROJECT_RELEASE_TAG_PLACEHOLDER_REGEX,
     GEMS,
+    GEM_CONTAINER,
     PROJECT_URL_PLACEHOLDER_REGEX,
 )
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
@@ -59,12 +60,12 @@ class Project:
     _CODE_FOLDER = "code"
 
     def __init__(
-        self,
-        project_path: str,
-        project_id: Optional[str] = None,
-        release_tag: Optional[str] = None,
-        release_version: Optional[str] = None,
-        dependant_project_list: Optional[str] = None,
+            self,
+            project_path: str,
+            project_id: Optional[str] = None,
+            release_tag: Optional[str] = None,
+            release_version: Optional[str] = None,
+            dependant_project_list: Optional[str] = None,
     ):
         self.project_id = project_id
         self.project_path = os.path.abspath(project_path)
@@ -260,7 +261,7 @@ class Project:
         self.project_language = self.pbt_project_dict.get(LANGUAGE, None)
         self.jobs = self.pbt_project_dict.get(JOBS, {})
         self.pipelines = self.pbt_project_dict.get(PIPELINES, {})
-        self.gems = self.pbt_project_dict.get(GEMS, {})
+        self.gems = self.pbt_project_dict.get(GEM_CONTAINER, {}).get(GEMS, [])
 
     def _load_pipeline_configurations(self):
         pipeline_configurations = {}
@@ -297,7 +298,9 @@ class Project:
 
     # only check for non-empty gems directory
     def non_empty_gems_directory(self):
-        return os.path.exists(os.path.join(self.project_path, "gems"))
+        gems_folder = os.path.join(self.project_path, "gems")
+        setup_py = os.path.join(gems_folder, "setup.py")
+        return os.path.exists(gems_folder) and os.path.exists(setup_py)
 
     def get_package_path(self, _pipeline_id) -> (str, str):
         pipeline_path = os.path.join(self.project_path, _pipeline_id, "code")
@@ -319,7 +322,7 @@ class Project:
 
     def _stripPrefix(self, value, prefix):
         if value.startswith(prefix):
-            return value[len(prefix) :]
+            return value[len(prefix):]
         return value
 
     def _find_path(self):
@@ -382,9 +385,9 @@ class Project:
                 if "metainfo" in prophecy_json and "dynamicPipelineStatus" in prophecy_json["metainfo"]:
                     dynamic_pipeline_status = prophecy_json["metainfo"]["dynamicPipelineStatus"]
                     is_dynamic = (
-                        dynamic_pipeline_status["databricks"]
-                        | dynamic_pipeline_status["dataproc"]
-                        | dynamic_pipeline_status["emr"]
+                            dynamic_pipeline_status["databricks"]
+                            | dynamic_pipeline_status["dataproc"]
+                            | dynamic_pipeline_status["emr"]
                     )
 
                     # if is true then return true otherwise False.
