@@ -54,8 +54,9 @@ class PBTCli(object):
                 driver_library_path = os.path.abspath(driver_library_path)
                 os.environ["SPARK_JARS_CONFIG"] = driver_library_path
             elif "," in driver_library_path:  # allow comma separated list of files
-                for item in driver_library_path.split(","):
-                    assert(os.path.isfile(item))
+                for f in driver_library_path.split(","):
+                    if not os.path.isfile(f):
+                        raise ValueError(f"{f} is not a file")
                 jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(',')])
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
 

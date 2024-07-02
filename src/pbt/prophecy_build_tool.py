@@ -865,24 +865,25 @@ class ProphecyBuildTool:
         print("[bold red]ERROR[/bold red]:", message)
         sys.exit(1)
 
-    def _setJarsNeededForUT(self, build_jars):
+    def _setJarsNeededForUT(self, driver_library_path):
         # import random
         # uniqueKey = random.random()
         # jars_unique_key: str = f"driver_library_path_{uniqueKey}"
-        if build_jars:
-            if os.path.isdir(build_jars):
-                driver_library_path = os.path.abspath(build_jars)
+        if driver_library_path:
+            if os.path.isdir(driver_library_path):
+                driver_library_path = os.path.abspath(driver_library_path)
                 jar_files = ",".join(
                     [os.path.join(driver_library_path, file) for file in os.listdir(driver_library_path) if
                      file.endswith('.jar')])
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
-            elif os.path.isfile(build_jars):
-                driver_library_path = os.path.abspath(build_jars)
+            elif os.path.isfile(driver_library_path):
+                driver_library_path = os.path.abspath(driver_library_path)
                 os.environ["SPARK_JARS_CONFIG"] = driver_library_path
-            elif "," in build_jars:  # allow comma separated list of files
-                for item in build_jars.split(","):
-                    assert(os.path.isfile(item))
-                jar_files = ",".join([os.path.abspath(f) for f in build_jars.split(',')])
+            elif "," in driver_library_path:  # allow comma separated list of files
+                for f in driver_library_path.split(","):
+                    if not os.path.isfile(f):
+                        raise ValueError(f"{f} is not a file")
+                jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(',')])
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
 
         if "SPARK_JARS_CONFIG" in os.environ:

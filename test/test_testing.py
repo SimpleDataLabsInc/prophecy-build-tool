@@ -43,6 +43,7 @@ def test_test_v2_driver_paths3():
     assert "fake.jar" in result.output
     assert "fake2.jar" in result.output
 
+
 def test_driver_paths():
     runner = CliRunner()
     with open('./fake.jar', 'w') as fd:
