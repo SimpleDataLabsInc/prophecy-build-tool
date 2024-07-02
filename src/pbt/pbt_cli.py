@@ -43,8 +43,27 @@ class PBTCli(object):
         self.project.build(pipelines, ignore_build_errors, ignore_parse_errors)
 
     def test(self, driver_library_path: str):
-        if self.project.project.project_language == "PYTHON":
-            os.environ["SPARK_JARS_CONFIG"] = driver_library_path if driver_library_path else ""
+        if driver_library_path and str.upper(self.project.project.project_language) == "PYTHON":
+            if os.path.isdir(driver_library_path):
+                driver_library_path = os.path.abspath(driver_library_path)
+                jar_files = ",".join(
+                    [os.path.join(driver_library_path, file) for file in os.listdir(driver_library_path) if
+                     file.endswith('.jar')])
+                os.environ["SPARK_JARS_CONFIG"] = jar_files
+            elif os.path.isfile(driver_library_path):
+                driver_library_path = os.path.abspath(driver_library_path)
+                os.environ["SPARK_JARS_CONFIG"] = driver_library_path
+            elif "," in driver_library_path:  # allow comma separated list of files
+                for item in driver_library_path.split(","):
+                    assert(os.path.isfile(item))
+                jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(',')])
+                os.environ["SPARK_JARS_CONFIG"] = jar_files
+
+        if "SPARK_JARS_CONFIG" in os.environ:
+            print(f"    Using env SPARK_JARS_CONFIG={os.environ['SPARK_JARS_CONFIG']}")
+        else:
+            os.environ["SPARK_JARS_CONFIG"] = ""
+            print("    Using default spark jars locations")
         self.project.test()
 
     def validate(self, treat_warnings_as_errors: bool):

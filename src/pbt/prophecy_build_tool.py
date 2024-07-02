@@ -869,8 +869,27 @@ class ProphecyBuildTool:
         # import random
         # uniqueKey = random.random()
         # jars_unique_key: str = f"driver_library_path_{uniqueKey}"
-        os.environ["SPARK_JARS_CONFIG"] = build_jars if build_jars else ""
-        # return jars_unique_key
+        if build_jars:
+            if os.path.isdir(build_jars):
+                driver_library_path = os.path.abspath(build_jars)
+                jar_files = ",".join(
+                    [os.path.join(driver_library_path, file) for file in os.listdir(driver_library_path) if
+                     file.endswith('.jar')])
+                os.environ["SPARK_JARS_CONFIG"] = jar_files
+            elif os.path.isfile(build_jars):
+                driver_library_path = os.path.abspath(build_jars)
+                os.environ["SPARK_JARS_CONFIG"] = driver_library_path
+            elif "," in build_jars:  # allow comma separated list of files
+                for item in build_jars.split(","):
+                    assert(os.path.isfile(item))
+                jar_files = ",".join([os.path.abspath(f) for f in build_jars.split(',')])
+                os.environ["SPARK_JARS_CONFIG"] = jar_files
+
+        if "SPARK_JARS_CONFIG" in os.environ:
+            print(f"    Using env SPARK_JARS_CONFIG={os.environ['SPARK_JARS_CONFIG']}")
+        else:
+            os.environ["SPARK_JARS_CONFIG"] = ""
+            print("    Using default spark jars locations")
 
     def removeJarsKeyFromEnv(self):
         del os.environ["SPARK_JARS_CONFIG"]
