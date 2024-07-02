@@ -12,7 +12,7 @@ def test_test_v2_driver_paths1():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"], terminal_width=1000)
     print(result.output)
     assert "fake.jar" in result.output
     assert "fake2.jar" in result.output
@@ -25,7 +25,8 @@ def test_test_v2_driver_paths2():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"],
+                           terminal_width=1000)
     print(result.output)
     assert "fake.jar" in result.output
     assert "fake2.jar" in result.output
@@ -38,7 +39,7 @@ def test_test_v2_driver_paths3():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()], terminal_width=1000)
     print(result.output)
     assert "fake.jar" in result.output
     assert "fake2.jar" in result.output
@@ -51,7 +52,7 @@ def test_driver_paths():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
+    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"], terminal_width=1000)
     print(result.output)
     assert "fake.jar" in result.output
     assert "fake2.jar" in result.output
