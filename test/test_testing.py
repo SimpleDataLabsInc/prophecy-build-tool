@@ -5,6 +5,58 @@ import os
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 
 
+def test_test_v2_driver_paths1():
+    runner = CliRunner()
+    with open('./fake.jar', 'w') as fd:
+        fd.write("fake")
+    with open('./fake2.jar', 'w') as fd:
+        fd.write("fake")
+
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
+    print(result.output)
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
+
+
+def test_test_v2_driver_paths2():
+    runner = CliRunner()
+    with open('./fake.jar', 'w') as fd:
+        fd.write("fake")
+    with open('./fake2.jar', 'w') as fd:
+        fd.write("fake")
+
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
+    print(result.output)
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
+
+
+def test_test_v2_driver_paths3():
+    runner = CliRunner()
+    with open('./fake.jar', 'w') as fd:
+        fd.write("fake")
+    with open('./fake2.jar', 'w') as fd:
+        fd.write("fake")
+
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
+    print(result.output)
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
+
+
+def test_test_driver_paths():
+    runner = CliRunner()
+    with open('./fake.jar', 'w') as fd:
+        fd.write("fake")
+    with open('./fake2.jar', 'w') as fd:
+        fd.write("fake")
+
+    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
+    print(result.output)
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
+
+
 def test_test_path_default():
     runner = CliRunner()
     result = runner.invoke(test, ["--path", PROJECT_PATH])
@@ -19,6 +71,7 @@ def test_test_path_default():
     assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
     assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
     assert "Unit Testing pipeline pipelines/farmers-markets-irs" in result.output
+    assert "Using default spark jars locations" in result.output
 
 
 def test_test_v2_path_default():
