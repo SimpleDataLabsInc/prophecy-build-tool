@@ -12,10 +12,10 @@ def test_test_v2_driver_paths1():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"], terminal_width=1000)
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
     print(result.output)
-    assert "fake.jar" in result.output
-    assert "fake2.jar" in result.output
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
 
 
 def test_test_v2_driver_paths2():
@@ -25,11 +25,10 @@ def test_test_v2_driver_paths2():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"],
-                           terminal_width=1000)
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
     print(result.output)
-    assert "fake.jar" in result.output
-    assert "fake2.jar" in result.output
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
 
 
 def test_test_v2_driver_paths3():
@@ -39,23 +38,23 @@ def test_test_v2_driver_paths3():
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()], terminal_width=1000)
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
     print(result.output)
-    assert "fake.jar" in result.output
-    assert "fake2.jar" in result.output
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
 
 
-def test_driver_paths():
+def test_test_driver_paths():
     runner = CliRunner()
     with open('./fake.jar', 'w') as fd:
         fd.write("fake")
     with open('./fake2.jar', 'w') as fd:
         fd.write("fake")
 
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"], terminal_width=1000)
+    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
     print(result.output)
-    assert "fake.jar" in result.output
-    assert "fake2.jar" in result.output
+    assert "fake.jar" in result.output.replace("\n", "")
+    assert "fake2.jar" in result.output.replace("\n", "")
 
 
 def test_test_path_default():
