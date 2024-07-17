@@ -700,6 +700,16 @@ class ProphecyBuildTool:
         )
 
     def test_python(self, path_pipeline_absolute, path_pipeline):
+        COVERAGERC_CONTENT = (
+                "[run]\n"
+                "omit=test/**,build/**,dist/**,setup.py\n"
+                "relative_files=True\n"
+            )
+        coveragerc_path = os.path.join(path_pipeline_absolute, ".coveragerc")
+        if not os.path.exists(coveragerc_path):
+            with open(coveragerc_path, "w") as fd:
+                fd.write(COVERAGERC_CONTENT)
+
         return Process.process_sequential(
             [
                 # Install dependencies of particular pipeline
@@ -723,7 +733,7 @@ class ProphecyBuildTool:
                         "-m",
                         "pytest",
                         "-v",
-                        "--cov=test",  # generate coverage for module test
+                        "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
                         "--junitxml=report.xml",
                         f"test{os.sep}TestSuite.py",
