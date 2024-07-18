@@ -470,8 +470,19 @@ class PackageBuilderAndUploader:
         return self._build(command)
 
     def wheel_test(self):
+        COVERAGERC_CONTENT = (
+            "[run]\n"
+            "omit=test/**,build/**,dist/**,setup.py\n"
+            "relative_files=True\n"
+        )
+
+        coveragerc_path = os.path.join(f"{self._base_path}", ".coveragerc")
+        if not os.path.exists(coveragerc_path):
+            with open(coveragerc_path, "w") as fd:
+                fd.write(COVERAGERC_CONTENT)
+
         separator = os.sep
-        test_command = ["python3", "-m", "pytest", "-v", "--cov=test", "--cov-report=xml", "--junitxml=report.xml",
+        test_command = ["python3", "-m", "pytest", "-v", "--cov=.", "--cov-report=xml", "--junitxml=report.xml",
                         f"{self._base_path}{separator}test{separator}TestSuite.py"]
         log(f"Running python test {test_command}", step_id=self._pipeline_id, indent=2)
         response_code = self._build(test_command)

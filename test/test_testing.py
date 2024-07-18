@@ -142,10 +142,53 @@ def test_test_with_pipeline_filter_all_notfound_pipelines():
 
 
 def test_test_coverage_and_test_report_generation():
+    coverage_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/coverage.xml")
+    if os.path.exists(coverage_path):
+        os.remove(coverage_path)
+    coveragerc_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/.coveragerc")
+    if os.path.exists(coveragerc_path):
+        os.remove(coveragerc_path)
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers"])
+    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "customers_orders"])
     print(result.output)
-    assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
+    assert "Unit Testing pipeline pipelines/customers_orders" in result.output
+    assert (os.path.exists(coverage_path))
+    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml")))
+
+    with open(coverage_path, 'r') as fd:
+        content = fd.read()
+        # check to make sure that .coveragerc got picked up and made relative paths:
+        assert ("<source>.</source>" in content)
+        # verify that some coverage was written
+        assert ("<package name=\"job\"" in content)
+        # check that setup.py is ignored
+        assert ("<class name=\"setup.py\"" not in content)
+        # make sure we are not doing coverage for test directory
+        assert ("<package name=\"test\"" not in content)
+
+
+def test_test_v2_coverage_and_test_report_generation():
+    coverage_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/coverage.xml")
+    if os.path.exists(coverage_path):
+        os.remove(coverage_path)
+    coveragerc_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/.coveragerc")
+    if os.path.exists(coveragerc_path):
+        os.remove(coveragerc_path)
+    runner = CliRunner()
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH])
+    print(result.output)
+    assert "Testing pipeline `pipelines/customers_orders`" in result.output
     assert "Coverage XML written to file coverage.xml" in result.output
-    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/report_top_customers/code/coverage.xml")))
-    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/report_top_customers/code/report.xml")))
+    assert (os.path.exists(coverage_path))
+    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml")))
+
+    with open(coverage_path, 'r') as fd:
+        content = fd.read()
+        # check to make sure that .coveragerc got picked up and made relative paths:
+        assert ("<source>.</source>" in content)
+        # verify that some coverage was written
+        assert ("<package name=\"job\"" in content)
+        # check that setup.py is ignored
+        assert ("<class name=\"setup.py\"" not in content)
+        # make sure we are not doing coverage for test directory
+        assert ("<package name=\"test\"" not in content)
