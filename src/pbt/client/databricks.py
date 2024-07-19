@@ -1,3 +1,4 @@
+import os
 import tempfile
 from typing import Dict, Optional
 
@@ -20,11 +21,19 @@ class DatabricksClient:
         self.host = host
         self.token = token
         self.headers = {"User-Agent": user_agent or "Prophecy"}
-        self.dbfs = DbfsApi(ApiClient(host=host, token=token, api_version="2.0"))
-        self.job = JobsApi(ApiClient(host=host, token=token, api_version="2.1"))
-        self.job_client = JobsService(ApiClient(host=host, token=token, api_version="2.1"))
-        self.secret = SecretApi(ApiClient(host=host, token=token, api_version="2.0"))
-        self.permission = PermissionsApi(ApiClient(host=host, token=token, api_version="2.0"))
+
+        verify = True
+        if os.environ.get("SSL_DISABLED_EXECUTION", "").lower() == "true":
+            verify = False
+
+        api_client_2 = ApiClient(host=host, token=token, api_version="2.0", verify=verify)
+        api_client_2_1 = ApiClient(host=host, token=token, api_version="2.1", verify=verify)
+
+        self.dbfs = DbfsApi(api_client_2)
+        self.job = JobsApi(api_client_2_1)
+        self.job_client = JobsService(api_client_2_1)
+        self.secret = SecretApi(api_client_2)
+        self.permission = PermissionsApi(api_client_2)
 
     @classmethod
     def from_environment_variables(cls):
@@ -55,7 +64,8 @@ class DatabricksClient:
         reraise=True,
     )
     def upload_src_path(self, src_path: str, destination_path: str):
-        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True, headers=self.headers)
+        self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True,
+                           headers=self.headers)
 
     def path_exist(self, path: str) -> bool:
         return self.dbfs.get_status(DbfsPath(path), headers=self.headers) is not None
@@ -167,4 +177,5 @@ class PermissionsApi(object):
         self.client = client
 
     def patch_job(self, scheduler_job_id: str, data, headers=None):
-        return self.client.perform_query("PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data, headers=headers)
+        return self.client.perform_query("PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data,
+                                         headers=headers)
