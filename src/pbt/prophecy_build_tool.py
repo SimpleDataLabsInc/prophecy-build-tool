@@ -703,7 +703,6 @@ class ProphecyBuildTool:
         COVERAGERC_CONTENT = (
                 "[run]\n"
                 "omit=test/**,build/**,dist/**,setup.py\n"
-                "relative_files=True\n"
             )
         coveragerc_path = os.path.join(path_pipeline_absolute, ".coveragerc")
         if not os.path.exists(coveragerc_path):

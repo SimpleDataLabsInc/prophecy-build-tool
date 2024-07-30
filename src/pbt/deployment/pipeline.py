@@ -473,7 +473,6 @@ class PackageBuilderAndUploader:
         COVERAGERC_CONTENT = (
             "[run]\n"
             "omit=test/**,build/**,dist/**,setup.py\n"
-            "relative_files=True\n"
         )
 
         coveragerc_path = os.path.join(f"{self._base_path}", ".coveragerc")
