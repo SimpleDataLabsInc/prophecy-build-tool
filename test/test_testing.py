@@ -157,8 +157,8 @@ def test_test_coverage_and_test_report_generation():
 
     with open(coverage_path, 'r') as fd:
         content = fd.read()
-        # check to make sure that .coveragerc got picked up and made relative paths:
-        assert ("<source>.</source>" in content)
+        # check to make sure that .coveragerc got picked up and made absolute paths:
+        assert ("<source>/" in content)
         # verify that some coverage was written
         assert ("<package name=\"job\"" in content)
         # check that setup.py is ignored
@@ -184,8 +184,8 @@ def test_test_v2_coverage_and_test_report_generation():
 
     with open(coverage_path, 'r') as fd:
         content = fd.read()
-        # check to make sure that .coveragerc got picked up and made relative paths:
-        assert ("<source>.</source>" in content)
+        # check to make sure that .coveragerc got picked up and made absolute paths:
+        assert ("<source>/" in content)
         # verify that some coverage was written
         assert ("<package name=\"job\"" in content)
         # check that setup.py is ignored
