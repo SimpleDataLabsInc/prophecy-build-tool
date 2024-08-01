@@ -7,6 +7,7 @@ import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
+import xml.etree.ElementTree as ET
 
 from . import JobData
 from .uploader.PipelineUploaderManager import PipelineUploadManager
@@ -195,6 +196,110 @@ class PipelineDeployment:
             else:
                 log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
 
+    def _add_maven_dependency_info_python(self):
+        if self.project.pbt_project_dict.get('language', '') == 'python':
+            def _generate_pom_from_dicts(d_list):
+                # Create the root element
+                project = ET.Element("project", {
+                    "xmlns": "http://maven.apache.org/POM/4.0.0",
+                    "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                    "xsi:schemaLocation": "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+                })
+
+                # project placeholders
+                ET.SubElement(project, 'modelVersion').text = '4.0.0'
+                ET.SubElement(project, 'groupId').text = 'placeholder'
+                ET.SubElement(project, 'artifactId').text = 'placeholder'
+                ET.SubElement(project, 'version').text = '0.0.1'
+
+                # Repositories
+                repositories_elem = ET.SubElement(project, 'repositories')
+                for dep in d_list:
+                    repo_url = dep.get('repo')
+                    if repo_url:
+                        repository = ET.SubElement(repositories_elem, 'repository')
+                        ET.SubElement(repository, 'id').text = 'custom'
+                        ET.SubElement(repository, 'url').text = repo_url
+
+                # Dependencies
+                dependencies_elem = ET.SubElement(project, 'dependencies')
+                for dep in d_list:
+                    if dep.get('type') == 'coordinates':
+                        dependency = ET.SubElement(dependencies_elem, 'dependency')
+                        coords = dep['coordinates'].split(':')
+                        if len(coords) == 3:
+                            ET.SubElement(dependency, 'groupId').text = coords[0]
+                            ET.SubElement(dependency, 'artifactId').text = coords[1]
+                            ET.SubElement(dependency, 'version').text = coords[2]
+                        if 'exclusions' in dep:
+                            exclusions_elem = ET.SubElement(dependency, 'exclusions')
+                            for ex in dep['exclusions']:
+                                exclusion = ET.SubElement(exclusions_elem, 'exclusion')
+                                group_id, artifact_id = ex.split(':')
+                                ET.SubElement(exclusion, 'groupId').text = group_id
+                                ET.SubElement(exclusion, 'artifactId').text = artifact_id
+
+                ET.indent(project, space="    ", level=0)
+                return ET.tostring(project, encoding='utf-8', method='xml')
+
+            # gather project level dependencies:
+            project_level_dependencies = self.project.pbt_project_dict.get('dependencies', [])
+            project_level_maven_dependencies = [d for d in project_level_dependencies if d['type'] == 'coordinates']
+
+            # the plibs maven does not have a normal coordinate so we have to make one:
+            spark_version = os.environ['SPARK_VERSION'] if 'SPARK_VERSION' in os.environ else '{{REPLACE_ME}}'
+            plibs_maven_dep = [d for d in project_level_dependencies if d['type'] == 'plibMaven']
+            print(plibs_maven_dep)
+            plibs_maven_dep = plibs_maven_dep[0]
+            plibs_maven_dep['type'] = 'coordinates'
+            plibs_maven_dep['package'] = 'prophecy-libs_2.12'
+            plibs_maven_dep['version'] = spark_version + '-' + plibs_maven_dep['version']
+            plibs_maven_dep['coordinates'] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
+            project_level_maven_dependencies.append(plibs_maven_dep)
+
+            for pipeline_id in self.project.pipelines:
+                rdc = self.project.load_pipeline_folder(pipeline_id)
+
+                # gather pipeline level dependencies per directory and combine with project
+                # level deps:
+                workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
+                pipeline_level_dependencies = workflow['metainfo']['externalDependencies']
+                pipeline_level_maven_dependencies = [d for d in pipeline_level_dependencies if
+                                                     d['type'] == 'coordinates']
+                maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
+
+                # include all information in pom.xml because there may be specific repos
+                # or exclusions information:
+                pom_xml = _generate_pom_from_dicts(maven_dependencies)
+                with open(os.path.join(self.project.get_pipeline_absolute_path(pipeline_id),
+                                       "pom.xml"),
+                          'w') as fd:
+                    fd.write(pom_xml.decode('utf-8'))
+
+                # write out coordinates to separate file in simple case where user just
+                # wants to specify these with --packages option in spark-submit:
+                coordinates_only = "\n".join([d['coordinates'] for d in maven_dependencies])
+                with open(os.path.join(self.project.get_pipeline_absolute_path(pipeline_id),
+                                       "MAVEN_COORDINATES"),
+                          'w') as fd:
+                    fd.write(coordinates_only)
+
+                # modify setup.py to include both of these files
+                setup_py_path = os.path.join(self.project.get_pipeline_absolute_path(pipeline_id), "setup.py")
+                with open(setup_py_path, 'r') as fd:
+                    setup_py_content = fd.read()
+
+                # WARNING: I am very intentionally using these strings in the replacement. some customers
+                # are also adding their own files to the WHL which we want to keep without overwriting.
+                setup_py_content_modified = setup_py_content.replace(
+                    '(".prophecy", [".prophecy/workflow.latest.json"])',
+                    '(".prophecy", [".prophecy/workflow.latest.json"]),("./", ["MAVEN_COORDINATES", "pom.xml"])'
+                )
+
+                with open(setup_py_path, 'w') as fd:
+                    fd.write(setup_py_content_modified)
+
+
     def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
         # these can be names and ids.
         all_pipeline_ids = self._pipeline_to_list_fabrics_full_deployment.keys()
@@ -222,6 +327,11 @@ class PipelineDeployment:
                 log(
                     f"{Colors.WARNING}Skipping build for pipelines {pipelines_to_skip_build}, Please check the ids/names of provided pipelines {Colors.ENDC}"
                 )
+
+        if self.project.pbt_project_dict.get('language', '') == 'python':
+            # TODO do we want to add this behind an option? seems like anyone who is using PBT
+            #  would want to include the maven dependency info as it is very handy.
+            self._add_maven_dependency_info_python()
 
         log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_to_name)}{Colors.ENDC}\n")
 
