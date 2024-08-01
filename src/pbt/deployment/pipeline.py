@@ -299,7 +299,6 @@ class PipelineDeployment:
                 with open(setup_py_path, 'w') as fd:
                     fd.write(setup_py_content_modified)
 
-
     def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
         # these can be names and ids.
         all_pipeline_ids = self._pipeline_to_list_fabrics_full_deployment.keys()
