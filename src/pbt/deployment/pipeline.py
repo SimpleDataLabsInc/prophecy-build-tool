@@ -249,7 +249,12 @@ class PipelineDeployment:
             # the plibs maven does not have a normal coordinate so we have to make one:
             spark_version = os.environ['SPARK_VERSION'] if 'SPARK_VERSION' in os.environ else '{{REPLACE_ME}}'
             plibs_maven_dep = [d for d in project_level_dependencies if d['type'] == 'plibMaven']
-            print(plibs_maven_dep)
+            if len(plibs_maven_dep) != 1:
+                log(
+                    f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
+                    f"prophecy-libs information. please update your prophecy-libs in the Prophecy UI{Colors.ENDC}"
+                )
+                return
             plibs_maven_dep = plibs_maven_dep[0]
             plibs_maven_dep['type'] = 'coordinates'
             plibs_maven_dep['package'] = 'prophecy-libs_2.12'
