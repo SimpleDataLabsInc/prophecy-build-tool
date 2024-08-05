@@ -304,7 +304,8 @@ class PipelineDeployment:
                 with open(setup_py_path, 'w') as fd:
                     fd.write(setup_py_content_modified)
 
-    def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False):
+    def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False,
+              add_pom_python: bool = False):
         # these can be names and ids.
         all_pipeline_ids = self._pipeline_to_list_fabrics_full_deployment.keys()
         pipeline_ids_to_name = {
@@ -332,9 +333,7 @@ class PipelineDeployment:
                     f"{Colors.WARNING}Skipping build for pipelines {pipelines_to_skip_build}, Please check the ids/names of provided pipelines {Colors.ENDC}"
                 )
 
-        if self.project.pbt_project_dict.get('language', '') == 'python':
-            # TODO do we want to add this behind an option? seems like anyone who is using PBT
-            #  would want to include the maven dependency info as it is very handy.
+        if add_pom_python and self.project.pbt_project_dict.get('language', '') == 'python':
             self._add_maven_dependency_info_python()
 
         log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_to_name)}{Colors.ENDC}\n")
