@@ -4,6 +4,8 @@ from typing import Optional
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
 from .utils.project_config import ProjectConfig
+from packaging.version import parse as parse_version
+import copy
 
 
 class PBTCli(object):
@@ -69,3 +71,33 @@ class PBTCli(object):
 
     def validate(self, treat_warnings_as_errors: bool):
         self.project.validate(treat_warnings_as_errors)
+
+    def update_all_versions(self, new_version, force):
+        orig_version = parse_version(self.project.project.pbt_project_dict['version'])
+        # check this version against base branch if not "force". error if it is not greater
+        if not force:
+            if parse_version(new_version) <= parse_version(orig_version):
+                raise ValueError(f"new version {new_version} is not later than {orig_version}")
+
+        # overwrite pbt_project.yml, all setup.py, all pom.xml
+        pass #TODO
+
+    def version_bump(self, bump_type, force):
+        new_version = parse_version(self.project.project.pbt_project_dict['version'])
+
+        if bump_type == 'major':
+            new_version.major += 1
+        elif bump_type == 'minor':
+            new_version.minor += 1
+        elif bump_type == 'patch':
+            new_version.micro += 1
+        else:
+            raise ValueError("bad choice for bump type: ", bump_type)
+
+        self.update_all_versions(new_version, force)
+
+    def version_set(self, version, force):
+        new_version = parse_version(version)
+
+        self.update_all_versions(new_version, force)
+

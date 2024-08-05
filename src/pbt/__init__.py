@@ -273,6 +273,45 @@ def test(path, driver_library_path, pipelines):
     pbt.test(driver_library_path, pipelines)
 
 
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--bump",
+    type=click.Choice(['major', 'minor', 'patch'], case_sensitive=False),
+    help="bumps one of the semantic version numbers for the project and all pipelines based on the current value. "
+         "Only works if existing versions follow SemVer (MAJOR.MINOR.PATCH)",
+    required=False,
+)
+@click.option(
+    "--set",
+    type=str,
+    help="Explicitly set the exact version",
+    required=False,
+)
+@click.option(
+    "--force", "--spike",
+    default=False,
+    is_flag=True,
+    help="bypass errors if the version set is lower than the base branch",
+    required=False,
+)
+def versioning(path, _set, bump, force):
+    pbt = PBTCli.from_conf_folder(path)
+
+    if _set and bump:
+        raise click.UsageError("Options '--set' and '--bump' are mutually exclusive.")
+    elif _set:
+        pbt.project.version_set(_set, force)
+    elif bump:
+        pbt.project.version_bump(bump, force)
+    else:
+        raise click.UsageError("must give either '--set' or '--bump'")
+
+
 if __name__ == "pbt":
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"
