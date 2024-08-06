@@ -299,7 +299,7 @@ def test(path, driver_library_path, pipelines):
     help="bypass errors if the version set is lower than the base branch",
     required=False,
 )
-def versioning(path, _set, bump, force):
+def versioning(path, bump, _set, force):
     pbt = PBTCli.from_conf_folder(path)
 
     if _set and bump:
@@ -331,33 +331,24 @@ def versioning(path, _set, bump, force):
     required=False,
 )
 @click.option(
-    "--no-branch",
-    default=False,
-    is_flag=True,
-    help="normally the tag is prefixed with the branch name: <project_name>/<branch_name>/<version>. "
-         "This removes the <branch_name>.",
-    required=False,
-)
-@click.option(
-    "--no-project",
-    default=False,
-    is_flag=True,
-    help="normally the tag is prefixed with the branch name: <project_name>/<branch_name>/<version>. "
-         "This removes the <project_name>.",
+    "--branch",
+    default=None,
+    help="normally the tag is prefixed with the branch name: <branch_name>/<version>. "
+         "This overrides <branch_name>. Provide \"\" to omit the branch name.",
     required=False,
 )
 @click.option(
     "--custom",
-    default=False,
+    default=None,
     type=str,
     help="Explicitly set the exact tag using a string. Ignores other options.",
     required=False,
 )
-def tag(path, repo_path, no_push, no_branch, no_project, custom):
+def tag(path, repo_path, no_push, branch, custom):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
-    pbt.project.tag(repo_path, no_push=no_push, no_branch=no_branch, no_project=no_project, custom=custom)
+    pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
 
 
 if __name__ == "pbt":
