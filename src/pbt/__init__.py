@@ -76,9 +76,11 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     is_flag=True,
     required=False,
 )
-def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors):
+@click.option("--add-pom-python", default=False, is_flag=True,
+              help="adds pom.xml and MAVEN_COORDINATES files to pyspark pipeline WHL files", required=False)
+def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
     pbt = PBTCli.from_conf_folder(path)
-    pbt.build(pipelines, ignore_build_errors, ignore_parse_errors)
+    pbt.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
 
 
 @cli.command()
