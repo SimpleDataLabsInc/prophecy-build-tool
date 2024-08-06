@@ -19,3 +19,4 @@ requests~=2.31.0
 tenacity==8.2.3
 pytest-html
 pytest-cov
+gitpython

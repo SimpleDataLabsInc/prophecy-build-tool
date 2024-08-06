@@ -312,6 +312,54 @@ def versioning(path, _set, bump, force):
         raise click.UsageError("must give either '--set' or '--bump'")
 
 
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--repo-path",
+    help="Path to the repository root. If left blank it will use '--path'",
+    required=False,
+)
+@click.option(
+    "--no-push",
+    default=False,
+    is_flag=True,
+    help="By default the tag will be pushed to the origin after it is created. Use this flag to skip pushing the tag.",
+    required=False,
+)
+@click.option(
+    "--no-branch",
+    default=False,
+    is_flag=True,
+    help="normally the tag is prefixed with the branch name: <project_name>/<branch_name>/<version>. "
+         "This removes the <branch_name>.",
+    required=False,
+)
+@click.option(
+    "--no-project",
+    default=False,
+    is_flag=True,
+    help="normally the tag is prefixed with the branch name: <project_name>/<branch_name>/<version>. "
+         "This removes the <project_name>.",
+    required=False,
+)
+@click.option(
+    "--custom",
+    default=False,
+    type=str,
+    help="Explicitly set the exact tag using a string. Ignores other options.",
+    required=False,
+)
+def tag(path, repo_path, no_push, no_branch, no_project, custom):
+    pbt = PBTCli.from_conf_folder(path)
+    if not repo_path:
+        repo_path = path
+    pbt.project.tag(repo_path, no_push=no_push, no_branch=no_branch, no_project=no_project, custom=custom)
+
+
 if __name__ == "pbt":
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"

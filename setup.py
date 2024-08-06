@@ -36,6 +36,7 @@ setuptools.setup(
         "pydantic-yaml==1.1.1",
         "boto3~=1.34.120",
         "tenacity==8.2.3",
+        "gitpython"
     ],
     extras_require={
         "test": [

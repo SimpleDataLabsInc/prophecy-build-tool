@@ -6,6 +6,7 @@ from .entities.project import Project
 from .utils.project_config import ProjectConfig
 from packaging.version import parse as parse_version
 import copy
+import git
 
 
 class PBTCli(object):
@@ -100,4 +101,23 @@ class PBTCli(object):
         new_version = parse_version(version)
 
         self.update_all_versions(new_version, force)
+
+    def tag(self, repo_path, no_push=False, custom=None, no_branch=False, no_project=False):
+        repo = git.Repo(repo_path)
+
+        if custom:
+            tag = custom
+        else:
+            tag = self.project.project.pbt_project_dict['version']
+            if not no_branch:
+                tag = repo.active_branch + "/" + tag
+            if not no_project:
+                tag = self.project.project.pbt_project_dict['name'] + "/" + tag
+
+        repo.create_tag(tag)
+
+        if not no_push:
+            # Pushing the tag to the remote repository
+            origin = repo.remote(name='origin')
+            origin.push(tag)
 
