@@ -299,17 +299,26 @@ def test(path, driver_library_path, pipelines):
     help="bypass errors if the version set is lower than the base branch",
     required=False,
 )
-def versioning(path, bump, _set, force):
+@click.option(
+    "--sync",
+    default=False,
+    is_flag=True,
+    help="Ensure all files are set to the same version that is defined in pbt_project.yml",
+    required=False,
+)
+def versioning(path, bump, set, force, sync):
     pbt = PBTCli.from_conf_folder(path)
 
-    if _set and bump:
-        raise click.UsageError("Options '--set' and '--bump' are mutually exclusive.")
-    elif _set:
-        pbt.project.version_set(_set, force)
+    if sum([set is not None, bump is not None, sync]) > 1:
+        raise click.UsageError("Options '--set', '--bump', '--sync' are mutually exclusive.")
+    elif set:
+        pbt.version_set(set, force)
     elif bump:
-        pbt.project.version_bump(bump, force)
+        pbt.version_bump(bump, force)
+    elif sync:
+        pbt.version_set(None, force)
     else:
-        raise click.UsageError("must give either '--set' or '--bump'")
+        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync'")
 
 
 @cli.command()
