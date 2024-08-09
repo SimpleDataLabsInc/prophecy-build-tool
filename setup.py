@@ -45,6 +45,7 @@ setuptools.setup(
             "pytest",
             "pyspark>=3.3.0,<4.0.0",
             "mock",  # or any other testing-specific packages you need
+            "parameterized",
         ]
     },
     python_requires=">=3.7",

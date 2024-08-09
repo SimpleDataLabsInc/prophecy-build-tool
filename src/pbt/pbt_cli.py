@@ -119,6 +119,7 @@ class PBTCli(object):
         _replace_in_files(matching_regex, replacement_string, files_to_fix)
 
     def version_bump(self, bump_type, force):
+        # TODO need to be able to parse valid maven syntax and dbt syntax for versioning in addition to pep440
         try:
             v = parse_version(self.project.project.pbt_project_dict['version'])
         except InvalidVersion as e:
@@ -127,7 +128,7 @@ class PBTCli(object):
             exit(1)
 
         # Version is a final class and we cannot inherit/extend so we steal the string building logic from its
-        #  __str__() implementation:
+        #  __str__() implementation. this follows pep440:
         parts = []
         if v.epoch != 0:
             parts.append(f"{v.epoch}!")
