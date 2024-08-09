@@ -303,7 +303,7 @@ def test(path, driver_library_path, pipelines):
     "--sync",
     default=False,
     is_flag=True,
-    help="Ensure all files are set to the same version that is defined in pbt_project.yml",
+    help="Ensure all files are set to the same version that is defined in pbt_project.yml. (implies --force)",
     required=False,
 )
 def versioning(path, bump, set, force, sync):
