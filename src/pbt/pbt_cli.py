@@ -89,8 +89,9 @@ class PBTCli(object):
                 pattern = re.compile(matching_regex, re.MULTILINE)
                 with open(file, 'r') as fd:
                     content = fd.read()
-                    # Replace the matching line with the new version line
-                new_content = pattern.sub(replacement_string, content)
+                # only replace the first instance of the version encountered. otherwise we risk
+                # replacing other versions (especially found in pom.xml)
+                new_content = pattern.sub(replacement_string, content, count=1)
                 with open(file, 'w') as fd:
                     fd.write(new_content)
 

@@ -12,7 +12,7 @@ CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
 PROJECT_PATH = CURRENT_DIRECTORY + "/resources/HelloWorld"
 PROJECTS_TO_TEST = [("HelloWorld"), ("BaseDirectory"), ("ProjectCreatedOn160523")]
-
+RESOURCES_PATH = os.path.join(CURRENT_DIRECTORY, "resources")
 
 class VersioningTestCase(unittest.TestCase):
     @classmethod
@@ -41,11 +41,12 @@ class VersioningTestCase(unittest.TestCase):
 
     @classmethod
     def remove_tmp_dirs(cls):
-        tmp_dirs = glob.glob(os.path.join(PROJECT_PATH, '**', "dist"), recursive=True) + \
-                        glob.glob(os.path.join(PROJECT_PATH, '**', "build"), recursive=True)
-        for d in tmp_dirs:
-            if os.path.exists(d):
-                shutil.rmtree(d)
+        tmp_dirs = ["dist", "build", "target"]
+        for t in tmp_dirs:
+            dirs_to_clean = glob.glob(os.path.join(RESOURCES_PATH, '**', t), recursive=True)
+            for d in dirs_to_clean:
+                if os.path.exists(d):
+                    shutil.rmtree(d)
 
     @staticmethod
     def _get_pbt_version(path_to_project):
@@ -54,9 +55,9 @@ class VersioningTestCase(unittest.TestCase):
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
 
-    @parameterized.expand([("HelloWorld"), ("BaseDirectory"), ("ProjectCreatedOn160523")])
+    @parameterized.expand(PROJECTS_TO_TEST)
     def test_versioning_sync_python(self, project_name):
-        project_path = CURRENT_DIRECTORY + f"/resources/{project_name}"
+        project_path = os.path.join(RESOURCES_PATH, project_name)
         pbt_version = VersioningTestCase._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -65,8 +66,23 @@ class VersioningTestCase(unittest.TestCase):
 
         result = runner.invoke(build_v2, ["--path", project_path])
         assert result.exit_code == 0
-        # Find all .whl files in the current directory
-        whl_files = glob.glob(os.path.join(project_path, "**", '*.whl'))
-        # for file_name in whl_files:
-        #     assert f"-{pbt_version}-py3-none-any" in file_name
 
+        # Find any .whl files in the current directory
+        whl_files = glob.glob(os.path.join(project_path, "**", '*.whl'), recursive=True)
+        for file_name in whl_files:
+            assert f"-{pbt_version}-py3-none-any" in file_name
+
+        # Find any .jar files in the current directory
+        jar_files = glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
+        for file_name in jar_files:
+            assert f"-{pbt_version}" in file_name
+
+        # make sure that we at least found *some* build artifacts:
+        assert len(list(whl_files) + list(jar_files)) > 0
+
+
+    def test_versioning_version_error_no_force(self):
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, '--set', "0.0.0"])
+        assert result.exit_code == 1
