@@ -97,8 +97,26 @@ class VersioningTestCase(unittest.TestCase):
         # make sure that we at least found *some* build artifacts:
         assert len(list(whl_files) + list(jar_files)) > 0
 
-    def test_versioning_version_error_no_force(self):
+    def test_versioning_version_set_below_no_force(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--set', "0.0.0"])
         assert result.exit_code == 1
+
+    def test_versioning_version_set_below_force(self):
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, '--set', "invalid-0.0.0-thing", "--force"])
+        assert result.exit_code == 0
+
+        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        assert new_pbt_version == "invalid-0.0.0-thing"
+
+    def test_versioning_version_set(self):
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, '--set', "999999.0.0"])
+        assert result.exit_code == 0
+
+        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        assert new_pbt_version == "999999.0.0"
