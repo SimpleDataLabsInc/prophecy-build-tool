@@ -21,7 +21,7 @@ class VersioningTestCase(unittest.TestCase):
         cls.repo = git.Repo(os.getcwd())  # Change this to your repo path
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDown(cls):
         # Reset all changes in the 'test/' directory
         cls.reset_changed_files('test/resources/')
         cls.remove_tmp_dirs()
@@ -67,9 +67,6 @@ class VersioningTestCase(unittest.TestCase):
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--bump", bump_type])
         assert result.exit_code == 0
-
-        #TODO teardown not being called after each parameterized call.
-        # ditch parameterize and just make non test_ classes
 
         new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
         assert new_pbt_version != pbt_version
