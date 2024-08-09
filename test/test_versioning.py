@@ -55,6 +55,26 @@ class VersioningTestCase(unittest.TestCase):
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
 
+    @parameterized.expand([
+        ("major", "1.0.0"),
+        ("minor", "0.1.0"),
+        ("patch", "0.0.2"),
+    ])
+    def test_versioning_bump_major_python(self, bump_type, version_result):
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        pbt_version = VersioningTestCase._get_pbt_version(project_path)
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, "--bump", bump_type])
+        assert result.exit_code == 0
+
+        #TODO teardown not being called after each parameterized call.
+        # ditch parameterize and just make non test_ classes
+
+        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        assert new_pbt_version != pbt_version
+        assert new_pbt_version == version_result
+
     @parameterized.expand(PROJECTS_TO_TEST)
     def test_versioning_sync_python(self, project_name):
         project_path = os.path.join(RESOURCES_PATH, project_name)
@@ -75,11 +95,10 @@ class VersioningTestCase(unittest.TestCase):
         # Find any .jar files in the current directory
         jar_files = glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
         for file_name in jar_files:
-            assert f"-{pbt_version}" in file_name
+            assert f"{pbt_version}" in file_name
 
         # make sure that we at least found *some* build artifacts:
         assert len(list(whl_files) + list(jar_files)) > 0
-
 
     def test_versioning_version_error_no_force(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")

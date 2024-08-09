@@ -128,14 +128,23 @@ class PBTCli(object):
                 f"Use PEP440")
             exit(1)
 
+        if bump_type == 'major':
+            major = v.major + 1
+            minor = 0
+            micro = 0
+        elif bump_type == 'minor':
+            major = v.major
+            minor = v.minor + 1
+            micro = 0
+        elif bump_type == 'patch':
+            major = v.major
+            minor = v.minor
+            micro = v.micro + 1
         # Version is a final class and we cannot inherit/extend so we steal the string building logic from its
         #  __str__() implementation. this follows pep440:
         parts = []
         if v.epoch != 0:
             parts.append(f"{v.epoch}!")
-        major = v.major + 1 if bump_type == 'major' else v.major
-        minor = v.minor + 1 if bump_type == 'minor' else v.minor
-        micro = v.micro + 1 if bump_type == 'micro' else v.micro
         parts.append(f"{major}.{minor}.{micro}")
         if v.pre is not None:
             parts.append("".join(str(x) for x in v.pre))
