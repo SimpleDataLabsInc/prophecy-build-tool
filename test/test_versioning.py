@@ -7,12 +7,12 @@ import glob
 import shutil
 from parameterized import parameterized
 
-
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
 PROJECT_PATH = CURRENT_DIRECTORY + "/resources/HelloWorld"
-PROJECTS_TO_TEST = [("HelloWorld"), ("BaseDirectory"), ("ProjectCreatedOn160523")]
+PROJECTS_TO_TEST = ["HelloWorld", "BaseDirectory", "ProjectCreatedOn160523"]
 RESOURCES_PATH = os.path.join(CURRENT_DIRECTORY, "resources")
+
 
 class VersioningTestCase(unittest.TestCase):
     @classmethod
@@ -24,7 +24,7 @@ class VersioningTestCase(unittest.TestCase):
     def tearDown(cls):
         # Reset all changes in the 'test/' directory
         cls.reset_changed_files('test/resources/')
-        cls.remove_tmp_dirs()
+        VersioningTestCase._remove_tmp_dirs()
 
     @classmethod
     def reset_changed_files(cls, directory):
@@ -39,8 +39,8 @@ class VersioningTestCase(unittest.TestCase):
         else:
             print("No files were changed.")
 
-    @classmethod
-    def remove_tmp_dirs(cls):
+    @staticmethod
+    def _remove_tmp_dirs():
         tmp_dirs = ["dist", "build", "target"]
         for t in tmp_dirs:
             dirs_to_clean = glob.glob(os.path.join(RESOURCES_PATH, '**', t), recursive=True)
@@ -83,6 +83,9 @@ class VersioningTestCase(unittest.TestCase):
 
         result = runner.invoke(build_v2, ["--path", project_path])
         assert result.exit_code == 0
+
+        # future TODO; building the artifacts is kind of lazy and causes dependency on buildv2 command.
+        #              later on we should use a different mechanism to verify versions were correctly changed.
 
         # Find any .whl files in the current directory
         whl_files = glob.glob(os.path.join(project_path, "**", '*.whl'), recursive=True)

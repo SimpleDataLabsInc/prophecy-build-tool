@@ -123,7 +123,7 @@ class PBTCli(object):
         # TODO need to be able to parse valid maven syntax and dbt syntax for versioning in addition to pep440
         try:
             v = parse_version(self.project.project.pbt_project_dict['version'])
-        except InvalidVersion as e:
+        except InvalidVersion:
             log(f"Error bumping: Unable to parse version {self.project.project.pbt_project_dict['version']}. "
                 f"Use PEP440")
             exit(1)
@@ -185,5 +185,4 @@ class PBTCli(object):
             # Pushing the tag to the remote repository
             origin = repo.remote(name='origin')
             origin.push(tag)
-            log(f"Pushing tag to remote")
-
+            log("Pushing tag to remote")
