@@ -37,6 +37,7 @@ setuptools.setup(
         "boto3~=1.34.120",
         "tenacity==8.2.3",
         "gitpython",
+        "semver"
     ],
     extras_require={
         "test": [
@@ -46,7 +47,6 @@ setuptools.setup(
             "pyspark>=3.3.0,<4.0.0",
             "mock",  # or any other testing-specific packages you need
             "parameterized",
-            "gitpython",
         ]
     },
     python_requires=">=3.7",
