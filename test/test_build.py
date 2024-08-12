@@ -35,12 +35,25 @@ class BuildingTestCase(unittest.TestCase):
         if self.repo_path:
             shutil.rmtree(self.repo_path)
 
+    @staticmethod
+    def _check_for_artifacts(project_path, language, n=5):
+        artifacts = []
+        # Find any .whl files in the current directory
+        if language == 'python':
+            artifacts += glob.glob(os.path.join(project_path, "**", '*.whl'), recursive=True)
+
+            # Find any .jar files in the current directory
+        if language == 'scala':
+            artifacts = glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
+
+            # make sure we found correct build artifacts:
+        assert len(list(artifacts)) == n
 
     @parameterized.expand([
-        #("python", build),
         ("python", build_v2),
-        #("scala", build),
-        #("scala", build_v2),
+        ("scala", build_v2),
+        ("python", build),
+        ("scala", build),
     ])
     def test_build_path_default(self, language, build_command):
         runner = CliRunner()
@@ -48,64 +61,80 @@ class BuildingTestCase(unittest.TestCase):
         result = runner.invoke(build_command, ["--path", project_path])
         assert result.exit_code == 0
         assert "Found 5 pipelines" in result.output
+        BuildingTestCase._check_for_artifacts(project_path, language, n=5)
 
-        artifacts = []
-        # Find any .whl files in the current directory
-        if language == 'python':
-            artifacts += glob.glob(os.path.join(project_path, "**", '*.whl'), recursive=True)
+    @parameterized.expand([
+        ("python", "setup.py"),
+        ("scala", "pom.xml"),
+    ])
+    def test_build_v2_path_default_build_errors(self, language, build_file_name):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        a_file_to_mangle = list(glob.glob(os.path.join(project_path, "**", build_file_name), recursive=True))[0]
+        with open(a_file_to_mangle, 'w') as fd:
+            fd.write("oops")
+        runner = CliRunner()
+        result = runner.invoke(build_v2, ["--path", project_path])
+        assert result.exit_code == 1
+        BuildingTestCase._check_for_artifacts(project_path, language, n=4)
 
-        # Find any .jar files in the current directory
-        if language == 'scala':
-            artifacts = glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
+    @parameterized.expand([
+        ("python", "setup.py"),
+        ("scala", "pom.xml"),
+    ])
+    def test_build_v2_path_default_build_errors_ignore_errors(self, language, build_file_name):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        a_file_to_mangle = list(glob.glob(os.path.join(project_path, "**", build_file_name), recursive=True))[0]
+        with open(a_file_to_mangle, 'w') as fd:
+            fd.write("oops")
+        runner = CliRunner()
+        result = runner.invoke(build_v2, ["--path", project_path, "--ignore-build-errors"])
+        assert result.exit_code == 0
+        BuildingTestCase._check_for_artifacts(project_path, language, n=4)
 
-        # make sure we found correct build artifacts:
-        assert len(list(artifacts)) == 5
+    @parameterized.expand([
+        ("python", build_v2),
+        ("scala", build_v2),
+        ("python", build),
+        ("scala", build),
+    ])
+    def test_build_path_pipeline_filter(self, language, build_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(build_command, ["--path", project_path, "--pipelines", "raw_bronze,gold_sales"])
+        assert result.exit_code == 0
+        BuildingTestCase._check_for_artifacts(project_path, language, n=2)
 
-    #
-    # def test_build_v2_path_default_build_errors(self):
-    #     runner = CliRunner()
-    #     result = runner.invoke(build_v2, ["--path", ERROR_PROJECT_PATH])
-    #     assert result.exit_code == 1
-    #
-    #
-    # def test_build_v2_path_default_build_errors_ignore_errors(self):
-    #     runner = CliRunner()
-    #     result = runner.invoke(build_v2, ["--path", ERROR_PROJECT_PATH, "--ignore-build-errors"])
-    #     assert result.exit_code == 0
-    #
-    #
-    # def test_build_path_pipeline_filter(self):
-    #     runner = CliRunner()
-    #     result = runner.invoke(build, ["--path", PROJECT_PATH, "--pipelines", "customers_orders,join_agg_sort"])
-    #     assert result.exit_code == 0
-    #     assert "Found 4 pipelines" in result.output
-    #     assert "Building 2 pipelines" in result.output
-    #     assert "Filtering pipelines: ['customers_orders', 'join_agg_sort']" in result.output
-    #     assert "Building pipeline pipelines/customers_orders" in result.output
-    #     assert "Building pipeline pipelines/join_agg_sort" in result.output
-    #
-    #
-    # def test_build_path_pipeline_with_invalid_filter(self):
-    #     runner = CliRunner()
-    #     result = runner.invoke(
-    #         build,
-    #         [
-    #             "--path",
-    #             PROJECT_PATH,
-    #             "--pipelines",
-    #             "customers_orders,INVALID_PIPELINE_NAME",
-    #         ],
-    #     )
-    #     assert result.exit_code == 0
-    #     assert "Found 4 pipelines" in result.output
-    #     assert "Building 1 pipelines" in result.output
-    #     assert "Filtering pipelines: ['customers_orders', 'INVALID_PIPELINE_NAME']" in result.output
-    #     assert "Building pipeline pipelines/customers_orders" in result.output
-    #
-    #
-    # def test_build_path_pipeline_invalid_filter_only(self):
-    #     runner = CliRunner()
-    #     result = runner.invoke(build, ["--path", PROJECT_PATH, "--pipelines", "INVALID_PIPELINE_NAME"])
-    #     assert result.exit_code == 1
-    #     assert "Found 4 pipelines" in result.output
-    #     assert "No matching pipelines found for given pipelines names: ['INVALID_PIPELINE_NAME']" in result.output
+    @parameterized.expand([
+        ("python", build_v2),
+        ("scala", build_v2),
+        ("python", build),
+        ("scala", build),
+    ])
+    def test_build_path_pipeline_with_invalid_filter(self, language, build_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(
+            build_command,
+            [
+                "--path",
+                project_path,
+                "--pipelines",
+                "raw_bronze,INVALID_PIPELINE_NAME",
+            ],
+        )
+        assert result.exit_code == 0
+        BuildingTestCase._check_for_artifacts(project_path, language, n=1)
+
+    @parameterized.expand([
+        # ("python", build_v2), # currently different behavior for build-v2
+        # ("scala", build_v2), # currently different behavior for build-v2
+        ("python", build),
+        ("scala", build),
+    ])
+    def test_build_path_pipeline_invalid_filter_only(self, language, build_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(build_command, ["--path", project_path, "--pipelines", "INVALID_PIPELINE_NAME"])
+        assert result.exit_code == 1
+        BuildingTestCase._check_for_artifacts(project_path, language, n=0)
+
