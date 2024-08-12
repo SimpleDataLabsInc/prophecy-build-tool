@@ -102,8 +102,8 @@ class ProjectDeployment:
 
         return headers
 
-    def build(self, pipelines, ignore_build_errors, ignore_parse_errors):
-        self._pipelines.build(pipelines, ignore_build_errors, ignore_parse_errors)
+    def build(self, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
+        self._pipelines.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
 
     def validate(self, treat_warning_as_errors):
         self._pipelines.validate(treat_warning_as_errors)

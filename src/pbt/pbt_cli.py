@@ -41,8 +41,8 @@ class PBTCli(object):
         project_config = ProjectConfig.from_conf_folder(project, conf_folder, fabric_ids, job_ids, skip_builds, migrate)
         return cls(project, project_config)
 
-    def build(self, pipelines, ignore_build_errors, ignore_parse_errors):
-        self.project.build(pipelines, ignore_build_errors, ignore_parse_errors)
+    def build(self, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
+        self.project.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
 
     def test(self, driver_library_path: str):
         if driver_library_path and str.upper(self.project.project.project_language) == "PYTHON":
