@@ -1,13 +1,10 @@
 import os
 from typing import Optional
-
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
 from .utils.project_config import ProjectConfig
-from packaging.version import InvalidVersion, parse as parse_version
 from .utility import custom_print as log
 import git
-
 from .utils.versioning import update_all_versions, get_bumped_version
 
 
@@ -75,87 +72,9 @@ class PBTCli(object):
     def validate(self, treat_warnings_as_errors: bool):
         self.project.validate(treat_warnings_as_errors)
 
-    # def update_all_versions(self, new_version, force):
-    #     # check this version against base branch if not "force". error if it is not greater
-    #     if not force:
-    #         orig_version = self.project.project.pbt_project_dict['version']
-    #         if parse_version(new_version) <= parse_version(orig_version):
-    #             raise ValueError(f"new version {new_version} is not later than {orig_version}")
-    #
-    #     def _replace_in_files(matching_regex: str, replacement_string: str, files: list):
-    #         # NOTE: use this pattern matching rather than opening/rewriting files as yaml parsing may shuffle
-    #         #  line order and cause unnecessary changes.
-    #         for file in files:
-    #             pattern = re.compile(matching_regex, re.MULTILINE)
-    #             with open(file, 'r') as fd:
-    #                 content = fd.read()
-    #             # only replace the first instance of the version encountered. otherwise we risk
-    #             # replacing other versions (especially found in pom.xml)
-    #             new_content = pattern.sub(replacement_string, content, count=1)
-    #             with open(file, 'w') as fd:
-    #                 fd.write(new_content)
-    #
-    #     # PBT project
-    #     pbt_project_file = os.path.join(self.project.project.project_path, "pbt_project.yml")
-    #     _replace_in_files(r"^version: .*$", f"version: {new_version}", [pbt_project_file])
-    #
-    #     # replace version in language specific files:
-    #     if self.project.project.project_language == 'python':
-    #         matching_regex = r"^\s*version\s*=\s*.*$"
-    #         replacement_string = f"    version = '{new_version}',"
-    #         filename_to_find = "setup.py"
-    #     elif self.project.project.project_language == 'scala':
-    #         matching_regex = r"^\s*<version>.*</version>"
-    #         replacement_string = f"    <version>{new_version}</version>"
-    #         filename_to_find = "pom.xml"
-    #     elif self.project.project.project_language == 'sql':
-    #         matching_regex = r"^version: .*$"
-    #         replacement_string = f"version: \"{new_version}\""
-    #         filename_to_find = "dbt_project.yml"
-    #     else:
-    #         raise ValueError("bad project language: ", self.project.project.project_language)
-    #
-    #     files_to_fix = glob.glob(os.path.join(self.project.project.project_path, '**', filename_to_find),
-    #                              recursive=True)
-    #     _replace_in_files(matching_regex, replacement_string, files_to_fix)
-
     def version_bump(self, bump_type, force):
-        # TODO need to be able to parse valid maven syntax and dbt syntax for versioning in addition to pep440
-        # try:
-        #     v = parse_version(self.project.project.pbt_project_dict['version'])
-        # except InvalidVersion:
-        #     log(f"Error bumping: Unable to parse version {self.project.project.pbt_project_dict['version']}. "
-        #         f"Use PEP440")
-        #     exit(1)
-        #
-        # if bump_type == 'major':
-        #     major = v.major + 1
-        #     minor = 0
-        #     micro = 0
-        # elif bump_type == 'minor':
-        #     major = v.major
-        #     minor = v.minor + 1
-        #     micro = 0
-        # elif bump_type == 'patch':
-        #     major = v.major
-        #     minor = v.minor
-        #     micro = v.micro + 1
-        # # Version is a final class and we cannot inherit/extend so we steal the string building logic from its
-        # #  __str__() implementation. this follows pep440:
-        # parts = []
-        # if v.epoch != 0:
-        #     parts.append(f"{v.epoch}!")
-        # parts.append(f"{major}.{minor}.{micro}")
-        # if v.pre is not None:
-        #     parts.append("".join(str(x) for x in v.pre))
-        # if v.post is not None:
-        #     parts.append(f".post{v.post}")
-        # if v.dev is not None:
-        #     parts.append(f".dev{v.dev}")
-        # if v.local is not None:
-        #     parts.append(f"+{v.local}")
-        # new_version = "".join(parts)
-        new_version = get_bumped_version(self.project.project.pbt_project_dict['version'], bump_type, force)
+        new_version = get_bumped_version(self.project.project.pbt_project_dict['version'], bump_type,
+                                         self.project.project.pbt_project_dict['language'])
 
         update_all_versions(self.project.project.project_path,
                             self.project.project.pbt_project_dict['language'],
@@ -172,9 +91,11 @@ class PBTCli(object):
                             orig_project_version=self.project.project.pbt_project_dict['version'],
                             new_version=version, force=force)
 
+    def version_set_prerelease(self, prerelease_string, force):
+        self.version_set(self.project.project.pbt_project_dict['version'] + prerelease_string, force)
+
     def tag(self, repo_path, no_push=False, branch=None, custom=None):
         repo = git.Repo(repo_path)
-
         if custom:
             tag = custom
         else:
@@ -183,11 +104,8 @@ class PBTCli(object):
                 tag = repo.active_branch.name + "/" + tag
             elif branch != "":
                 tag = branch + "/" + tag
-
         log(f"Setting tag to: {tag}")
-
         repo.create_tag(tag)
-
         if not no_push:
             # Pushing the tag to the remote repository
             origin = repo.remote(name='origin')

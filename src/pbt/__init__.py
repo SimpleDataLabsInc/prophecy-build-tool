@@ -281,9 +281,9 @@ def test(path, driver_library_path, pipelines):
 )
 @click.option(
     "--bump",
-    type=click.Choice(['major', 'minor', 'patch'], case_sensitive=False),
+    type=click.Choice(['major', 'minor', 'patch', 'build', 'prerelease'], case_sensitive=False),
     help="bumps one of the semantic version numbers for the project and all pipelines based on the current value. "
-         "Only works if existing versions follow SemVer (MAJOR.MINOR.PATCH)",
+         "Only works if existing versions follow semantic versioning https://semver.org/",
     required=False,
 )
 @click.option(
@@ -306,10 +306,16 @@ def test(path, driver_library_path, pipelines):
     help="Ensure all files are set to the same version that is defined in pbt_project.yml. (implies --force)",
     required=False,
 )
-def versioning(path, bump, set, force, sync):
+@click.option(
+    "--set-prerelease",
+    type=str,
+    help="Set a prerelease string. example '-SNAPSHOT' or '-rc.4'",
+    required=False,
+)
+def versioning(path, bump, set, force, sync, set_prerelease):
     pbt = PBTCli.from_conf_folder(path)
 
-    if sum([set is not None, bump is not None, sync]) > 1:
+    if sum([set is not None, bump is not None, sync, set_prerelease is not None]) > 1:
         raise click.UsageError("Options '--set', '--bump', '--sync' are mutually exclusive.")
     elif set:
         pbt.version_set(set, force)
@@ -317,8 +323,10 @@ def versioning(path, bump, set, force, sync):
         pbt.version_bump(bump, force)
     elif sync:
         pbt.version_set(None, force)
+    elif set_prerelease:
+        pbt.version_set_prerelease(set_prerelease, force)
     else:
-        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync'")
+        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', --set-prerelease'")
 
 
 @cli.command()
