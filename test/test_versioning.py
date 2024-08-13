@@ -1,11 +1,10 @@
-import unittest
 from click.testing import CliRunner
 from src.pbt import versioning, build_v2
 import os
 import git
 import glob
 import shutil
-from parameterized import parameterized
+import pytest
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
@@ -14,17 +13,17 @@ PROJECTS_TO_TEST = ["HelloWorld", "BaseDirectory", "ProjectCreatedOn160523"]
 RESOURCES_PATH = os.path.join(CURRENT_DIRECTORY, "resources")
 
 
-class VersioningTestCase(unittest.TestCase):
+class TestVersioning:
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         # Initialize the repo object and set it as a class attribute
         cls.repo = git.Repo(os.getcwd())
 
     @classmethod
-    def tearDown(cls):
+    def teardown_class(cls):
         # Reset all changes in the 'test/' directory
         cls.reset_changed_files('test/resources/')
-        VersioningTestCase._remove_tmp_dirs()
+        TestVersioning._remove_tmp_dirs()
 
     @classmethod
     def reset_changed_files(cls, directory):
@@ -55,48 +54,45 @@ class VersioningTestCase(unittest.TestCase):
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
 
-    @parameterized.expand([
-        (*param_set, project) for param_set in [
+    @pytest.mark.parametrize("bump_type, version_result", [
             ("major", "1.0.0"),
             ("minor", "0.1.0"),
-            ("patch", "0.0.2"),
-        ] for project in PROJECTS_TO_TEST]
-    )
+            ("patch", "0.0.2")
+    ])
+    @pytest.mark.parametrize("project", PROJECTS_TO_TEST)
     def test_versioning_bump(self, bump_type, version_result, project):
         project_path = os.path.join(RESOURCES_PATH, project)
-        pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--bump", bump_type])
         assert result.exit_code == 0
 
-        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
-        print(f"new pbt_version: {new_pbt_version}")
-        print(f"old pbt_version: {pbt_version}")
+        new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version != pbt_version
         assert new_pbt_version == version_result
 
-    @parameterized.expand([
+    @pytest.mark.parametrize("bump_type, version_result", [
             ("build", "0.0.1+build.1"),
             ("prerelease", "0.0.1-rc.1"),
         ])
     def test_versioning_bump_build_pre_python(self, bump_type, version_result):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
-        pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
         # note using --force otherwise build and release candidates would not work.
         result = runner.invoke(versioning, ["--path", project_path, "--bump", bump_type, "--force"])
         assert result.exit_code == 0
 
-        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version != pbt_version
         assert new_pbt_version == version_result
 
-    @parameterized.expand(PROJECTS_TO_TEST)
+    @pytest.mark.parametrize("project_name", PROJECTS_TO_TEST)
     def test_versioning_sync(self, project_name):
         project_path = os.path.join(RESOURCES_PATH, project_name)
-        pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--sync'])
@@ -135,7 +131,7 @@ class VersioningTestCase(unittest.TestCase):
         result = runner.invoke(versioning, ["--path", project_path, '--set-prerelease', '-SNAPSHOT', '--force'])
         assert result.exit_code == 0
 
-        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version == '1.0.0-SNAPSHOT'
 
     def test_versioning_set_prerelease_and_bump_python(self):
@@ -145,7 +141,7 @@ class VersioningTestCase(unittest.TestCase):
         assert result.exit_code == 0
         result = runner.invoke(versioning, ["--path", project_path, '--bump', 'prerelease'])
         assert result.exit_code == 0
-        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version == '0.0.1-rc.5'
 
     def test_versioning_version_set_below_force(self):
@@ -154,7 +150,7 @@ class VersioningTestCase(unittest.TestCase):
         result = runner.invoke(versioning, ["--path", project_path, '--set', "invalid-0.0.0-thing", "--force"])
         assert result.exit_code == 0
 
-        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version == "invalid-0.0.0-thing"
 
     def test_versioning_version_set(self):
@@ -163,5 +159,5 @@ class VersioningTestCase(unittest.TestCase):
         result = runner.invoke(versioning, ["--path", project_path, '--set', "999999.0.0"])
         assert result.exit_code == 0
 
-        new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version == "999999.0.0"

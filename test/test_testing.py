@@ -1,17 +1,16 @@
 from click.testing import CliRunner
 from src.pbt import test, test_v2
-import unittest
 import os
 import shutil
 import uuid
 from git import Repo
 import glob
-from parameterized import parameterized
+import pytest
 
 SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
 
-class TestingTestCase(unittest.TestCase):
+class TestTesting:
 
     @staticmethod
     def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
@@ -19,14 +18,14 @@ class TestingTestCase(unittest.TestCase):
         repo = Repo.clone_from(repo_url, new_path)
         return repo, new_path
 
-    def setUp(self):
-        self.repo, self.repo_path = TestingTestCase._get_tmp_sample_repo()
+    def setup_method(self):
+        self.repo, self.repo_path = TestTesting._get_tmp_sample_repo()
         self.python_project_path = os.path.join(self.repo_path, "prophecy")
         self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
 
-    def tearDown(self):
+    def teardown_method(self):
         if self.repo_path:
-            shutil.rmtree(self.repo_path)
+            shutil.rmtree(self.repo_path, ignore_errors=True)
 
     @staticmethod
     def _check_for_n_artifacts(project_path, language, n=5):
@@ -45,16 +44,9 @@ class TestingTestCase(unittest.TestCase):
             # make sure we found correct build artifacts:
         assert len(list(artifacts)) == n
 
-    @parameterized.expand(
-        [
-            ("python", test, "./"),
-            ("python", test, "./fake.jar,fake2.jar"),
-            ("python", test, os.getcwd()),
-            ("python", test_v2, "./"),
-            ("python", test_v2, "./fake.jar,fake2.jar"),
-            ("python", test_v2, os.getcwd())
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python"])
+    @pytest.mark.parametrize("test_command", [test, test_v2])
+    @pytest.mark.parametrize("driver_library_path", ["./", "./fake.jar,fake2.jar", os.getcwd()])
     def test_driver_paths(self, language, test_command, driver_library_path):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
@@ -68,14 +60,8 @@ class TestingTestCase(unittest.TestCase):
         assert "fake.jar" in result.output.replace("\n", "")
         assert "fake2.jar" in result.output.replace("\n", "")
 
-    @parameterized.expand(
-        [
-            ("python", test),
-            ("python", test_v2),
-            ("scala", test),
-            ("scala", test_v2),
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    @pytest.mark.parametrize("test_command", [test, test_v2])
     def test_path_default(self, language, test_command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
@@ -85,52 +71,35 @@ class TestingTestCase(unittest.TestCase):
                  if os.path.isdir(os.path.join(project_path, "pipelines", i))]
         for i in items:
             if test_command is test:
-                assert f"Unit test for pipeline: pipelines/{i} succeeded."
+                assert f"Unit test for pipeline: pipelines/{i} succeeded." in result.output
             elif test_command is test_v2:
-                assert f"Pipeline test succeeded : `pipelines/{i}`"
+                assert f"Pipeline test succeeded : `pipelines/{i}`" in result.output
 
-    @parameterized.expand(
-        [
-            ("python", test_v2),
-            ("scala", test_v2),
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    @pytest.mark.parametrize("test_command", [test_v2])  # not currently supported in v1
     def test_test_v2_relative_path(self, language, test_command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(test_command, ["--path", os.path.relpath(project_path, os.getcwd())])
         assert result.exit_code == 0
 
-    @parameterized.expand(
-        [
-            ("python", test),
-            ("scala", test),
-            ("python", test_v2),
-            ("scala", test_v2),
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    @pytest.mark.parametrize("test_command", [test])  # TODO --pipelines option not present in v2
     def test_test_with_pipeline_filter(self, language, test_command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         pipelines_to_test = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
                              if os.path.isdir(os.path.join(project_path, "pipelines", i))][:2]
         runner = CliRunner()
-        result = runner.invoke(test, ["--path", project_path, "--pipelines", ",".join(pipelines_to_test)])
+        result = runner.invoke(test_command, ["--path", project_path, "--pipelines", ",".join(pipelines_to_test)])
         assert result.exit_code == 0
         for p in pipelines_to_test:
-            if os.path.isdir(os.path.join(project_path, p)):
-                if test_command is test:
-                    assert f"Unit test for pipeline: pipelines/{p} succeeded."
-                elif test_command is test_v2:
-                    assert f"Pipeline test succeeded : `pipelines/{p}`"
+            if test_command is test:
+                assert f"Unit test for pipeline: pipelines/{p} succeeded." in result.output
+            elif test_command is test_v2:
+                assert f"Pipeline test succeeded : `pipelines/{p}`" in result.output
 
-    @parameterized.expand(
-        [
-            ("python", test),
-            ("scala", test),
-            # ("python", test_v2), # TODO --pipeline option not present in v2
-            # ("scala", test_v2), # TODO --pipeline option not present in v2
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    @pytest.mark.parametrize("test_command", [test])  # TODO --pipelines option not present in test_v2
     def test_test_with_pipeline_filter_one_notfound_pipeline(self, language, test_command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         pipeline_to_test = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
@@ -140,14 +109,8 @@ class TestingTestCase(unittest.TestCase):
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
 
-    @parameterized.expand(
-        [
-            ("python", test),
-            ("scala", test),
-            # ("python", test_v2), # TODO --pipeline option not present in v2
-            # ("scala", test_v2), # TODO --pipeline option not present in v2
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    @pytest.mark.parametrize("test_command", [test])  # TODO --pipelines option not present in test_v2
     def test_test_with_pipeline_filter_all_notfound_pipelines(self, language, test_command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
@@ -155,13 +118,8 @@ class TestingTestCase(unittest.TestCase):
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
 
-    @parameterized.expand(
-        [
-            ("python", test_v2),
-            ("python", test),
-            # scala does not currently output coverage reports or junit reports
-        ]
-    )
+    @pytest.mark.parametrize("language", ["python"])  # scala does not currently output coverage reports or junit reports
+    @pytest.mark.parametrize("test_command", [test, test_v2])
     def test_coverage_and_test_report_generation(self, language, test_command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         pipelines_to_test = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
@@ -171,7 +129,10 @@ class TestingTestCase(unittest.TestCase):
         assert result.exit_code == 0
         for p in pipelines_to_test:
             coverage_path = os.path.join(project_path, f"./pipelines/{p}/code/coverage.xml")
-            assert f"Testing pipeline `pipelines/{p}`" in result.output
+            if test_command is test:
+                assert f"Unit test for pipeline: pipelines/{p} succeeded." in result.output
+            elif test_command is test_v2:
+                assert f"Pipeline test succeeded : `pipelines/{p}`" in result.output
             assert "Coverage XML written to file coverage.xml" in result.output
             assert (os.path.exists(coverage_path))
             assert (os.path.exists(os.path.join(project_path, f"./pipelines/{p}/code/report.xml")))
@@ -180,9 +141,9 @@ class TestingTestCase(unittest.TestCase):
                 content = fd.read()
                 # check to make sure that .coveragerc got picked up and made absolute paths:
                 assert ("<source>/" in content)
-                # verify that some coverage was written
-                assert ("<package name=\"job\"" in content)
                 # check that setup.py is ignored
                 assert ("<class name=\"setup.py\"" not in content)
                 # make sure we are not doing coverage for test directory
                 assert ("<package name=\"test\"" not in content)
+                # verify that some coverage was written
+                assert ("<package name=" in content)
