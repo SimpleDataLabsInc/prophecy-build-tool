@@ -9,13 +9,7 @@ import uuid
 from git import Repo
 import glob
 
-CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
-RESOURCES_PATH = os.path.join(CURRENT_DIRECTORY, "resources")
 SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
-PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
-ERROR_PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorldBuildError"
-
 
 
 class BuildingTestCase(unittest.TestCase):

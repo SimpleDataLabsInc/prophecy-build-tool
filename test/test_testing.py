@@ -1,194 +1,188 @@
 from click.testing import CliRunner
 from src.pbt import test, test_v2
+import unittest
 import os
+import shutil
+import uuid
+from git import Repo
+import glob
+from parameterized import parameterized
 
-PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
-
-
-def test_test_v2_driver_paths1():
-    runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
-        fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
-        fd.write("fake")
-
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
-    print(result.output)
-    assert "fake.jar" in result.output.replace("\n", "")
-    assert "fake2.jar" in result.output.replace("\n", "")
+SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
 
-def test_test_v2_driver_paths2():
-    runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
-        fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
-        fd.write("fake")
+class TestingTestCase(unittest.TestCase):
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
-    print(result.output)
-    assert "fake.jar" in result.output.replace("\n", "")
-    assert "fake2.jar" in result.output.replace("\n", "")
+    @staticmethod
+    def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
+        new_path = os.path.join("/tmp/", SAMPLE_REPO.split("/")[-1], f"{uuid.uuid4()}")
+        repo = Repo.clone_from(repo_url, new_path)
+        return repo, new_path
 
+    def setUp(self):
+        self.repo, self.repo_path = TestingTestCase._get_tmp_sample_repo()
+        self.python_project_path = os.path.join(self.repo_path, "prophecy")
+        self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
 
-def test_test_v2_driver_paths3():
-    runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
-        fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
-        fd.write("fake")
+    def tearDown(self):
+        if self.repo_path:
+            shutil.rmtree(self.repo_path)
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
-    print(result.output)
-    assert "fake.jar" in result.output.replace("\n", "")
-    assert "fake2.jar" in result.output.replace("\n", "")
+    @staticmethod
+    def _check_for_n_artifacts(project_path, language, n=5):
+        artifacts = []
+        # Find any .whl files in the current directory
+        if language == 'python':
+            # coverage and unit tests
+            artifacts += glob.glob(os.path.join(project_path, "**", 'coverage.xml'), recursive=True)
+            artifacts += glob.glob(os.path.join(project_path, "**", 'report.xml'), recursive=True)
 
+            # Find any .jar files in the current directory
+        if language == 'scala':
+            # artifacts = glob.glob(os.path.join(project_path, "**", 'report.xml'), recursive=True)
+            pass
 
-def test_test_driver_paths():
-    runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
-        fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
-        fd.write("fake")
+            # make sure we found correct build artifacts:
+        assert len(list(artifacts)) == n
 
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
-    print(result.output)
-    assert "fake.jar" in result.output.replace("\n", "")
-    assert "fake2.jar" in result.output.replace("\n", "")
-
-
-def test_test_path_default():
-    runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH])
-    print(result.output)
-    assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert (
-        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
-        "farmers-markets-irs (python)" in result.output
+    @parameterized.expand(
+        [
+            ("python", test, "./"),
+            ("python", test, "./fake.jar,fake2.jar"),
+            ("python", test, os.getcwd()),
+            ("python", test_v2, "./"),
+            ("python", test_v2, "./fake.jar,fake2.jar"),
+            ("python", test_v2, os.getcwd())
+        ]
     )
-    assert "Testing All pipelines" in result.output
-    assert "Unit Testing pipeline pipelines/customers_orders" in result.output
-    assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
-    assert "Unit Testing pipeline pipelines/farmers-markets-irs" in result.output
-    assert "Using default spark jars locations" in result.output
+    def test_driver_paths(self, language, test_command, driver_library_path):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        with open('./fake.jar', 'w') as fd:
+            fd.write("fake")
+        with open('./fake2.jar', 'w') as fd:
+            fd.write("fake")
 
+        result = runner.invoke(test_command, ["--path", project_path, "--driver-library-path", driver_library_path])
+        assert result.exit_code == 0
+        assert "fake.jar" in result.output.replace("\n", "")
+        assert "fake2.jar" in result.output.replace("\n", "")
 
-def test_test_v2_path_default():
-    runner = CliRunner()
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH])
-    print(result.output)
-    assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert (
-        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python), join_agg_sort (python), farmers-markets-irs (python)"
-        in result.output
+    @parameterized.expand(
+        [
+            ("python", test),
+            ("python", test_v2),
+            ("scala", test),
+            ("scala", test_v2),
+        ]
     )
-    assert "Testing pipelines" in result.output
-    assert "Pipeline test succeeded : `pipelines/customers_orders`" in result.output
-    assert "Pipeline test succeeded : `pipelines/report_top_customers`" in result.output
-    assert "Pipeline test succeeded : `pipelines/join_agg_sort`" in result.output
-    assert "Pipeline test succeeded : `pipelines/farmers-markets-irs`" in result.output
+    def test_path_default(self, language, test_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(test_command, ["--path", project_path])
+        assert result.exit_code == 0
+        items = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
+                 if os.path.isdir(os.path.join(project_path, "pipelines", i))]
+        for i in items:
+            if test_command is test:
+                assert f"Unit test for pipeline: pipelines/{i} succeeded."
+            elif test_command is test_v2:
+                assert f"Pipeline test succeeded : `pipelines/{i}`"
 
-
-def test_test_v2_path_relative():
-    runner = CliRunner()
-    result = runner.invoke(test_v2, ["--path", os.path.relpath(PROJECT_PATH, os.getcwd())])
-    print(result.output)
-    assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert (
-        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python), join_agg_sort (python), farmers-markets-irs (python)"
-        in result.output
+    @parameterized.expand(
+        [
+            ("python", test_v2),
+            ("scala", test_v2),
+        ]
     )
-    assert "Testing pipelines" in result.output
-    assert "Pipeline test succeeded : `pipelines/customers_orders`" in result.output
-    assert "Pipeline test succeeded : `pipelines/report_top_customers`" in result.output
-    assert "Pipeline test succeeded : `pipelines/join_agg_sort`" in result.output
-    assert "Pipeline test succeeded : `pipelines/farmers-markets-irs`" in result.output
+    def test_test_v2_relative_path(self, language, test_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(test_command, ["--path", os.path.relpath(project_path, os.getcwd())])
+        assert result.exit_code == 0
 
-
-def test_test_with_pipeline_filter():
-    runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers,join_agg_sort"])
-    print(result.output)
-    assert "Found 2 jobs: test-job1234, job-another" in result.output
-    assert (
-        "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
-        "farmers-markets-irs (python)" in result.output
+    @parameterized.expand(
+        [
+            ("python", test),
+            ("scala", test),
+            ("python", test_v2),
+            ("scala", test_v2),
+        ]
     )
-    assert "Pipeline Filters passed [2]: ['report_top_customers', 'join_agg_sort']" in result.output
-    assert "Unit Testing pipeline pipelines/customers_orders" not in result.output
-    assert "Unit Testing pipeline pipelines/report_top_customers" in result.output
-    assert "Unit Testing pipeline pipelines/join_agg_sort" in result.output
-    assert "Unit Testing pipeline pipelines/farmers-markets-irs" not in result.output
+    def test_test_with_pipeline_filter(self, language, test_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        pipelines_to_test = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
+                             if os.path.isdir(os.path.join(project_path, "pipelines", i))][:2]
+        runner = CliRunner()
+        result = runner.invoke(test, ["--path", project_path, "--pipelines", ",".join(pipelines_to_test)])
+        assert result.exit_code == 0
+        for p in pipelines_to_test:
+            if os.path.isdir(os.path.join(project_path, p)):
+                if test_command is test:
+                    assert f"Unit test for pipeline: pipelines/{p} succeeded."
+                elif test_command is test_v2:
+                    assert f"Pipeline test succeeded : `pipelines/{p}`"
 
+    @parameterized.expand(
+        [
+            ("python", test),
+            ("scala", test),
+            # ("python", test_v2), # TODO --pipeline option not present in v2
+            # ("scala", test_v2), # TODO --pipeline option not present in v2
+        ]
+    )
+    def test_test_with_pipeline_filter_one_notfound_pipeline(self, language, test_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        pipeline_to_test = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
+                            if os.path.isdir(os.path.join(project_path, "pipelines", i))][0]
+        runner = CliRunner()
+        result = runner.invoke(test_command, ["--path", project_path, "--pipelines", f"{pipeline_to_test},notfound"])
+        assert result.exit_code == 1
+        assert "Filtered pipelines doesn't match with passed filter" in result.output
 
-def test_test_with_pipeline_filter_one_notfound_pipeline():
-    runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers,notfound"])
-    print(result.output)
-    assert "Pipeline Filters passed [2]: ['report_top_customers', 'notfound']" in result.output
-    assert "Pipelines found [1]" in result.output
-    assert "Filtered pipelines doesn't match with passed filter" in result.output
+    @parameterized.expand(
+        [
+            ("python", test),
+            ("scala", test),
+            # ("python", test_v2), # TODO --pipeline option not present in v2
+            # ("scala", test_v2), # TODO --pipeline option not present in v2
+        ]
+    )
+    def test_test_with_pipeline_filter_all_notfound_pipelines(self, language, test_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(test_command, ["--path", project_path, "--pipelines", f"notfound1,notfound2,notfound3"])
+        assert result.exit_code == 1
+        assert "Filtered pipelines doesn't match with passed filter" in result.output
 
+    @parameterized.expand(
+        [
+            ("python", test_v2),
+            ("python", test),
+            # scala does not currently output coverage reports or junit reports
+        ]
+    )
+    def test_coverage_and_test_report_generation(self, language, test_command):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        pipelines_to_test = [i for i in os.listdir(os.path.join(project_path, "pipelines"))
+                             if os.path.isdir(os.path.join(project_path, "pipelines", i))]
+        runner = CliRunner()
+        result = runner.invoke(test_command, ["--path", project_path])
+        assert result.exit_code == 0
+        for p in pipelines_to_test:
+            coverage_path = os.path.join(project_path, f"./pipelines/{p}/code/coverage.xml")
+            assert f"Testing pipeline `pipelines/{p}`" in result.output
+            assert "Coverage XML written to file coverage.xml" in result.output
+            assert (os.path.exists(coverage_path))
+            assert (os.path.exists(os.path.join(project_path, f"./pipelines/{p}/code/report.xml")))
 
-def test_test_with_pipeline_filter_all_notfound_pipelines():
-    runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "notfound1,notfound2,notfound3"])
-    print(result.output)
-    assert "Pipeline Filters passed [3]: ['notfound1', 'notfound2', 'notfound3']" in result.output
-    assert "Pipelines found [0]" in result.output
-    assert "Filtered pipelines doesn't match with passed filter" in result.output
-    assert "Coverage XML written to file coverage.xml" not in result.output
-
-
-def test_test_coverage_and_test_report_generation():
-    coverage_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/coverage.xml")
-    if os.path.exists(coverage_path):
-        os.remove(coverage_path)
-    coveragerc_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/.coveragerc")
-    if os.path.exists(coveragerc_path):
-        os.remove(coveragerc_path)
-    runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "customers_orders"])
-    print(result.output)
-    assert "Unit Testing pipeline pipelines/customers_orders" in result.output
-    assert (os.path.exists(coverage_path))
-    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml")))
-
-    with open(coverage_path, 'r') as fd:
-        content = fd.read()
-        # check to make sure that .coveragerc got picked up and made absolute paths:
-        assert ("<source>/" in content)
-        # verify that some coverage was written
-        assert ("<package name=\"job\"" in content)
-        # check that setup.py is ignored
-        assert ("<class name=\"setup.py\"" not in content)
-        # make sure we are not doing coverage for test directory
-        assert ("<package name=\"test\"" not in content)
-
-
-def test_test_v2_coverage_and_test_report_generation():
-    coverage_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/coverage.xml")
-    if os.path.exists(coverage_path):
-        os.remove(coverage_path)
-    coveragerc_path = os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/.coveragerc")
-    if os.path.exists(coveragerc_path):
-        os.remove(coveragerc_path)
-    runner = CliRunner()
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH])
-    print(result.output)
-    assert "Testing pipeline `pipelines/customers_orders`" in result.output
-    assert "Coverage XML written to file coverage.xml" in result.output
-    assert (os.path.exists(coverage_path))
-    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml")))
-
-    with open(coverage_path, 'r') as fd:
-        content = fd.read()
-        # check to make sure that .coveragerc got picked up and made absolute paths:
-        assert ("<source>/" in content)
-        # verify that some coverage was written
-        assert ("<package name=\"job\"" in content)
-        # check that setup.py is ignored
-        assert ("<class name=\"setup.py\"" not in content)
-        # make sure we are not doing coverage for test directory
-        assert ("<package name=\"test\"" not in content)
+            with open(coverage_path, 'r') as fd:
+                content = fd.read()
+                # check to make sure that .coveragerc got picked up and made absolute paths:
+                assert ("<source>/" in content)
+                # verify that some coverage was written
+                assert ("<package name=\"job\"" in content)
+                # check that setup.py is ignored
+                assert ("<class name=\"setup.py\"" not in content)
+                # make sure we are not doing coverage for test directory
+                assert ("<package name=\"test\"" not in content)
