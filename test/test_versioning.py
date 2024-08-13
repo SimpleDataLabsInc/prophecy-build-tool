@@ -18,7 +18,7 @@ class VersioningTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Initialize the repo object and set it as a class attribute
-        cls.repo = git.Repo(os.getcwd())  # Change this to your repo path
+        cls.repo = git.Repo(os.getcwd())
 
     @classmethod
     def tearDown(cls):
