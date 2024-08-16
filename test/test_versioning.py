@@ -1,51 +1,34 @@
 from click.testing import CliRunner
 from src.pbt import versioning, build_v2
 import os
-import git
 import glob
 import shutil
 import pytest
+from git import Repo
+import uuid
 
-CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
-PROJECT_PATH = CURRENT_DIRECTORY + "/resources/HelloWorld"
-PROJECTS_TO_TEST = ["HelloWorld", "BaseDirectory", "ProjectCreatedOn160523"]
-RESOURCES_PATH = os.path.join(CURRENT_DIRECTORY, "resources")
+SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
 
 class TestVersioning:
-    @classmethod
-    def setup_class(cls):
-        # Initialize the repo object and set it as a class attribute
-        cls.repo = git.Repo(os.getcwd())
-
-    @classmethod
-    def teardown_class(cls):
-        # Reset all changes in the 'test/' directory
-        cls.reset_changed_files('test/resources/')
-        TestVersioning._remove_tmp_dirs()
-
-    @classmethod
-    def reset_changed_files(cls, directory):
-        # Get a list of all changed files in the specified directory
-        changed_files = [item.a_path for item in cls.repo.index.diff(None) if item.a_path.startswith(directory)]
-
-        # Check if there are any changed files
-        if changed_files:
-            # Restore the changes to the working directory
-            cls.repo.git.checkout('--', *changed_files)
-            print(f"Reset changed files: {changed_files}")
-        else:
-            print("No files were changed.")
 
     @staticmethod
-    def _remove_tmp_dirs():
-        tmp_dirs = ["dist", "build", "target"]
-        for t in tmp_dirs:
-            dirs_to_clean = glob.glob(os.path.join(RESOURCES_PATH, '**', t), recursive=True)
-            for d in dirs_to_clean:
-                if os.path.exists(d):
-                    shutil.rmtree(d)
+    def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
+        new_path = os.path.join("/tmp/", SAMPLE_REPO.split("/")[-1], f"{uuid.uuid4()}")
+        repo = Repo.clone_from(repo_url, new_path)
+        repo.git.fetch(tags=True)
+        repo.git.checkout("pbt-reference-do-not-delete")
+        return repo, new_path
+
+    def setup_method(self):
+        self.repo, self.repo_path = TestVersioning._get_tmp_sample_repo()
+        self.python_project_path = os.path.join(self.repo_path, "prophecy")
+        self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
+
+    def teardown_method(self):
+        if self.repo_path:
+            shutil.rmtree(self.repo_path, ignore_errors=True)
+
 
     @staticmethod
     def _get_pbt_version(path_to_project):
@@ -59,9 +42,9 @@ class TestVersioning:
             ("minor", "0.1.0"),
             ("patch", "0.0.2")
     ])
-    @pytest.mark.parametrize("project", PROJECTS_TO_TEST)
-    def test_versioning_bump(self, bump_type, version_result, project):
-        project_path = os.path.join(RESOURCES_PATH, project)
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    def test_versioning_bump(self, bump_type, version_result, language):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -76,8 +59,9 @@ class TestVersioning:
             ("build", "0.0.1+build.1"),
             ("prerelease", "0.0.1-rc.1"),
         ])
-    def test_versioning_bump_build_pre_python(self, bump_type, version_result):
-        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    def test_versioning_bump_build_pre_python(self, bump_type, version_result, language):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -89,9 +73,9 @@ class TestVersioning:
         assert new_pbt_version != pbt_version
         assert new_pbt_version == version_result
 
-    @pytest.mark.parametrize("project_name", PROJECTS_TO_TEST)
-    def test_versioning_sync(self, project_name):
-        project_path = os.path.join(RESOURCES_PATH, project_name)
+    @pytest.mark.parametrize("language", ["python", "scala"])
+    def test_versioning_sync(self, language):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -118,13 +102,13 @@ class TestVersioning:
         assert len(list(whl_files) + list(jar_files)) > 0
 
     def test_versioning_version_set_below_no_force(self):
-        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        project_path = self.python_project_path
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--set', "0.0.0"])
         assert result.exit_code == 1
 
     def test_versioning_bump_and_version_set_prerelease_maven(self):
-        project_path = os.path.join(RESOURCES_PATH, "ProjectCreatedOn160523")
+        project_path = self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--bump', 'major'])
         assert result.exit_code == 0
@@ -135,7 +119,7 @@ class TestVersioning:
         assert new_pbt_version == '1.0.0-SNAPSHOT'
 
     def test_versioning_set_prerelease_and_bump_python(self):
-        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        project_path = self.python_project_path
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--set-prerelease', '-rc.4', '--force'])
         assert result.exit_code == 0
@@ -145,7 +129,7 @@ class TestVersioning:
         assert new_pbt_version == '0.0.1-rc.5'
 
     def test_versioning_version_set_below_force(self):
-        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        project_path = self.python_project_path
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--set', "invalid-0.0.0-thing", "--force"])
         assert result.exit_code == 0
@@ -154,7 +138,7 @@ class TestVersioning:
         assert new_pbt_version == "invalid-0.0.0-thing"
 
     def test_versioning_version_set(self):
-        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+        project_path = self.python_project_path
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, '--set', "999999.0.0"])
         assert result.exit_code == 0

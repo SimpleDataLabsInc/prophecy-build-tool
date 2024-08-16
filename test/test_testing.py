@@ -10,6 +10,7 @@ import pytest
 SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
 
+@pytest.mark.dependency(depends="test_build_path_default")
 class TestTesting:
 
     @staticmethod

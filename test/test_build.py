@@ -10,7 +10,7 @@ import glob
 SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
 
-class TestBuilding:
+class TestBuild:
 
     @staticmethod
     def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
@@ -19,7 +19,7 @@ class TestBuilding:
         return repo, new_path
 
     def setup_method(self):
-        self.repo, self.repo_path = TestBuilding._get_tmp_sample_repo()
+        self.repo, self.repo_path = TestBuild._get_tmp_sample_repo()
         self.python_project_path = os.path.join(self.repo_path, "prophecy")
         self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
 
@@ -36,10 +36,11 @@ class TestBuilding:
 
             # Find any .jar files in the current directory
         if language == 'scala':
-            artifacts = glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
+            artifacts += glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
 
             # make sure we found correct build artifacts:
         assert len(list(artifacts)) == n
+        return artifacts
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("build_command", [build, build_v2])
@@ -49,7 +50,7 @@ class TestBuilding:
         result = runner.invoke(build_command, ["--path", project_path])
         assert result.exit_code == 0
         assert "Found 5 pipelines" in result.output
-        TestBuilding._check_for_artifacts(project_path, language, n=5)
+        TestBuild._check_for_artifacts(project_path, language, n=5)
 
     @pytest.mark.parametrize("language, build_file_name", [
         ("python", "setup.py"),
@@ -63,7 +64,7 @@ class TestBuilding:
         runner = CliRunner()
         result = runner.invoke(build_v2, ["--path", project_path])
         assert result.exit_code == 1
-        TestBuilding._check_for_artifacts(project_path, language, n=4)
+        TestBuild._check_for_artifacts(project_path, language, n=4)
 
     @pytest.mark.parametrize("language, build_file_name", [
         ("python", "setup.py"),
@@ -77,7 +78,7 @@ class TestBuilding:
         runner = CliRunner()
         result = runner.invoke(build_v2, ["--path", project_path, "--ignore-build-errors"])
         assert result.exit_code == 0
-        TestBuilding._check_for_artifacts(project_path, language, n=4)
+        TestBuild._check_for_artifacts(project_path, language, n=4)
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("build_command", [build, build_v2])
@@ -86,7 +87,7 @@ class TestBuilding:
         runner = CliRunner()
         result = runner.invoke(build_command, ["--path", project_path, "--pipelines", "raw_bronze,gold_sales"])
         assert result.exit_code == 0
-        TestBuilding._check_for_artifacts(project_path, language, n=2)
+        TestBuild._check_for_artifacts(project_path, language, n=2)
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("build_command", [build, build_v2])
@@ -103,7 +104,7 @@ class TestBuilding:
             ],
         )
         assert result.exit_code == 0
-        TestBuilding._check_for_artifacts(project_path, language, n=1)
+        TestBuild._check_for_artifacts(project_path, language, n=1)
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("build_command", [build])  # TODO currently different behavior for build-v2
@@ -112,5 +113,26 @@ class TestBuilding:
         runner = CliRunner()
         result = runner.invoke(build_command, ["--path", project_path, "--pipelines", "INVALID_PIPELINE_NAME"])
         assert result.exit_code == 1
-        TestBuilding._check_for_artifacts(project_path, language, n=0)
+        TestBuild._check_for_artifacts(project_path, language, n=0)
+
+    def test_build_add_pom_python(self):
+        import zipfile
+        project_path = self.python_project_path
+        runner = CliRunner()
+        result = runner.invoke(build_v2, ["--path", project_path, "--add-pom-python"])
+        assert result.exit_code == 0
+        artifacts = TestBuild._check_for_artifacts(project_path, "python", n=5)
+
+        one_artifact = artifacts[0]
+        package_name = os.path.basename(one_artifact).split("-")[0]
+        with zipfile.ZipFile(one_artifact, 'r') as zip_ref:
+            print("namelist")
+            print(zip_ref.namelist())
+
+            for file in ['MAVEN_COORDINATES', 'pom.xml']:
+                assert file in ", ".join(zip_ref.namelist())
+                output_path = zip_ref.extract(f"{package_name}-1.0.data/data/{file}", f"/tmp/")
+                with open(output_path, 'r') as fd:
+                    # kind of lazy; just check if plibs is in the file:
+                    assert "prophecy-libs" in fd.read()
 
