@@ -116,32 +116,32 @@ class TestDeploy:
             assert result.exit_code == 1
 
 
- ################ TODO below this line ####################
-#### make a second job in databricks and airflow with print statements.
-    #####
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("command", [deploy_v2])
+    @pytest.mark.parametrize("command", [deploy, deploy_v2])
     def test_deploy_path_fabric_id_filter(self, language, command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        fabric_id = "16432"
         runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path, "--fabric-ids", "16432"])
+        result = runner.invoke(command, ["--path", project_path, "--fabric-ids", fabric_id, "--skip-builds"])
 
-        # assert "Found 2 jobs: test-job1234, job-another" in result.output
-        # assert (
-        #     "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
-        #     "farmers-markets-irs (python)" in result.output
-        # )
-        # assert "Deploying jobs only for given Fabric IDs: ['647']" in result.output
-        # assert "[START]:  Deploying job jobs/test-job" in result.output
-        # assert "[DEPLOY]: Job being deployed for fabric id: 647" in result.output
-        # assert "[START]:  Deploying job jobs/job-another" in result.output
-        # assert "[SKIP]: Job skipped as it belongs to fabric id (not passed): 648" in result.output
+        assert "Found 3 jobs" in result.output
+        if command is deploy:
+            assert f"Deploying jobs only for given Fabric IDs: ['{fabric_id}']" in result.output
+        elif command is deploy_v2:
+            assert f"[SKIP] Job jobs/EndToEndJob skipped as it belongs to fabric-id" in result.output
+            assert f"but allowed fabric-ids are ['{fabric_id}']" in result.output
+            assert f"[SKIP] Job jobs/DatabricksJob2 skipped as it belongs to fabric-id" in result.output
+            assert "Deployment completed successfully." in result.output
 
-        #TODO there are only 1 db job and 1 airflow job. can't test v1
+        # TODO even though there is an airflow job in v2 it doesn't build and isn't deployed but we get exit code 0 and
+        #  success message
 
-        assert "skipped as it belongs to fabric-id" in result.output
-        assert "Deployment completed successfully." in result.output
+
+
+    ################ TODO below this line ####################
+    #### make a second job in databricks and airflow with print statements.
+    #####
 
 
     @pytest.mark.parametrize("language", ["python", "scala"])
@@ -150,7 +150,7 @@ class TestDeploy:
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--fabric-ids", "999999"])
-        assert "Found 2 jobs:" in result.output
+        assert "Found 3 jobs:" in result.output
         assert (
             "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
@@ -192,7 +192,7 @@ class TestDeploy:
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "test-job"])
     
-        assert "Found 2 jobs: test-job1234, job-another" in result.output
+        assert "Found 3 jobs: test-job1234, job-another" in result.output
         assert (
             "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
@@ -217,7 +217,7 @@ class TestDeploy:
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "test-job,job-another"])
     
-        assert "Found 2 jobs: test-job1234, job-another" in result.output
+        assert "Found 3 jobs: test-job1234, job-another" in result.output
         assert (
             "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
@@ -230,7 +230,7 @@ class TestDeploy:
         assert "Building pipeline pipelines/report_top_customers" in result.output
         assert "Building pipeline pipelines/join_agg_sort" in result.output
         assert "Building pipeline pipelines/farmers-markets-irs" in result.output
-        assert "Deploying 2 jobs" in result.output
+        assert "Deploying 3 jobs" in result.output
         assert "[START]:  Deploying job jobs/test-job" in result.output
         assert "[START]:  Deploying job jobs/job-another" in result.output
 
@@ -242,7 +242,7 @@ class TestDeploy:
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,test-job"])
     
-        assert "Found 2 jobs: test-job1234, job-another" in result.output
+        assert "Found 3 jobs: test-job1234, job-another" in result.output
         assert (
             "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
@@ -266,7 +266,7 @@ class TestDeploy:
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,invalid2"])
     
         assert result.exit_code == 1
-        assert "Found 2 jobs: test-job1234, job-another" in result.output
+        assert "Found 3 jobs: test-job1234, job-another" in result.output
         assert (
             "Found 4 pipelines: customers_orders1243 (python), report_top_customers (python),\njoin_agg_sort (python), "
             "farmers-markets-irs (python)" in result.output
