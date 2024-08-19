@@ -275,6 +275,101 @@ def test(path, driver_library_path, pipelines):
     pbt.test(driver_library_path, pipelines)
 
 
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--bump",
+    type=click.Choice(['major', 'minor', 'patch', 'build', 'prerelease'], case_sensitive=False),
+    help="bumps one of the semantic version numbers for the project and all pipelines based on the current value. "
+         "Only works if existing versions follow semantic versioning https://semver.org/",
+    required=False,
+)
+@click.option(
+    "--set",
+    type=str,
+    help="Explicitly set the exact version",
+    required=False,
+)
+@click.option(
+    "--force", "--spike",
+    default=False,
+    is_flag=True,
+    help="bypass errors if the version set is lower than the base branch",
+    required=False,
+)
+@click.option(
+    "--sync",
+    default=False,
+    is_flag=True,
+    help="Ensure all files are set to the same version that is defined in pbt_project.yml. (implies --force)",
+    required=False,
+)
+@click.option(
+    "--set-prerelease",
+    type=str,
+    help="Set a prerelease string. example '-SNAPSHOT' or '-rc.4'",
+    required=False,
+)
+def versioning(path, bump, set, force, sync, set_prerelease):
+    pbt = PBTCli.from_conf_folder(path)
+
+    if sum([set is not None, bump is not None, sync, set_prerelease is not None]) > 1:
+        raise click.UsageError("Options '--set', '--bump', '--sync' are mutually exclusive.")
+    elif set:
+        pbt.version_set(set, force)
+    elif bump:
+        pbt.version_bump(bump, force)
+    elif sync:
+        pbt.version_set(None, force)
+    elif set_prerelease:
+        pbt.version_set_prerelease(set_prerelease, force)
+    else:
+        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', --set-prerelease'")
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--repo-path",
+    help="Path to the repository root. If left blank it will use '--path'",
+    required=False,
+)
+@click.option(
+    "--no-push",
+    default=False,
+    is_flag=True,
+    help="By default the tag will be pushed to the origin after it is created. Use this flag to skip pushing the tag.",
+    required=False,
+)
+@click.option(
+    "--branch",
+    default=None,
+    help="normally the tag is prefixed with the branch name: <branch_name>/<version>. "
+         "This overrides <branch_name>. Provide \"\" to omit the branch name.",
+    required=False,
+)
+@click.option(
+    "--custom",
+    default=None,
+    type=str,
+    help="Explicitly set the exact tag using a string. Ignores other options.",
+    required=False,
+)
+def tag(path, repo_path, no_push, branch, custom):
+    pbt = PBTCli.from_conf_folder(path)
+    if not repo_path:
+        repo_path = path
+    pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
+
+
 if __name__ == "pbt":
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"

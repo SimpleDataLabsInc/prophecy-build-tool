@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.2.27",
+    version="1.2.28",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
@@ -36,6 +36,8 @@ setuptools.setup(
         "pydantic-yaml==1.1.1",
         "boto3~=1.34.120",
         "tenacity==8.2.3",
+        "gitpython",
+        "semver"
     ],
     extras_require={
         "test": [
@@ -44,6 +46,7 @@ setuptools.setup(
             "pytest",
             "pyspark>=3.3.0,<4.0.0",
             "mock",  # or any other testing-specific packages you need
+            "parameterized",
         ]
     },
     python_requires=">=3.7",

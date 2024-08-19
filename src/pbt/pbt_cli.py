@@ -1,9 +1,11 @@
 import os
 from typing import Optional
-
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
 from .utils.project_config import ProjectConfig
+from .utility import custom_print as log
+import git
+from .utils.versioning import update_all_versions, get_bumped_version
 
 
 class PBTCli(object):
@@ -69,3 +71,43 @@ class PBTCli(object):
 
     def validate(self, treat_warnings_as_errors: bool):
         self.project.validate(treat_warnings_as_errors)
+
+    def version_bump(self, bump_type, force):
+        new_version = get_bumped_version(self.project.project.pbt_project_dict['version'], bump_type,
+                                         self.project.project.pbt_project_dict['language'])
+
+        update_all_versions(self.project.project.project_path,
+                            self.project.project.pbt_project_dict['language'],
+                            orig_project_version=self.project.project.pbt_project_dict['version'],
+                            new_version=new_version, force=force)
+
+    def version_set(self, version, force):
+        if version is None:
+            # sync option will send None, so take existing version.
+            version = self.project.project.pbt_project_dict['version']
+            force = True
+        update_all_versions(self.project.project.project_path,
+                            self.project.project.pbt_project_dict['language'],
+                            orig_project_version=self.project.project.pbt_project_dict['version'],
+                            new_version=version, force=force)
+
+    def version_set_prerelease(self, prerelease_string, force):
+        self.version_set(self.project.project.pbt_project_dict['version'] + prerelease_string, force)
+
+    def tag(self, repo_path, no_push=False, branch=None, custom=None):
+        repo = git.Repo(repo_path)
+        if custom:
+            tag = custom
+        else:
+            tag = self.project.project.pbt_project_dict['version']
+            if branch is None:
+                tag = repo.active_branch.name + "/" + tag
+            elif branch != "":
+                tag = branch + "/" + tag
+        log(f"Setting tag to: {tag}")
+        repo.create_tag(tag)
+        if not no_push:
+            # Pushing the tag to the remote repository
+            origin = repo.remote(name='origin')
+            origin.push(tag)
+            log("Pushing tag to remote")
