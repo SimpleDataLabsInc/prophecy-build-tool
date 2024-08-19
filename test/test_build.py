@@ -112,8 +112,7 @@ class TestBuild(IsolatedRepoTestCase):
 
             for file in ['MAVEN_COORDINATES', 'pom.xml']:
                 assert file in ", ".join(zip_ref.namelist())
-                output_path = zip_ref.extract(f"{package_name}-1.0.data/data/{file}", f"/tmp/")
+                output_path = zip_ref.extract(f"{package_name}-1.0.data/data/{file}", "/tmp/")
                 with open(output_path, 'r') as fd:
                     # kind of lazy; just check if plibs is in the file:
                     assert "prophecy-libs" in fd.read()
-

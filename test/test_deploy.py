@@ -46,14 +46,14 @@ class TestDeploy(IsolatedRepoTestCase):
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--job-ids", "AirflowEndToEndJob"])
         print(result.output)
-        #assert result.exit_code == 0
+        # assert result.exit_code == 0
 
         # TODO need some proper stdout output here or else no feedback
         # If running with Databricks creds on GitHub Actions
         assert False
 
         # If running with Databricks creds on GitHub Actions
-        if os.environ["AIRFLOWHOST"] != "test":  #  TODO make sure airflow creds are set too for airflow live test
+        if os.environ["AIRFLOWHOST"] != "test":  # TODO make sure airflow creds are set too for airflow live test
             assert result.exit_code == 0
             if command is deploy:
                 assert "[DONE]: Deployment completed successfully!" in result.output
@@ -61,7 +61,6 @@ class TestDeploy(IsolatedRepoTestCase):
                 assert "Deployment completed successfully." in result.output
         else:
             assert result.exit_code == 1
-
 
     # TODO deploy_v2 does not work here because airflow builds first and fails to upload
     @pytest.mark.parametrize("language", ["python", "scala"])
@@ -83,8 +82,6 @@ class TestDeploy(IsolatedRepoTestCase):
         else:
             assert result.exit_code == 1
 
-
-
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy, deploy_v2])
     def test_deploy_path_fabric_id_filter(self, language, command):
@@ -98,16 +95,13 @@ class TestDeploy(IsolatedRepoTestCase):
             assert f"Deploying jobs only for given Fabric IDs: ['{fabric_id}']" in result.output
         elif command is deploy_v2:
             assert "Found 3 jobs" in result.output
-            assert f"[SKIP] Job jobs/EndToEndJob skipped as it belongs to fabric-id" in result.output
+            assert "[SKIP] Job jobs/EndToEndJob skipped as it belongs to fabric-id" in result.output
             assert f"but allowed fabric-ids are ['{fabric_id}']" in result.output
-            assert f"[SKIP] Job jobs/DatabricksJob2 skipped as it belongs to fabric-id" in result.output
+            assert "[SKIP] Job jobs/DatabricksJob2 skipped as it belongs to fabric-id" in result.output
             assert "Deployment completed successfully." in result.output
 
         # TODO even though there is an airflow job in v2 it doesn't build and isn't deployed but we get exit code 0 and
         #  success message
-
-
-
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_invalid_fabric_id(self, language):
@@ -118,7 +112,6 @@ class TestDeploy(IsolatedRepoTestCase):
         assert "Deploying jobs only for given Fabric IDs: ['999999']" in result.output
         assert "[SKIP]: Job " in result.output
 
-
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_with_fabric_id_and_job_id_filter(self, language):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
@@ -126,7 +119,6 @@ class TestDeploy(IsolatedRepoTestCase):
         result = runner.invoke(deploy, ["--path", project_path, "--fabric-ids", "999", "--job-ids", "test-job"])
         assert result.exit_code == 1
         assert "[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_id" in result.output
-
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_with_job_id_filter_and_skip_builds(self, language):
@@ -162,13 +154,12 @@ class TestDeploy(IsolatedRepoTestCase):
         assert "Deploying 1 jobs" in result.output
         assert "[START]:  Deploying job " in result.output
 
-
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_multiple_job_id_filter(self, language):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "EndToEndJob,DatabricksJob2"])
-    
+
         assert "Found 2 jobs: EndToEndJob, DatabricksJob2" in result.output
         assert "Deploying jobs only for given Job IDs: ['EndToEndJob', 'DatabricksJob2']" in result.output
         assert "[INFO]: Total Unique pipelines dependencies found: 5" in result.output
@@ -177,13 +168,12 @@ class TestDeploy(IsolatedRepoTestCase):
         assert "[START]:  Deploying job jobs/EndToEndJob" in result.output
         assert "[START]:  Deploying job jobs/DatabricksJob2" in result.output
 
-
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_one_invalid_job_id_filter(self, language):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,EndToEndJob"])
-    
+
         assert "Found 2 jobs: " in result.output
         assert "Deploying jobs only for given Job IDs: ['invalid1', 'EndToEndJob']" in result.output
         assert "[INFO]: Total Unique pipelines dependencies found: 5" in result.output
@@ -192,13 +182,12 @@ class TestDeploy(IsolatedRepoTestCase):
         assert "Deploying 1 jobs" in result.output
         assert "[START]:  Deploying job jobs/EndToEndJob" in result.output
 
-
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_all_invalid_job_ids_filter(self, language):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,invalid2"])
-    
+
         assert result.exit_code == 1
         assert "Found 2 jobs: " in result.output
         assert "Deploying jobs only for given Job IDs: ['invalid1', 'invalid2']" in result.output

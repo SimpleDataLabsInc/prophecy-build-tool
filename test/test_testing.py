@@ -97,7 +97,7 @@ class TestTesting(IsolatedRepoTestCase):
     def test_test_with_pipeline_filter_all_notfound_pipelines(self, language, command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path, "--pipelines", f"notfound1,notfound2,notfound3"])
+        result = runner.invoke(command, ["--path", project_path, "--pipelines", "notfound1,notfound2,notfound3"])
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
 

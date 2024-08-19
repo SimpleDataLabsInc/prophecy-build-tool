@@ -1,6 +1,4 @@
-import unittest
 import os
-
 import pytest
 from git import Repo
 import shutil
