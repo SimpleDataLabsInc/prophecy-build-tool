@@ -1,31 +1,12 @@
 from src.pbt import build, build_v2
 import pytest
 from click.testing import CliRunner
-import os
-import shutil
-import uuid
-from git import Repo
 import glob
+import os
+from test.isolated_repo_test_case import IsolatedRepoTestCase
 
-SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
-
-class TestBuild:
-
-    @staticmethod
-    def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
-        new_path = os.path.join("/tmp/", SAMPLE_REPO.split("/")[-1], f"{uuid.uuid4()}")
-        repo = Repo.clone_from(repo_url, new_path)
-        return repo, new_path
-
-    def setup_method(self):
-        self.repo, self.repo_path = TestBuild._get_tmp_sample_repo()
-        self.python_project_path = os.path.join(self.repo_path, "prophecy")
-        self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
-
-    def teardown_method(self):
-        if self.repo_path:
-            shutil.rmtree(self.repo_path, ignore_errors=True)
+class TestBuild(IsolatedRepoTestCase):
 
     @staticmethod
     def _check_for_artifacts(project_path, language, n=5):
@@ -43,11 +24,11 @@ class TestBuild:
         return artifacts
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("build_command", [build, build_v2])
-    def test_build_path_default(self, language, build_command):
+    @pytest.mark.parametrize("command", [build, build_v2])
+    def test_build_path_default(self, language, command):
         runner = CliRunner()
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
-        result = runner.invoke(build_command, ["--path", project_path])
+        result = runner.invoke(command, ["--path", project_path])
         assert result.exit_code == 0
         assert "Found 5 pipelines" in result.output
         TestBuild._check_for_artifacts(project_path, language, n=5)
@@ -81,21 +62,21 @@ class TestBuild:
         TestBuild._check_for_artifacts(project_path, language, n=4)
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("build_command", [build, build_v2])
-    def test_build_path_pipeline_filter(self, language, build_command):
+    @pytest.mark.parametrize("command", [build, build_v2])
+    def test_build_path_pipeline_filter(self, language, command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
-        result = runner.invoke(build_command, ["--path", project_path, "--pipelines", "raw_bronze,gold_sales"])
+        result = runner.invoke(command, ["--path", project_path, "--pipelines", "raw_bronze,gold_sales"])
         assert result.exit_code == 0
         TestBuild._check_for_artifacts(project_path, language, n=2)
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("build_command", [build, build_v2])
-    def test_build_path_pipeline_with_invalid_filter(self, language, build_command):
+    @pytest.mark.parametrize("command", [build, build_v2])
+    def test_build_path_pipeline_with_invalid_filter(self, language, command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(
-            build_command,
+            command,
             [
                 "--path",
                 project_path,
@@ -107,15 +88,15 @@ class TestBuild:
         TestBuild._check_for_artifacts(project_path, language, n=1)
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("build_command", [build])  # TODO currently different behavior for build-v2
-    def test_build_path_pipeline_invalid_filter_only(self, language, build_command):
+    @pytest.mark.parametrize("command", [build])  # TODO currently different behavior for build-v2
+    def test_build_path_pipeline_invalid_filter_only(self, language, command):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
         runner = CliRunner()
-        result = runner.invoke(build_command, ["--path", project_path, "--pipelines", "INVALID_PIPELINE_NAME"])
+        result = runner.invoke(command, ["--path", project_path, "--pipelines", "INVALID_PIPELINE_NAME"])
         assert result.exit_code == 1
         TestBuild._check_for_artifacts(project_path, language, n=0)
 
-    def test_build_add_pom_python(self):
+    def test_build_v2_add_pom_python(self):
         import zipfile
         project_path = self.python_project_path
         runner = CliRunner()

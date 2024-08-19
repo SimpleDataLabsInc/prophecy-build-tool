@@ -2,33 +2,11 @@ from click.testing import CliRunner
 from src.pbt import versioning, build_v2
 import os
 import glob
-import shutil
 import pytest
-from git import Repo
-import uuid
-
-SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
+from test.isolated_repo_test_case import IsolatedRepoTestCase
 
 
-class TestVersioning:
-
-    @staticmethod
-    def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
-        new_path = os.path.join("/tmp/", SAMPLE_REPO.split("/")[-1], f"{uuid.uuid4()}")
-        repo = Repo.clone_from(repo_url, new_path)
-        repo.git.fetch(tags=True)
-        repo.git.checkout("pbt-reference-do-not-delete")
-        return repo, new_path
-
-    def setup_method(self):
-        self.repo, self.repo_path = TestVersioning._get_tmp_sample_repo()
-        self.python_project_path = os.path.join(self.repo_path, "prophecy")
-        self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
-
-    def teardown_method(self):
-        if self.repo_path:
-            shutil.rmtree(self.repo_path, ignore_errors=True)
-
+class TestVersioning(IsolatedRepoTestCase):
 
     @staticmethod
     def _get_pbt_version(path_to_project):
