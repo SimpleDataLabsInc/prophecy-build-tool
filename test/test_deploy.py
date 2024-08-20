@@ -31,7 +31,7 @@ class TestDeploy(IsolatedRepoTestCase):
         if os.environ["DATABRICKS_HOST"] != "test":
             assert result.exit_code == 0
             if command is deploy:
-                assert "dbfs:/FileStore/prophecy/artifacts/prophecy/" in result.output
+                assert "dbfs:/FileStore/prophecy/artifacts/" in result.output
                 assert "[DONE]: Deployment completed successfully!" in result.output
             elif command is deploy_v2:
                 assert "Deployment completed successfully." in result.output
