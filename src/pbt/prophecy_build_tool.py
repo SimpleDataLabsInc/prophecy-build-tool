@@ -38,6 +38,7 @@ class ProphecyBuildTool:
 
         self._verify_project()
         self._parse_project(ignore_parse_errors)
+
         self.dependent_projects = {}
         if dependent_projects_path:
             print("\nParsing dependent projects")

@@ -160,7 +160,7 @@ def deploy(
     prophecy_url,
     fabric_ids,
     job_ids,
-    skip_builds,
+    skip_builds
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
@@ -209,6 +209,11 @@ def deploy(
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
+@click.option(
+    "--volume-path",
+    help="provide a Unity-Catalog Volume path where artifacts will be deployed (instead of DBFS)",
+    default=None,
+)
 def deploy_v2(
     path: str,
     project_id: str,
@@ -220,6 +225,7 @@ def deploy_v2(
     skip_builds: bool,
     dependent_projects_path: str,
     migrate: bool,
+    volume_path: str,
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -232,6 +238,7 @@ def deploy_v2(
         skip_builds,
         dependent_projects_path,
         migrate,
+        volume_path,
     )
     if is_online_mode():
         pbt.headers()
