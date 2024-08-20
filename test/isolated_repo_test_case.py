@@ -19,11 +19,11 @@ class IsolatedRepoTestCase(ABC):
         return repo, new_path
 
     @pytest.fixture(autouse=True)
-    def setUp(self):
+    def setup_method(self):
         self.repo, self.repo_path = IsolatedRepoTestCase._get_tmp_sample_repo()
         self.python_project_path = os.path.join(self.repo_path, "prophecy")
         self.scala_project_path = os.path.join(self.repo_path, "prophecy_scala")
 
-    def tearDown(self):
+    def teardown_method(self):
         if self.repo_path:
             shutil.rmtree(self.repo_path)
