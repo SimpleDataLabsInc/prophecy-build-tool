@@ -1,5 +1,4 @@
 import os
-import pytest
 from git import Repo
 import shutil
 import uuid
@@ -18,7 +17,6 @@ class IsolatedRepoTestCase(ABC):
         repo.git.checkout("pbt-reference-do-not-delete")
         return repo, new_path
 
-    @pytest.fixture(autouse=True)
     def setup_method(self):
         self.repo, self.repo_path = IsolatedRepoTestCase._get_tmp_sample_repo()
         self.python_project_path = os.path.join(self.repo_path, "prophecy")
@@ -26,4 +24,4 @@ class IsolatedRepoTestCase(ABC):
 
     def teardown_method(self):
         if self.repo_path:
-            shutil.rmtree(self.repo_path)
+            shutil.rmtree(self.repo_path, ignore_errors=True)
