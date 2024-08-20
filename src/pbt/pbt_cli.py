@@ -37,7 +37,7 @@ class PBTCli(object):
         migrate: bool = False,
     ):
         """Create PBTCli from conf folder."""
-        #TODO mangle databricks jobs
+        # TODO mangle databricks jobs
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
         project_config = ProjectConfig.from_conf_folder(project, conf_folder, fabric_ids, job_ids, skip_builds, migrate)
         return cls(project, project_config)
