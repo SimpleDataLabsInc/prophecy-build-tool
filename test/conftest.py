@@ -17,6 +17,6 @@ def setup_session():
         .config("spark.port.maxRetries", "100")
     )
 
-    yield
+    yield sparkSession
 
     print("\ntestconf teardown")
