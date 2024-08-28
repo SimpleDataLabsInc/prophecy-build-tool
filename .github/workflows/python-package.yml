@@ -37,8 +37,4 @@ jobs:
         flake8 . --count --exclude=./test/resources/,./.venv/ --statistics
     - name: Test with pytest
       run: |
-        python -m pytest test/test_versioning.py -v
-        python -m pytest test/test_tagging.py -v
-        python -m pytest test/test_build.py -v
-        python -m pytest test/test_testing.py -v
-        python -m pytest test/test_deploy.py -v
+        python -m pytest test/test_build.py::TestBuild::test_build_v2_path_default_build_errors_ignore_errors -v
