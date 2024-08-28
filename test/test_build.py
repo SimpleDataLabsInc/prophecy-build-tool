@@ -39,7 +39,8 @@ class TestBuild(IsolatedRepoTestCase):
     ])
     def test_build_v2_path_default_build_errors(self, language, build_file_name):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
-        a_file_to_mangle = list(glob.glob(os.path.join(project_path, "**", build_file_name), recursive=True))[0]
+        a_file_to_mangle = list(glob.glob(os.path.join(project_path, "pipelines", "**", build_file_name),
+                                          recursive=True))[0]
         print("file to mangle: ", a_file_to_mangle)
         with open(a_file_to_mangle, 'w') as fd:
             fd.write("oops")
@@ -55,7 +56,8 @@ class TestBuild(IsolatedRepoTestCase):
     ])
     def test_build_v2_path_default_build_errors_ignore_errors(self, language, build_file_name):
         project_path = self.python_project_path if language == 'python' else self.scala_project_path
-        a_file_to_mangle = list(glob.glob(os.path.join(project_path, "**", build_file_name), recursive=True))[0]
+        a_file_to_mangle = list(glob.glob(os.path.join(project_path, "pipelines", "**", build_file_name),
+                                          recursive=True))[0]
         print("file to mangle: ", a_file_to_mangle)
         with open(a_file_to_mangle, 'w') as fd:
             fd.write("oops")
