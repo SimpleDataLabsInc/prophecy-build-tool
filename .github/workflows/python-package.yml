@@ -37,4 +37,4 @@ jobs:
         flake8 . --count --exclude=./test/resources/,./.venv/ --statistics
     - name: Test with pytest
       run: |
-        python -m pytest -n auto test/test_* -v 
+        python -m pytest -n auto --dist loadgroup test/test_* -v 
