@@ -503,6 +503,7 @@ class ProjectConfig:
         skip_builds: bool = False,
         migrate: bool = False,
         conf_folder: str = "",
+        dbx_volume_path: str = "",
     ):
         self.jobs_state = jobs_state
         self.system_config = system_config
@@ -513,6 +514,7 @@ class ProjectConfig:
         self.conf_folder = conf_folder
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
+        self.dbx_volume_path = dbx_volume_path
 
     @staticmethod
     def from_path(
@@ -526,6 +528,7 @@ class ProjectConfig:
         skip_build: bool,
         conf_folder: str,
         migrate: bool,
+        dbx_volume_path: str,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -598,12 +601,14 @@ class ProjectConfig:
                 based_on_file=is_based_on_file,
                 skip_builds=skip_build,
                 migrate=migrate,
+                dbx_volume_path=dbx_volume_path,
             )
 
     # best used when invoking from execution.
     @classmethod
     def from_conf_folder(
-        cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
+            cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool,
+            dbx_volume_path: str
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -621,6 +626,7 @@ class ProjectConfig:
             skip_builds,
             conf_folder,
             migrate,
+            dbx_volume_path,
         )
 
 

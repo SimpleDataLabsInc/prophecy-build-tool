@@ -62,6 +62,26 @@ class TestDeploy(IsolatedRepoTestCase):
         else:
             assert result.exit_code == 1
 
+    @pytest.mark.parametrize("language", ["python"])#, "scala"])
+    def test_deploy_dbx_volume_path(self, language):
+        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        runner = CliRunner()
+        result = runner.invoke(deploy_v2, ["--path", project_path, "--job-ids", "EndToEndJob",
+                                         "--dbx-volume-path", "/Volumes/rj/alt/test_volume_rj/"])
+        print(result.output)
+        print(result.stderr)
+        print(result.exit_code)
+        # TODO need some proper stdout output here or else no feedback
+        # If running with Databricks creds on GitHub Actions
+        assert False
+
+        # If running with Databricks creds on GitHub Actions
+        if os.environ["AIRFLOWHOST"] != "test":  # TODO make sure airflow creds are set too for airflow live test
+            assert result.exit_code == 0
+            assert "Deployment completed successfully." in result.output
+        else:
+            assert result.exit_code == 1
+
     # TODO deploy_v2 does not work here because airflow builds first and fails to upload
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy])

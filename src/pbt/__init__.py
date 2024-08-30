@@ -210,8 +210,8 @@ def deploy(
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
 @click.option(
-    "--volume-path",
-    help="provide a Unity-Catalog Volume path where artifacts will be deployed (instead of DBFS)",
+    "--dbx-volume-path",
+    help="provide a Unity-Catalog Volume path where artifacts will be deployed (instead of DBFS) for Databricks Jobs",
     default=None,
 )
 def deploy_v2(
@@ -225,7 +225,7 @@ def deploy_v2(
     skip_builds: bool,
     dependent_projects_path: str,
     migrate: bool,
-    volume_path: str,
+    dbx_volume_path: str,
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -238,7 +238,7 @@ def deploy_v2(
         skip_builds,
         dependent_projects_path,
         migrate,
-        volume_path,
+        dbx_volume_path,
     )
     if is_online_mode():
         pbt.headers()

@@ -210,6 +210,7 @@ class DatabricksJobsDeployment:
         jobs = {}
         skipping_jobs = {}
         for job_id, pbt_job_json in self.project.jobs.items():
+
             fabric_override = self.deployment_run_override_config.find_fabric_override_for_job(job_id)
             fabric_override = str(fabric_override) if fabric_override is not None else None
 
@@ -222,6 +223,11 @@ class DatabricksJobsDeployment:
             )
 
             databricks_job = self.project.load_databricks_job(job_id)
+
+            # if user has provided a DBX UC Volume path; replace DBFS strings in deployment sections
+            if databricks_job and self.project_config.dbx_volume_path:
+                databricks_job = databricks_job.replace("dbfs:/FileStore/prophecy/artifacts/saas/app",
+                                                        self.project_config.dbx_volume_path.rstrip("/"))
 
             if "Databricks" in pbt_job_json.get("scheduler", None) and databricks_job is not None:
                 if self.deployment_run_override_config.is_job_to_run(job_id):
