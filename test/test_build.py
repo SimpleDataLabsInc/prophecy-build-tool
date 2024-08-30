@@ -107,6 +107,7 @@ class TestBuild(IsolatedRepoTestCase):
         project_path = self.python_project_path
         runner = CliRunner()
         result = runner.invoke(build_v2, ["--path", project_path, "--add-pom-python"])
+        print(result.output)
         assert result.exit_code == 0
         artifacts = TestBuild._check_for_artifacts(project_path, "python", n=5)
 

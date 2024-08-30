@@ -8,6 +8,9 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 import xml.etree.ElementTree as ET
+import importlib
+import pkg_resources
+import pyspark
 
 from . import JobData
 from .uploader.PipelineUploaderManager import PipelineUploadManager
@@ -242,37 +245,39 @@ class PipelineDeployment:
                 ET.indent(project, space="    ", level=0)
                 return ET.tostring(project, encoding='utf-8', method='xml')
 
-            # gather project level dependencies:
-            project_level_dependencies = self.project.pbt_project_dict.get('dependencies', [])
-            project_level_maven_dependencies = [d for d in project_level_dependencies if d['type'] == 'coordinates']
-
-            # the plibs maven does not have a normal coordinate so we have to make one:
-            spark_version = os.environ['SPARK_VERSION'] if 'SPARK_VERSION' in os.environ else '{{REPLACE_ME}}'
-            plibs_maven_dep = [d for d in project_level_dependencies if d['type'] == 'plibMaven']
-            if len(plibs_maven_dep) != 1:
-                log(
-                    f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
-                    f"prophecy-libs information. please update your prophecy-libs in the Prophecy UI{Colors.ENDC}"
-                )
-                return
-            plibs_maven_dep = plibs_maven_dep[0]
-            plibs_maven_dep['type'] = 'coordinates'
-            plibs_maven_dep['package'] = 'prophecy-libs_2.12'
-            plibs_maven_dep['version'] = spark_version + '-' + plibs_maven_dep['version']
-            plibs_maven_dep['coordinates'] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
-            project_level_maven_dependencies.append(plibs_maven_dep)
+            #
+            # # gather project level dependencies:
+            # project_level_dependencies = self.project.pbt_project_dict.get('dependencies', [])
+            # project_level_maven_dependencies = [d for d in project_level_dependencies if d['type'] == 'coordinates']
+            #
+            # # the plibs maven does not have a normal coordinate so we have to make one:
+            # spark_version = os.environ['SPARK_VERSION'] if 'SPARK_VERSION' in os.environ else '{{REPLACE_ME}}'
+            # plibs_maven_dep = [d for d in project_level_dependencies if d['type'] == 'plibMaven']
+            # if len(plibs_maven_dep) != 1:
+            #     log(
+            #         f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
+            #         f"prophecy-libs information. please update your prophecy-libs in the Prophecy UI{Colors.ENDC}"
+            #     )
+            #     return
+            # plibs_maven_dep = plibs_maven_dep[0]
+            # plibs_maven_dep['type'] = 'coordinates'
+            # plibs_maven_dep['package'] = 'prophecy-libs_2.12'
+            # plibs_maven_dep['version'] = spark_version + '-' + plibs_maven_dep['version']
+            # plibs_maven_dep['coordinates'] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
+            # project_level_maven_dependencies.append(plibs_maven_dep)
 
             for pipeline_id in self.project.pipelines:
-                rdc = self.project.load_pipeline_folder(pipeline_id)
+                # rdc = self.project.load_pipeline_folder(pipeline_id)
 
-                # gather pipeline level dependencies per directory and combine with project
-                # level deps:
-                workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
-                pipeline_level_dependencies = workflow['metainfo']['externalDependencies']
-                pipeline_level_maven_dependencies = [d for d in pipeline_level_dependencies if
-                                                     d['type'] == 'coordinates']
-                maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
+                # # gather pipeline level dependencies per directory and combine with project
+                # # level deps:
+                # workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
+                # pipeline_level_dependencies = workflow['metainfo']['externalDependencies']
+                # pipeline_level_maven_dependencies = [d for d in pipeline_level_dependencies if
+                #                                      d['type'] == 'coordinates']
+                # maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
 
+                maven_dependencies = self.project.get_maven_dependencies_for_python_pipelines(pipeline_id=pipeline_id)
                 # include all information in pom.xml because there may be specific repos
                 # or exclusions information:
                 pom_xml = _generate_pom_from_dicts(maven_dependencies)
@@ -582,11 +587,62 @@ class PackageBuilderAndUploader:
 
         return self._build(command)
 
+    def get_python_dependencies(self):
+        log(f"{Colors.OKBLUE}Getting python dependencies for {self._pipeline_name} {Colors.ENDC}")
+
+        orig_sys_argv = sys.argv
+        cwd = os.getcwd()
+
+        # Load the setup.py file and generate egg info
+        os.chdir(self._base_path)
+        setup_path = os.path.join(self._base_path, 'setup.py')
+        spec = importlib.util.spec_from_file_location("setup", setup_path)
+        setup_module = importlib.util.module_from_spec(spec)
+        sys.argv = ['setup.py', '-q', 'egg_info']
+        spec.loader.exec_module(setup_module)
+        # restore original working dir
+        os.chdir(cwd)
+
+        # Extract the distribution info
+        distribution = pkg_resources.get_distribution(self._get_package_name().split("-")[0])
+        requirements = [str(r) for r in distribution.requires(extras=['test'])]
+
+        sys.argv = orig_sys_argv
+
+        # call pip
+        try:
+            log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '-q']
+                                  + requirements)
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred while trying to install requirements: {e}")
+
+    def get_maven_dependencies_python(self):
+        if "SPARK_JARS_CONFIG" not in os.environ or len(os.environ["SPARK_JARS_CONFIG"]) != 0:
+            log(f"{Colors.OKBLUE}Skipping installing maven dependencies: using {os.environ['SPARK_JARS_CONFIG']}{Colors.ENDC}")
+            return
+
+        # gather project level dependencies:
+        maven_deps = self._project.get_maven_dependencies_for_python_pipelines(self._pipeline_id)
+        maven_deps = [d['coordinates'].replace("{{REPLACE_ME}}", pyspark.__version__) for d in maven_deps]
+
+        log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
+        # call mvn
+        for d in maven_deps:
+            try:
+                subprocess.check_call(['mvn', 'dependency:get', d])
+            except subprocess.CalledProcessError as e:
+                print(f"An error occurred while trying to install maven requirements: {e}")
+
     def wheel_test(self):
         COVERAGERC_CONTENT = (
             "[run]\n"
             "omit=test/**,build/**,dist/**,setup.py\n"
         )
+
+        log(f"\n\n{Colors.OKBLUE}Gathering Dependencies{Colors.ENDC}\n")
+        self.get_python_dependencies()
+        self.get_maven_dependencies_python()
 
         coveragerc_path = os.path.join(f"{self._base_path}", ".coveragerc")
         if not os.path.exists(coveragerc_path):

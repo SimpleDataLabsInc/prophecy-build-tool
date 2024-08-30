@@ -37,7 +37,7 @@ setuptools.setup(
         "boto3~=1.34.120",
         "tenacity==8.2.3",
         "gitpython",
-        "semver"
+        "semver",
     ],
     extras_require={
         "test": [
