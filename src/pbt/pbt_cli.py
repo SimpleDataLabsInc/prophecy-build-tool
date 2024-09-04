@@ -5,7 +5,7 @@ from .entities.project import Project
 from .utils.project_config import ProjectConfig
 from .utility import custom_print as log
 import git
-from .utils.versioning import update_all_versions, get_bumped_version
+from .utils.versioning import update_all_versions, get_bumped_version, version_check_sync
 
 
 class PBTCli(object):
@@ -110,6 +110,11 @@ class PBTCli(object):
 
     def version_set_prerelease(self, prerelease_string, force):
         self.version_set(self.project.project.pbt_project_dict["version"] + prerelease_string, force)
+
+    def version_check_sync(self):
+        version_check_sync(self.project.project.project_path,
+                           self.project.project.pbt_project_dict['language'],
+                           self.project.project.pbt_project_dict['version'])
 
     def tag(self, repo_path, no_push=False, branch=None, custom=None):
         repo = git.Repo(repo_path)

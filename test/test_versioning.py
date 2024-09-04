@@ -171,3 +171,19 @@ class VersioningTestCase(unittest.TestCase):
 
         new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
         assert new_pbt_version == "999999.0.0"
+
+    def test_versioning_version_check_sync_python(self):
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+
+        with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), 'r') as fd:
+            content = fd.read()
+
+        content = content.replace("version = '1.0'", "version = '999.0'")
+
+        with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), 'w') as fd:
+            fd.write(content)
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, '--check-sync'])
+        assert result.exit_code == 0
+
