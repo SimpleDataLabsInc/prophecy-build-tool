@@ -22,27 +22,31 @@ def version_check_sync(project_path, project_language, pbt_project_version):
 
     for f in files_to_check:
         with open(f, 'r') as fd:
-            content = fd.read()
             # replace version in language specific files:
             if project_language == 'python':
-                version_match = re.search(r"version\s*=\s*['\"]([^'\"]+)['\"]", content)
+                version_match = re.search(r"version\s*=\s*['\"]([^'\"]+)['\"]", fd.read())
                 if version_match:
                     file_version = version_match.group(1)
                 else:
                     raise ValueError(f"could not find version in file: {f}")
             elif project_language == 'scala':
-                tree = ET.parse(content)
+                tree = ET.parse(fd)
                 root = tree.getroot()
                 namespace = {'ns': 'http://maven.apache.org/POM/4.0.0'}
-                file_version = root.find('ns:version', namespace)
+                file_version = root.find('ns:version', namespace).text
             elif project_language == 'sql':
-                content_dict = yaml.safe_load(content)
+                content_dict = yaml.safe_load(fd)
                 file_version = content_dict['version']
             else:
                 raise ValueError("bad project language: ", project_language)
 
-            if semver.parse_version_info(file_version) != semver.parse_version_info(pbt_project_version):
-                log(f"Versions are out of sync.")
+            try:
+                if semver.parse_version_info(file_version) != semver.parse_version_info(pbt_project_version):
+                    log(f"Versions are out of sync: {pbt_project_version} != {file_version}")
+                    exit(1)
+            except ValueError as e:
+                log("failed to parse one or more versions. marking invalid.")
+                log(e)
                 exit(1)
 
 
