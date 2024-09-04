@@ -1,11 +1,15 @@
 import os
 from typing import Optional
+
+import yaml
+
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
 from .utils.project_config import ProjectConfig
 from .utility import custom_print as log
 import git
 from .utils.versioning import update_all_versions, get_bumped_version, version_check_sync
+import semver
 
 
 class PBTCli(object):
@@ -115,6 +119,25 @@ class PBTCli(object):
         version_check_sync(self.project.project.project_path,
                            self.project.project.pbt_project_dict['language'],
                            self.project.project.pbt_project_dict['version'])
+
+    def version_check_if_bumped(self, repo_path, branch):
+        current_pbt_version = self.project.project.pbt_project_dict['version']
+        repo = git.Repo(repo_path)
+        subpath = os.path.relpath(os.path.join(self.project.project.project_path, "pbt_project.yml"),
+                                  os.path.abspath(repo_path))
+        branch_content = repo.git.show(f'{branch}:{subpath}')
+        branch_pbt_dict = yaml.safe_load(branch_content)
+        branch_pbt_version = branch_pbt_dict['version']
+        try:
+            if semver.parse_version_info(current_pbt_version) <= semver.parse_version_info(branch_pbt_version):
+                log(f"Current version is not higher than base version: {current_pbt_version} <= {branch_pbt_version}")
+                exit(1)
+        except ValueError as e:
+            log("failed to parse one or more versions. marking invalid.")
+            log(e)
+            exit(1)
+
+        log(f"Success: {current_pbt_version} > {branch_pbt_version}")
 
     def tag(self, repo_path, no_push=False, branch=None, custom=None):
         repo = git.Repo(repo_path)
