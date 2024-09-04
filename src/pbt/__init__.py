@@ -305,6 +305,11 @@ def test(path, driver_library_path, pipelines):
     required=True,
 )
 @click.option(
+    "--repo-path",
+    help="Path to the repository root. If left blank it will use '--path'",
+    required=False,
+)
+@click.option(
     "--bump",
     type=click.Choice(["major", "minor", "patch", "build", "prerelease"], case_sensitive=False),
     help="bumps one of the semantic version numbers for the project and all pipelines based on the current value. "
@@ -348,12 +353,14 @@ def test(path, driver_library_path, pipelines):
 @click.option(
     "--check-if-bumped",
     type=str,
-    help="Checks to see if current branch has a greater version number than the branch name you provide",
+    help="Checks to see if current branch has a greater version number than the branch name you provide. "
+         "(takes --repo-path if necessary)",
     required=False,
 )
-def versioning(path, bump, set, force, sync, set_prerelease, check_sync, check_if_bumped):
+def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sync, check_if_bumped):
     pbt = PBTCli.from_conf_folder(path)
-
+    if not repo_path:
+        repo_path = path
     if sum([set is not None,
             bump is not None,
             sync,
@@ -372,7 +379,7 @@ def versioning(path, bump, set, force, sync, set_prerelease, check_sync, check_i
     elif check_sync:
         pbt.version_check_sync()
     elif check_if_bumped:
-        pbt.version_check_if_bumped(check_if_bumped)
+        pbt.version_check_if_bumped(repo_path, check_if_bumped)
     else:
         raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', --set-prerelease'")
 

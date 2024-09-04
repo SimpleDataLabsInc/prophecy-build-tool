@@ -24,9 +24,9 @@ def version_check_sync(project_path, project_language, pbt_project_version):
         with open(f, 'r') as fd:
             # replace version in language specific files:
             if project_language == 'python':
-                version_match = re.search(r"version\s*=\s*['\"]([^'\"]+)['\"]", fd.read())
-                if version_match:
-                    file_version = version_match.group(1)
+                version_match_re = re.search(r"version\s*=\s*['\"]([^'\"]+)['\"]", fd.read())
+                if version_match_re:
+                    file_version = version_match_re.group(1)
                 else:
                     raise ValueError(f"could not find version in file: {f}")
             elif project_language == 'scala':
@@ -41,7 +41,7 @@ def version_check_sync(project_path, project_language, pbt_project_version):
                 raise ValueError("bad project language: ", project_language)
 
             try:
-                if semver.parse_version_info(file_version) != semver.parse_version_info(pbt_project_version):
+                if semver.parse_version_info(pbt_project_version) != semver.parse_version_info(file_version):
                     log(f"Versions are out of sync: {pbt_project_version} != {file_version}")
                     exit(1)
             except ValueError as e:
