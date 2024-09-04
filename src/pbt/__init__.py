@@ -338,11 +338,29 @@ def test(path, driver_library_path, pipelines):
     help="Set a prerelease string. example '-SNAPSHOT' or '-rc.4'",
     required=False,
 )
-def versioning(path, bump, set, force, sync, set_prerelease):
+@click.option(
+    "--check-sync",
+    help="check to see if versions are synced. exit code 0 success, 1 failure.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+@click.option(
+    "--check-if-bumped",
+    type=str,
+    help="Checks to see if current branch has a greater version number than the branch name you provide",
+    required=False,
+)
+def versioning(path, bump, set, force, sync, set_prerelease, check_sync, check_if_bumped):
     pbt = PBTCli.from_conf_folder(path)
 
-    if sum([set is not None, bump is not None, sync, set_prerelease is not None]) > 1:
-        raise click.UsageError("Options '--set', '--bump', '--sync' are mutually exclusive.")
+    if sum([set is not None,
+            bump is not None,
+            sync,
+            check_sync,
+            check_if_bumped is not None,
+            set_prerelease is not None]) > 1:
+        raise click.UsageError("Options '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', '--check-if-bumped' are mutually exclusive.")
     elif set:
         pbt.version_set(set, force)
     elif bump:
@@ -351,6 +369,10 @@ def versioning(path, bump, set, force, sync, set_prerelease):
         pbt.version_set(None, force)
     elif set_prerelease:
         pbt.version_set_prerelease(set_prerelease, force)
+    elif check_sync:
+        pbt.version_check_sync()
+    elif check_if_bumped:
+        pbt.version_check_if_bumped(check_if_bumped)
     else:
         raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', --set-prerelease'")
 
