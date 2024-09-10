@@ -58,11 +58,11 @@ def filter_job_files(rdc: Dict[str, str]):
         file_name: file_content
         for file_name, file_content in rdc.items()
         if file_name == "dag.py"
-           or file_name == "prophecy-job.json"
-           or "__init__.py" in file_name
-           or "tasks/" in file_name
-           or "utils.py" in file_name
-           or "utils/" in file_name
+        or file_name == "prophecy-job.json"
+        or "__init__.py" in file_name
+        or "tasks/" in file_name
+        or "utils.py" in file_name
+        or "utils/" in file_name
     }
     k = sorted(filtered_files.items())
     return k
@@ -424,7 +424,7 @@ class AirflowJobDeployment:
                 for job_id in list(all_jobs.keys())
                 # check from available airflow jobs.
             )
-               and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
+            and self._fabrics_config.get_fabric(airflow_job.fabric_id) is not None
         ]
 
     """
@@ -479,7 +479,7 @@ class AirflowJobDeployment:
             job_id: job_info
             for job_id, job_info in old_enabled_job_which_are_disabled_in_new.items()
             if not self._all_removed_airflow_jobs()
-               and not any(airflow_job.id == job_id for airflow_job in self._all_removed_airflow_jobs())
+            and not any(airflow_job.id == job_id for airflow_job in self._all_removed_airflow_jobs())
         }
 
         return jobs_not_in_removed_jobs
@@ -781,8 +781,7 @@ class EMRPipelineConfigurations:
             def execute_job(_fabric_info, _config_content, _config_path):
                 futures.append(
                     executor.submit(
-                        lambda f_info=_fabric_info, conf_content=_config_content,
-                               conf_path=_config_path: self._upload_configuration(
+                        lambda f_info=_fabric_info, conf_content=_config_content, conf_path=_config_path: self._upload_configuration(
                             f_info, conf_content, conf_path
                         )
                     )
@@ -874,8 +873,7 @@ class DataprocPipelineConfigurations:
             def execute_job(fabric_info, configuration_content, configuration_path):
                 futures.append(
                     executor.submit(
-                        lambda f_info=fabric_info, conf_content=configuration_content,
-                               conf_path=configuration_path: self._upload_configuration(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path: self._upload_configuration(
                             f_info, conf_content, conf_path
                         )
                     )
@@ -964,12 +962,11 @@ class SparkSubmitPipelineConfigurations:
                 log(f"\n\n{Colors.OKBLUE} Uploading spark-submit configurations {Colors.ENDC}\n\n")
 
             def execute_job(
-                    fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
+                fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
             ):
                 futures.append(
                     executor.submit(
-                        lambda f_info=fabric_info, conf_content=configuration_content,
-                               conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
                             f_info, configuration_relative_directory, configuration_file_name, configuration_content
                         )
                     )
@@ -996,8 +993,7 @@ class SparkSubmitPipelineConfigurations:
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(
-            self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name,
-            configuration_content
+        self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name, configuration_content
     ):
         upload_directory = f"{fabric_info.airflow_oss.location}/{configuration_relative_directory}"
         try:
