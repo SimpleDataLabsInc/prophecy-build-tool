@@ -34,7 +34,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.fabric_label = get_fabric_label(fabric_name, fabric_id)
 
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
-        self.base_path = self.project_config.system_config.get_dbfs_base_path()
+        self.base_path = self.project_config.get_db_base_path(fabric_id)
         self.upload_path = f"{self.base_path}/{self.to_path}/pipeline/{self.file_name}"
 
     def upload_pipeline(self, path: str) -> Either:

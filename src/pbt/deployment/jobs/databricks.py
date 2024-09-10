@@ -913,15 +913,16 @@ class PipelineConfigurations:
                 )
 
             for pipeline_id, configurations in self.pipeline_configurations.items():
-                path = self.project_config.system_config.get_dbfs_base_path()
-                pipeline_path = (
-                    f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
-                )
+                def base_path(fabric_id):
+                    path = self.project_config.get_db_base_path(fabric_id)
+                    pipeline_path = (
+                        f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
+                    )
+                    return pipeline_path
 
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_path = f"{pipeline_path}/{configuration_name}.json"
-
                     for fabric_id in self.project_config.fabric_config.db_fabrics():
+                        configuration_path = f"{base_path(fabric_id)}/{configuration_name}.json"
                         execute_job(fabric_id, configuration_content, configuration_path)
 
         return await_futures_and_update_states(futures, self._STEP_ID)

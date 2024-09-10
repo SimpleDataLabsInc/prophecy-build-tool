@@ -143,11 +143,13 @@ class DatabricksInfo(BaseModel):
     url: str
     token: str
     user_agent: Optional[str]
+    volume_opt: Optional[str] = None
 
     @staticmethod
     def create(host: str, token: str, user_agent: Optional[str] = "Prophecy"):
         return DatabricksInfo(url=host, token=token, user_agent=user_agent)
 
+    # resolve environment variables.
     def resolve(self):
         url_match = re.match(pattern, self.url)
         if url_match:
@@ -156,6 +158,10 @@ class DatabricksInfo(BaseModel):
         token_match = re.match(pattern, self.token)
         if token_match:
             self.token = os.environ[token_match.group(1)]
+
+        volume_match = re.match(pattern, self.volume_opt)
+        if volume_match:
+            self.volume_opt = os.environ[volume_match.group(1)]
 
 
 class FabricInfo(BaseModel):
@@ -202,11 +208,11 @@ class JobInfo(BaseModel):
 
     def is_job_same_as(self, job_info) -> bool:
         return (
-            self.external_job_id == job_info.external_job_id
-            and self.fabric_id == job_info.fabric_id
-            and self.id == job_info.id
-            and self.name == job_info.name
-            and self.type == job_info.type
+                self.external_job_id == job_info.external_job_id
+                and self.fabric_id == job_info.fabric_id
+                and self.id == job_info.id
+                and self.name == job_info.name
+                and self.type == job_info.type
         )
 
     def pause(self, flag: bool):
@@ -214,13 +220,13 @@ class JobInfo(BaseModel):
 
     @staticmethod
     def create_job(
-        name: str,
-        id: str,
-        fabric_id: str,
-        external_job_id: str,
-        release_tag: str,
-        is_paused: bool = False,
-        fabric_provider_type: str = "Databricks",
+            name: str,
+            id: str,
+            fabric_id: str,
+            external_job_id: str,
+            release_tag: str,
+            is_paused: bool = False,
+            fabric_provider_type: str = "Databricks",
     ):
         return JobInfo(
             name=name,
@@ -436,8 +442,11 @@ class SystemConfig(BaseModel):
     prophecy_salt: Optional[str] = "execution"
     nexus: Optional[NexusConfig] = None
 
-    def get_dbfs_base_path(self):
-        return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
+    def get_dbfs_base_path(self, volume_opt: Optional[str]):
+        if volume_opt is None:
+            return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
+        else:
+            return f"{volume_opt}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     def get_s3_base_path(self):
         return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
@@ -460,10 +469,10 @@ def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
 
 def load_system_config(system_config_path: str, is_based_on_file: bool = True):
     if (
-        system_config_path is not None
-        and len(system_config_path) > 0
-        and is_based_on_file
-        and os.path.exists(system_config_path)
+            system_config_path is not None
+            and len(system_config_path) > 0
+            and is_based_on_file
+            and os.path.exists(system_config_path)
     ):
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
@@ -473,10 +482,10 @@ def load_system_config(system_config_path: str, is_based_on_file: bool = True):
 
 def load_configs_override(configs_override_path, is_based_on_file: bool = True):
     if (
-        configs_override_path is not None
-        and len(configs_override_path) > 0
-        and is_based_on_file
-        and os.path.exists(configs_override_path)
+            configs_override_path is not None
+            and len(configs_override_path) > 0
+            and is_based_on_file
+            and os.path.exists(configs_override_path)
     ):
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
@@ -494,15 +503,15 @@ def load_fabric_config(fabric_config_path):
 
 class ProjectConfig:
     def __init__(
-        self,
-        jobs_state: JobsState,
-        fabric_config: FabricConfig,
-        system_config: SystemConfig,
-        config_override: ConfigsOverride,
-        based_on_file: bool = True,
-        skip_builds: bool = False,
-        migrate: bool = False,
-        conf_folder: str = "",
+            self,
+            jobs_state: JobsState,
+            fabric_config: FabricConfig,
+            system_config: SystemConfig,
+            config_override: ConfigsOverride,
+            based_on_file: bool = True,
+            skip_builds: bool = False,
+            migrate: bool = False,
+            conf_folder: str = "",
     ):
         self.jobs_state = jobs_state
         self.system_config = system_config
@@ -514,18 +523,24 @@ class ProjectConfig:
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
 
+    def get_db_base_path(self, fabric_id):
+        if self.fabric_config.is_databricks_fabric(fabric_id):
+            volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume_opt
+            self.system_config.get_dbfs_base_path(volume_opt)
+        return None
+
     @staticmethod
     def from_path(
-        project: Project,
-        job_state_path: str,
-        system_config_path: str,
-        configs_override_path: str,
-        fabric_config_path: str,
-        fabric_ids: str,
-        job_ids: str,
-        skip_build: bool,
-        conf_folder: str,
-        migrate: bool,
+            project: Project,
+            job_state_path: str,
+            system_config_path: str,
+            configs_override_path: str,
+            fabric_config_path: str,
+            fabric_ids: str,
+            job_ids: str,
+            skip_build: bool,
+            conf_folder: str,
+            migrate: bool,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -603,7 +618,7 @@ class ProjectConfig:
     # best used when invoking from execution.
     @classmethod
     def from_conf_folder(
-        cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
+            cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
