@@ -143,7 +143,7 @@ class DatabricksInfo(BaseModel):
     url: str
     token: str
     user_agent: Optional[str]
-    volume_opt: Optional[str] = None
+    volume: Optional[str] = None
 
     @staticmethod
     def create(host: str, token: str, user_agent: Optional[str] = "Prophecy"):
@@ -159,9 +159,9 @@ class DatabricksInfo(BaseModel):
         if token_match:
             self.token = os.environ[token_match.group(1)]
 
-        volume_match = re.match(pattern, self.volume_opt)
+        volume_match = re.match(pattern, self.volume)
         if volume_match:
-            self.volume_opt = os.environ[volume_match.group(1)]
+            self.volume = os.environ[volume_match.group(1)]
 
 
 class FabricInfo(BaseModel):
@@ -523,11 +523,22 @@ class ProjectConfig:
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
 
-    def get_db_base_path(self, fabric_id):
-        if self.fabric_config.is_databricks_fabric(fabric_id):
-            volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume_opt
-            self.system_config.get_dbfs_base_path(volume_opt)
+
+    def get_db_base_path(self, fabric_id: Optional[str]):
+        if fabric_id is None:
+            return self.system_config.get_dbfs_base_path(None)
+        elif fabric_id and self.fabric_config.is_databricks_fabric(fabric_id):
+            volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume
+            return self.system_config.get_dbfs_base_path(volume_opt)
         return None
+
+    ## fabric and DB connections are loosely linked and generally a multiple fabrics can point to a single DB workspace.
+    # so this information cannot be at DB layer it has to be at fabric layer.
+    def is_volume_supported(self, fabric_id):
+        if self.fabric_config.is_databricks_fabric(fabric_id):
+            volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume
+            return volume_opt is not None
+        return False
 
     @staticmethod
     def from_path(

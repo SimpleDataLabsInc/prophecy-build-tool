@@ -176,11 +176,11 @@ class DatabricksJobsDeployment:
             log(f"{Colors.OKBLUE}\nDeploying databricks jobs{Colors.ENDC}\n\n")
 
         responses = (
-            self._deploy_add_jobs()
-            + self._deploy_refresh_jobs()
-            + self._deploy_delete_jobs()
-            + self._deploy_pause_jobs()
-            + self._deploy_skipping_jobs()
+                self._deploy_add_jobs()
+                + self._deploy_refresh_jobs()
+                + self._deploy_delete_jobs()
+                + self._deploy_pause_jobs()
+                + self._deploy_skipping_jobs()
         )
 
         return responses
@@ -217,8 +217,8 @@ class DatabricksJobsDeployment:
             job_fabric = str(job_fabric) if job_fabric is not None else None
 
             does_fabric_exist = (
-                self.fabric_configs.get_fabric(job_fabric) is not None
-                or self.fabric_configs.get_fabric(fabric_override) is not None
+                    self.fabric_configs.get_fabric(job_fabric) is not None
+                    or self.fabric_configs.get_fabric(fabric_override) is not None
             )
 
             databricks_job = self.project.load_databricks_job(job_id)
@@ -548,8 +548,8 @@ class DBTComponents:
                     )
 
                 if (
-                    components.get("profilePath", None) is not None
-                    and components.get("profileContent", None) is not None
+                        components.get("profilePath", None) is not None
+                        and components.get("profileContent", None) is not None
                 ):
                     summary.append(f"Uploading dbt profiles for job {job_id} component {components.get('nodeName')} ")
 
@@ -592,8 +592,8 @@ class DBTComponents:
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for components in dbt_component_model.components:
                     if (
-                        components.get("profilePath", None) is not None
-                        and components.get("profileContent", None) is not None
+                            components.get("profilePath", None) is not None
+                            and components.get("profileContent", None) is not None
                     ):
                         futures.append(
                             executor.submit(
@@ -631,8 +631,8 @@ class DBTComponents:
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for dbt_component in dbt_component_model.components:
                     if (
-                        dbt_component.get("sqlFabricId", None) is not None
-                        and dbt_component.get("secretKey", None) is not None
+                            dbt_component.get("sqlFabricId", None) is not None
+                            and dbt_component.get("secretKey", None) is not None
                     ):
                         futures.append(
                             executor.submit(
@@ -684,7 +684,8 @@ class DBTComponents:
                     if dbt_component.get("path", None) is not None and dbt_component.get("content", None) is not None:
                         futures.append(
                             executor.submit(
-                                lambda comp=dbt_component, fabric_id=dbt_component_model.fabric_id: self._upload_dbt_content(
+                                lambda comp=dbt_component,
+                                       fabric_id=dbt_component_model.fabric_id: self._upload_dbt_content(
                                     comp, fabric_id
                                 )
                             )
@@ -718,7 +719,6 @@ class DBTComponents:
         try:
             client = self.databricks_jobs.get_databricks_client(fabric_id)
             client.upload_content(content, path)
-
             log(
                 f"{Colors.OKGREEN}Successfully uploaded dbt content {path}{Colors.ENDC}",
                 step_id=self._DBT_CONTENT_COMPONENT_STEP_NAME,
@@ -737,8 +737,8 @@ class DBTComponents:
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
             for components in dbt_component_model.components:
                 if (
-                    components.get("profilePath", None) is not None
-                    and components.get("profileContent", None) is not None
+                        components.get("profilePath", None) is not None
+                        and components.get("profileContent", None) is not None
                 ):
                     total_dbt_profiles = total_dbt_profiles + 1
 
@@ -827,6 +827,7 @@ class ScriptComponents:
     def _upload_content(self, script: dict, fabric_id: str, job_id: str):
         node_name = script.get("nodeName")
         fabric_config = self.fabric_config.get_fabric(fabric_id)
+
         fabric_name = fabric_config.name if fabric_config is not None else None
         fabric_label = get_fabric_label(fabric_name, fabric_id)
 
@@ -901,47 +902,59 @@ class PipelineConfigurations:
                 count = sum(len(v) for v in self.pipeline_configurations.values())
                 log(f"\n\n{Colors.OKBLUE} Uploading {count} pipeline configurations {Colors.ENDC}\n\n")
 
-            def execute_job(_fabric_id, config_content, config_path):
+            def execute_job(_fabric_id, pipeline_id, config_name, config_content):
                 futures.append(
                     executor.submit(
                         lambda f_id=str(
                             _fabric_id
-                        ), conf_content=config_content, conf_path=config_path: self._upload_configuration(
-                            f_id, conf_content, conf_path
+                        ), p_id=pipeline_id, conf_name=config_name,
+                               conf_content=config_content: self._upload_configuration(
+                            f_id, p_id, conf_name, conf_content
                         )
                     )
                 )
 
             for pipeline_id, configurations in self.pipeline_configurations.items():
-                def base_path(fabric_id):
-                    path = self.project_config.get_db_base_path(fabric_id)
-                    pipeline_path = (
-                        f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
-                    )
-                    return pipeline_path
 
                 for configuration_name, configuration_content in configurations.items():
                     for fabric_id in self.project_config.fabric_config.db_fabrics():
-                        configuration_path = f"{base_path(fabric_id)}/{configuration_name}.json"
-                        execute_job(fabric_id, configuration_content, configuration_path)
+                        execute_job(fabric_id, pipeline_id, configuration_name, configuration_content)
 
         return await_futures_and_update_states(futures, self._STEP_ID)
 
-    def _upload_configuration(self, fabric_id, configuration_content, configuration_path):
-        try:
-            client = self.databricks_jobs.get_databricks_client(str(fabric_id))
-            client.upload_content(configuration_content, configuration_path)
+    def _upload_configuration(self, fabric_id, pipeline_id, config_name, configuration_content):
+        def base_path(fab_id: Optional[str]):
+            path = self.project_config.get_db_base_path(fab_id)
+            pipeline_path = (
+                f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
+            )
+            return pipeline_path
 
+        try:
+            ## we are creating path and then uploading the content
+            ## we need to upload for the scenerios
+            ## in case volumes is set or not.
+            ## after some versions most likely databricks will deprecate the dbfs one.
+            client = self.databricks_jobs.get_databricks_client(str(fabric_id))
+            base_p = base_path(None)  # old dbfs path first.
+            configuration_path = f"{base_p}/{config_name}.json"
+            client.upload_content(configuration_content, configuration_path)
             log(
                 f"{Colors.OKGREEN}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
-
+            if self.project_config.is_volume_supported(fabric_id):
+                config_path_volume = f"{base_path(fabric_id)}/{config_name}.json"
+                client.upload_content(configuration_content, config_path_volume)
+                log(
+                    f"{Colors.OKGREEN}Uploaded pipeline configuration on path {config_path_volume} with volume support{Colors.ENDC}",
+                    step_id=self._STEP_ID,
+                )
             return Either(right=True)
 
         except Exception as e:
             log(
-                f"{Colors.FAIL}Failed to upload pipeline configuration for path {configuration_path}{Colors.ENDC}",
+                f"{Colors.FAIL}Failed to upload pipeline configuration for path {config_name}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
