@@ -200,9 +200,9 @@ class DBRequests(object):
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/octet-stream"
         })
-        sanitized_destination_path = destination_path.replace("dbfs:", "")
-        without_trailing_slash = self.host if self.host[-1] == "/" else self.host + "/"
-        uri = f"{without_trailing_slash}/api/2.0/fs/files{sanitized_destination_path}"
+        destination_path = destination_path.replace("dbfs:", "")
+        host = self.host if self.host[-1] == "/" else self.host + "/"
+        uri = f"{host}/api/2.0/fs/files{destination_path}"
         response = requests.put(uri, data=file_content, headers=self.headers)
         if response.status_code == 200 or response.status_code == 204:
             return None
