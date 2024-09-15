@@ -159,9 +159,10 @@ class DatabricksInfo(BaseModel):
         if token_match:
             self.token = os.environ[token_match.group(1)]
 
-        volume_match = re.match(pattern, self.volume)
-        if volume_match:
-            self.volume = os.environ[volume_match.group(1)]
+        if self.volume is not None:
+            volume_match = re.match(pattern, self.volume)
+            if volume_match:
+                self.volume = os.environ[volume_match.group(1)]
 
 
 class FabricInfo(BaseModel):
@@ -442,11 +443,11 @@ class SystemConfig(BaseModel):
     prophecy_salt: Optional[str] = "execution"
     nexus: Optional[NexusConfig] = None
 
-    def get_dbfs_base_path(self, volume_opt: Optional[str]):
-        if volume_opt is None:
+    def get_dbfs_base_path(self, volume: Optional[str]):
+        if volume is None:
             return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
         else:
-            return f"{volume_opt}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
+            return f"{volume}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     def get_s3_base_path(self):
         return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
