@@ -524,7 +524,6 @@ class ProjectConfig:
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
 
-
     def get_db_base_path(self, fabric_id: Optional[str]):
         if fabric_id is None:
             return self.system_config.get_dbfs_base_path(None)
@@ -533,7 +532,7 @@ class ProjectConfig:
             return self.system_config.get_dbfs_base_path(volume_opt)
         return None
 
-    ## fabric and DB connections are loosely linked and generally a multiple fabrics can point to a single DB workspace.
+    # fabric and DB connections are loosely linked and generally a multiple fabrics can point to a single DB workspace.
     # so this information cannot be at DB layer it has to be at fabric layer.
     def is_volume_supported(self, fabric_id):
         if self.fabric_config.is_databricks_fabric(fabric_id):

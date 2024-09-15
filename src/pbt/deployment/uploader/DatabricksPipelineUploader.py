@@ -50,7 +50,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
                 indent=2,
             )
             if self.volume_based_path is not None:
-                ## why this is important ?
+                # why this is important ?
                 # use of volume is hinged on providing volume prefix and
                 # on databricks runtime version
                 # we need to upload to both these places.

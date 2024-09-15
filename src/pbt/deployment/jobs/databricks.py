@@ -684,8 +684,7 @@ class DBTComponents:
                     if dbt_component.get("path", None) is not None and dbt_component.get("content", None) is not None:
                         futures.append(
                             executor.submit(
-                                lambda comp=dbt_component,
-                                       fabric_id=dbt_component_model.fabric_id: self._upload_dbt_content(
+                                lambda comp=dbt_component, fabric_id=dbt_component_model.fabric_id: self._upload_dbt_content(
                                     comp, fabric_id
                                 )
                             )
@@ -907,8 +906,7 @@ class PipelineConfigurations:
                     executor.submit(
                         lambda f_id=str(
                             _fabric_id
-                        ), p_id=pipeline_id, conf_name=config_name,
-                               conf_content=config_content: self._upload_configuration(
+                        ), p_id=pipeline_id, conf_name=config_name, conf_content=config_content: self._upload_configuration(
                             f_id, p_id, conf_name, conf_content
                         )
                     )
@@ -931,10 +929,10 @@ class PipelineConfigurations:
             return pipeline_path
 
         try:
-            ## we are creating path and then uploading the content
-            ## we need to upload for the scenerios
-            ## in case volumes is set or not.
-            ## after some versions most likely databricks will deprecate the dbfs one.
+            # we are creating path and then uploading the content
+            # we need to upload for the scenerios
+            # in case volumes is set or not.
+            # after some versions most likely databricks will deprecate the dbfs one.
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             base_p = base_path(None)  # old dbfs path first.
             configuration_path = f"{base_p}/{config_name}.json"
