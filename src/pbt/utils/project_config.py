@@ -534,10 +534,13 @@ class ProjectConfig:
 
     # fabric and DB connections are loosely linked and generally a multiple fabrics can point to a single DB workspace.
     # so this information cannot be at DB layer it has to be at fabric layer.
+    # not supporting any other string other than dbfs:/Volumes and /Volumes
     def is_volume_supported(self, fabric_id):
         if self.fabric_config.is_databricks_fabric(fabric_id):
             volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume
-            return volume_opt is not None
+            # should not be none, empty string {just explicit comparison } and any other volume other than supported volumes.
+            return volume_opt is not None and not volume_opt and not (
+                    volume_opt.startswith("dbfs:/Volumes") or volume_opt.startswith("/Volumes"))
         return False
 
     @staticmethod
