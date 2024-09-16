@@ -26,6 +26,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
             new_content = pattern.sub(replacement_string, content, count=1)
             with open(file, 'w') as fd:
                 fd.write(new_content)
+                log(f"[UPDATE]{replacement_string} updated in {file}")
 
     # PBT project
     pbt_project_file = os.path.join(project_path, "pbt_project.yml")
