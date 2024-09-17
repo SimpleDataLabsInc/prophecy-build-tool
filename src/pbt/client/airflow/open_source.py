@@ -64,8 +64,8 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
         except Exception as e:
             raise DagFileDeletionFailedException(f"Failed to delete DAG file {current_dag_location}", e)
 
-    def pause_dag(self, dag_id: str) -> DAG:
-        return self._set_pause_state(dag_id, True)
+    def pause_dag(self, dag_id: str):
+        self._set_pause_state(dag_id, True)
 
     def upload_dag(self, dag_id: str, file_path: str):
         try:
@@ -76,8 +76,8 @@ class OpenSourceRestClient(AirflowRestClient, ABC):
             if Path(file_path).exists():
                 os.remove(file_path)
 
-    def unpause_dag(self, dag_id: str) -> DAG:
-        return self._set_pause_state(dag_id, False)
+    def unpause_dag(self, dag_id: str):
+        self._set_pause_state(dag_id, False)
 
     def get_dag(self, dag_id: str) -> DAG:
         response = requests.get(f"{self.airflow_url}/api/v1/dags/{dag_id}", headers=_json_headers)

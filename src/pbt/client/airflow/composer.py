@@ -73,8 +73,8 @@ class ComposerRestClient(AirflowRestClient, ABC):
         except Exception as e:
             raise DagFileDeletionFailedException(f"Failed to delete DAG file: {blob.name} ", e)
 
-    def pause_dag(self, dag_id: str) -> DAG:
-        return self._set_pause_state(dag_id, True)
+    def pause_dag(self, dag_id: str):
+        self._set_pause_state(dag_id, True)
 
     def upload_dag(self, dag_id: str, file_path: str):
         gcs_path_info = GCSPathInfo.get_gcs_path_info(self.dag_location)
@@ -91,8 +91,8 @@ class ComposerRestClient(AirflowRestClient, ABC):
             if Path(file_path).exists():
                 os.remove(file_path)
 
-    def unpause_dag(self, dag_id: str) -> DAG:
-        return self._set_pause_state(dag_id, False)
+    def unpause_dag(self, dag_id: str):
+        self._set_pause_state(dag_id, False)
 
     # todo maybe we can add labmda function to print in right format
     def create_secret(self, key: str, value: str) -> bool:

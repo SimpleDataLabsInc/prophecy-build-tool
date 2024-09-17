@@ -247,8 +247,8 @@ class DAG:
     @staticmethod
     def create_from_mwaa(response: dict):
         dag_id = response.get("dag_id")
-        fileloc = response.get("filepath", None)
-        is_paused = response.get("paused", None)
-        owner = response.get("owner", None)
+        fileloc = response.get("filepath", None) or response.get("fileloc", None)
+        is_paused = response.get("paused", None) or response.get("is_paused", None)
+        owner = response.get("owner", None) or response.get("owners", None)
         owners = [] if owner is None else ([owner] if isinstance(owner, str) else owner)
         return DAG(dag_id, fileloc=fileloc, is_paused=is_paused is None or bool(is_paused), owners=owners)
