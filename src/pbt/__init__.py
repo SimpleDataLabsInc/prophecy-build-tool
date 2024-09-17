@@ -209,6 +209,8 @@ def deploy(
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
+@click.option("--artifactory", default=None, is_flag=False,
+              help="Use Pypi/Maven packages instead of DBFS files for deployment", required=False)
 def deploy_v2(
     path: str,
     project_id: str,
@@ -220,6 +222,7 @@ def deploy_v2(
     skip_builds: bool,
     dependent_projects_path: str,
     migrate: bool,
+    artifactory: str
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -232,6 +235,7 @@ def deploy_v2(
         skip_builds,
         dependent_projects_path,
         migrate,
+        artifactory
     )
     if is_online_mode():
         pbt.headers()

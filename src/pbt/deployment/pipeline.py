@@ -6,6 +6,7 @@ import sys
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from optparse import OptionError
 from typing import Dict, List, Optional
 import xml.etree.ElementTree as ET
 
@@ -24,13 +25,13 @@ from ..utils.project_models import Colors, Operation, Status, StepMetadata, Step
 
 class PipelineDeployment:
     def __init__(
-        self,
-        project: Project,
-        databricks_jobs: DatabricksJobsDeployment,
-        airflow_jobs: AirflowJobDeployment,
-        project_config: ProjectConfig,
-        job_ids: Optional[List[str]] = None,
-        pipelines_to_build: Optional[List[str]] = None,
+            self,
+            project: Project,
+            databricks_jobs: DatabricksJobsDeployment,
+            airflow_jobs: AirflowJobDeployment,
+            project_config: ProjectConfig,
+            job_ids: Optional[List[str]] = None,
+            pipelines_to_build: Optional[List[str]] = None,
     ):
         self.job_ids = job_ids
         self.pipelines_to_build = pipelines_to_build
@@ -112,14 +113,13 @@ class PipelineDeployment:
         else:
             return self._build_and_upload_offline(pipelines_from_job)
 
-    def build_and_upload_pipeline(self, pipeline_id, pipeline_name):
+    def build_and_upload_pipeline(self, pipeline_id, pipeline_name) -> Either:
         log(step_id=pipeline_id, step_status=Status.RUNNING)
 
         all_available_fabrics = set(self.project_config.fabric_config.list_all_fabrics())
         relevant_fabrics_for_pipeline = [
             fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if fabric in all_available_fabrics
         ]
-
         pipeline_builder = PackageBuilderAndUploader(
             self.project,
             pipeline_id,
@@ -425,13 +425,13 @@ class PipelineDeployment:
 # if it's not present in nexus, then build the jar upload to nexus and return it back.
 class PackageBuilderAndUploader:
     def __init__(
-        self,
-        project: Project,
-        pipeline_id: str,
-        pipeline_name: str,
-        project_config: ProjectConfig = None,
-        are_tests_enabled: bool = False,
-        fabrics: List = [],
+            self,
+            project: Project,
+            pipeline_id: str,
+            pipeline_name: str,
+            project_config: ProjectConfig = None,
+            are_tests_enabled: bool = False,
+            fabrics: List = [],
     ):
         self._pipeline_id = pipeline_id
         self._pipeline_name = pipeline_name
@@ -470,6 +470,7 @@ class PackageBuilderAndUploader:
 
     def build_and_upload_pipeline(self) -> Either:
         pipeline_from_nexus = self._download_pipeline_from_nexus()
+
         if pipeline_from_nexus is not None and pipeline_from_nexus.is_right:
             return Either(right=(self._pipeline_id, pipeline_from_nexus.right))
 
@@ -477,6 +478,7 @@ class PackageBuilderAndUploader:
             log("Artifact File already exist, ignoring pipeline build", step_id=self._pipeline_id, indent=2)
             return Either(right=True)
 
+        # trying to build and deploy
         try:
             self._initialize_temp_folder()
 
@@ -498,9 +500,12 @@ class PackageBuilderAndUploader:
                 log("Trying to upload pipeline package to nexus.", self._pipeline_id)
                 self._uploading_to_nexus(path)
 
-            log(f"Uploading pipeline {self._pipeline_id} from path {path}", indent=2)
-
-            return self._upload_pipeline(path)
+            if self._project_config.artifactory is not None:
+                log(f"Trying to upload pipeline wheel {path} package to artifactory:\n {self._project_config.artifactory}.", self._pipeline_id)
+                return self._uploading_to_artifactory(artifact_path=path)
+            else: # upload to DBFS file path
+                log(f"Uploading pipeline {self._pipeline_id} from path {path} to DBFS", indent=2)
+                return self._upload_pipeline(path)
 
         except Exception as e:
             log(
@@ -520,12 +525,47 @@ class PackageBuilderAndUploader:
             log(
                 "Project has nexus configured, trying to download the pipeline package.",
                 step_id=self._pipeline_id,
-                indent=2,
+                indent=2
             )
             return self._download_from_nexus()
         else:
             # log("Project does not have nexus configured, building the pipeline package.", step_id=self._pipeline_id, indent=2)
             return None
+
+    def _uploading_to_artifactory(self, artifact_path) -> Either:
+        # Upload the wheel file to the internal Artifactory using Twine.
+        username = os.getenv('ARTIFACTORY_USERNAME')
+        password = os.getenv('ARTIFACTORY_PASSWORD')
+
+        if not username or not password:
+            raise EnvironmentError("Artifactory credentials not found in environment variables "
+                                   "ARTIFACTORY_USERNAME and ARTIFACTORY_PASSWORD")
+
+        artifactory_url = self._project_config.artifactory
+        if artifact_path.endswith(".whl"):
+            wheel_file = artifact_path
+            upload_command = [
+                "twine",
+                "upload",
+                "--repository-url",
+                artifactory_url,
+                "-u",
+                username,
+                "-p",
+                password,
+                wheel_file
+            ]
+            log(f"Uploading wheel file {wheel_file} to Artifactory at {artifactory_url}")
+            response_code = subprocess.run(upload_command)
+            if response_code.returncode != 0:
+                log(f"Twine upload failed for {wheel_file}")
+                raise Exception(f"Twine upload failed for {wheel_file}")
+            log("Wheel file uploaded to Artifactory.")
+            return Either(right=True)
+        elif artifact_path.endswith(".jar"):
+            return NotImplementedError("Maven repository support is not added yet")
+        else:
+            return Exception(f"Invalid file {artifact_path}, supported file types [.jar, .whl]")
 
     def _uploading_to_nexus(self, upload_path):
         try:
@@ -670,6 +710,5 @@ class PackageBuilderAndUploader:
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")
 
         return return_code
-
 
 # Create for Synapse / Azure
