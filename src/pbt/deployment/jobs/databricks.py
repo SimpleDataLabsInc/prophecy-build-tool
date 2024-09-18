@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from requests import HTTPError
 
+from .utils import modify_databricks_json_for_private_artifactory
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
@@ -176,11 +177,11 @@ class DatabricksJobsDeployment:
             log(f"{Colors.OKBLUE}\nDeploying databricks jobs{Colors.ENDC}\n\n")
 
         responses = (
-            self._deploy_add_jobs()
-            + self._deploy_refresh_jobs()
-            + self._deploy_delete_jobs()
-            + self._deploy_pause_jobs()
-            + self._deploy_skipping_jobs()
+                self._deploy_add_jobs()
+                + self._deploy_refresh_jobs()
+                + self._deploy_delete_jobs()
+                + self._deploy_pause_jobs()
+                + self._deploy_skipping_jobs()
         )
 
         return responses
@@ -217,8 +218,8 @@ class DatabricksJobsDeployment:
             job_fabric = str(job_fabric) if job_fabric is not None else None
 
             does_fabric_exist = (
-                self.fabric_configs.get_fabric(job_fabric) is not None
-                or self.fabric_configs.get_fabric(fabric_override) is not None
+                    self.fabric_configs.get_fabric(job_fabric) is not None
+                    or self.fabric_configs.get_fabric(fabric_override) is not None
             )
 
             databricks_job = self.project.load_databricks_job(job_id)
@@ -287,9 +288,21 @@ class DatabricksJobsDeployment:
             if not any(job.id == job_id for job_id in all_jobs.keys())
         }
 
+    def _update_databricks_json_for_artifactory(self, job_data):
+        if self.project_config.artifactory is not None:
+            log(f"{Colors.OKBLUE} Artifactory URL {self.project_config.artifactory} is passed, "
+                f"updating databricks-jobs.json with package")
+            job_data.databricks_job_json = (
+                modify_databricks_json_for_private_artifactory(job_data.databricks_job_json, self.project_config.artifactory)
+            )
+            return job_data
+        else:
+            return job_data
+
     """Deploy Jobs """
 
     def _deploy_add_job(self, job_id, job_data, step_id):
+        job_data = self._update_databricks_json_for_artifactory(job_data)
         fabric_id = job_data.fabric_id
         fabric_config = self.project_config.fabric_config.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
@@ -548,8 +561,8 @@ class DBTComponents:
                     )
 
                 if (
-                    components.get("profilePath", None) is not None
-                    and components.get("profileContent", None) is not None
+                        components.get("profilePath", None) is not None
+                        and components.get("profileContent", None) is not None
                 ):
                     summary.append(f"Uploading dbt profiles for job {job_id} component {components.get('nodeName')} ")
 
@@ -592,8 +605,8 @@ class DBTComponents:
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for components in dbt_component_model.components:
                     if (
-                        components.get("profilePath", None) is not None
-                        and components.get("profileContent", None) is not None
+                            components.get("profilePath", None) is not None
+                            and components.get("profileContent", None) is not None
                     ):
                         futures.append(
                             executor.submit(
@@ -631,8 +644,8 @@ class DBTComponents:
             for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
                 for dbt_component in dbt_component_model.components:
                     if (
-                        dbt_component.get("sqlFabricId", None) is not None
-                        and dbt_component.get("secretKey", None) is not None
+                            dbt_component.get("sqlFabricId", None) is not None
+                            and dbt_component.get("secretKey", None) is not None
                     ):
                         futures.append(
                             executor.submit(
@@ -684,7 +697,8 @@ class DBTComponents:
                     if dbt_component.get("path", None) is not None and dbt_component.get("content", None) is not None:
                         futures.append(
                             executor.submit(
-                                lambda comp=dbt_component, fabric_id=dbt_component_model.fabric_id: self._upload_dbt_content(
+                                lambda comp=dbt_component,
+                                       fabric_id=dbt_component_model.fabric_id: self._upload_dbt_content(
                                     comp, fabric_id
                                 )
                             )
@@ -737,8 +751,8 @@ class DBTComponents:
         for job_id, dbt_component_model in self.dbt_component_from_jobs.items():
             for components in dbt_component_model.components:
                 if (
-                    components.get("profilePath", None) is not None
-                    and components.get("profileContent", None) is not None
+                        components.get("profilePath", None) is not None
+                        and components.get("profileContent", None) is not None
                 ):
                     total_dbt_profiles = total_dbt_profiles + 1
 

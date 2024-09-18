@@ -146,123 +146,123 @@ def test_artifactory_databricks_json_update():
         }
     ],
     "request": {
-        "format": "MULTI_TASK",
-        "name": "WheelTestJob",
-        "job_clusters": [
-            {
-                "job_cluster_key": "WheelTestJob_default_small",
-                "new_cluster": {
-                    "spark_version": "12.2.x-scala2.12",
-                    "node_type_id": "i3.xlarge",
-                    "num_workers": 0,
-                    "custom_tags": {
-                        "ResourceClass": "SingleNode"
-                    },
-                    "enable_elastic_disk": false,
-                    "spark_conf": {
-                        "spark.master": "local[*, 4]",
-                        "spark.databricks.cluster.profile": "singleNode",
-                        "spark.prophecy.metadata.fabric.id": "1",
-                        "spark.prophecy.metadata.job.uri": "__PROJECT_ID_PLACEHOLDER__/jobs/WheelTestJob",
-                        "spark.prophecy.metadata.is.interactive.run": "false",
-                        "spark.prophecy.project.id": "__PROJECT_ID_PLACEHOLDER__",
-                        "spark.prophecy.metadata.user.id": "3",
-                        "spark.prophecy.tasks": "H4sIAAAAAAAAAKtWSi4tLsnPTS2Kzy9KSS0qVrJSKsgsSM3JzEst1ofJFcMkdZSy8jPz4hPT01HUwQTji/OLSpRqAQklsuVVAAAA",
-                        "spark.prophecy.metadata.job.branch": "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
-                        "spark.prophecy.metadata.url": "__PROPHECY_URL_PLACEHOLDER__",
-                        "spark.prophecy.execution.metrics.disabled": "true",
-                        "spark.prophecy.execution.service.url": "wss://ashishk3s.dev.cloud.prophecy.io/execution/eventws",
-                        "spark.databricks.isv.product": "prophecy"
-                    },
-                    "spark_env_vars": {
-                        "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-                    },
-                    "runtime_engine": "STANDARD",
-                    "aws_attributes": {
-                        "first_on_demand": 1,
-                        "availability": "SPOT_WITH_FALLBACK",
-                        "zone_id": "auto",
-                        "spot_bid_price_percent": 100
-                    },
-                    "data_security_mode": "NONE"
-                }
-            }
-        ],
-        "email_notifications": {},
-        "tasks": [
-            {
-                "task_key": "customer_orders",
-                "job_cluster_key": "WheelTestJob_default_small",
-                "python_wheel_task": {
-                    "package_name": "customers_orders",
-                    "entry_point": "main",
-                    "parameters": [
-                        "-i",
-                        "default",
-                        "-O",
-                        "{}"
-                    ]
+    "format": "MULTI_TASK",
+    "name": "WheelTestJob",
+    "job_clusters": [
+        {
+            "job_cluster_key": "WheelTestJob_default_small",
+            "new_cluster": {
+                "spark_version": "12.2.x-scala2.12",
+                "node_type_id": "i3.xlarge",
+                "num_workers": 0,
+                "custom_tags": {
+                    "ResourceClass": "SingleNode"
                 },
-                "libraries": [
-                    {
-                        "maven": {
-                            "coordinates": "io.prophecy:prophecy-libs_2.12:3.3.0-8.3.0-SNAPSHOT",
-                            "repo": "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-                        }
-                    },
-                    {
-                        "pypi": {
-                            "package": "prophecy-libs==1.9.16"
-                        }
-                    },
-                    {
-                        "pypi": {
-                            "package": "customers_orders==1.0"
-                        }
-                    }
-                ],
-                "email_notifications": {}
+                "enable_elastic_disk": false,
+                "spark_conf": {
+                    "spark.master": "local[*, 4]",
+                    "spark.databricks.cluster.profile": "singleNode",
+                    "spark.prophecy.metadata.fabric.id": "1",
+                    "spark.prophecy.metadata.job.uri": "__PROJECT_ID_PLACEHOLDER__/jobs/WheelTestJob",
+                    "spark.prophecy.metadata.is.interactive.run": "false",
+                    "spark.prophecy.project.id": "__PROJECT_ID_PLACEHOLDER__",
+                    "spark.prophecy.metadata.user.id": "3",
+                    "spark.prophecy.tasks": "H4sIAAAAAAAAAKtWSi4tLsnPTS2Kzy9KSS0qVrJSKsgsSM3JzEst1ofJFcMkdZSy8jPz4hPT01HUwQTji/OLSpRqAQklsuVVAAAA",
+                    "spark.prophecy.metadata.job.branch": "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
+                    "spark.prophecy.metadata.url": "__PROPHECY_URL_PLACEHOLDER__",
+                    "spark.prophecy.execution.metrics.disabled": "true",
+                    "spark.prophecy.execution.service.url": "wss://ashishk3s.dev.cloud.prophecy.io/execution/eventws",
+                    "spark.databricks.isv.product": "prophecy"
+                },
+                "spark_env_vars": {
+                    "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+                },
+                "runtime_engine": "STANDARD",
+                "aws_attributes": {
+                    "first_on_demand": 1,
+                    "availability": "SPOT_WITH_FALLBACK",
+                    "zone_id": "auto",
+                    "spot_bid_price_percent": 100
+                },
+                "data_security_mode": "NONE"
+            }
+        }
+    ],
+    "email_notifications": {},
+    "tasks": [
+        {
+            "task_key": "customer_orders",
+            "job_cluster_key": "WheelTestJob_default_small",
+            "python_wheel_task": {
+                "package_name": "customers_orders",
+                "entry_point": "main",
+                "parameters": [
+                    "-i",
+                    "default",
+                    "-O",
+                    "{}"
+                ]
             },
-            {
-                "task_key": "join_agg",
-                "depends_on": [
-                    {
-                        "task_key": "customer_orders"
+            "libraries": [
+                {
+                    "maven": {
+                        "coordinates": "io.prophecy:prophecy-libs_2.12:3.3.0-8.3.0-SNAPSHOT",
+                        "repo": "https://s01.oss.sonatype.org/content/repositories/snapshots/"
                     }
-                ],
-                "job_cluster_key": "WheelTestJob_default_small",
-                "python_wheel_task": {
-                    "package_name": "join_agg_sort",
-                    "entry_point": "main",
-                    "parameters": [
-                        "-i",
-                        "default",
-                        "-O",
-                        "{}"
-                    ]
                 },
-                "libraries": [
-                    {
-                        "maven": {
-                            "coordinates": "io.prophecy:prophecy-libs_2.12:3.3.0-8.3.0-SNAPSHOT",
-                            "repo": "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-                        }
-                    },
-                    {
-                        "pypi": {
-                            "package": "prophecy-libs==1.9.16"
-                        }
-                    },
-                    {
-                        "pypi": {
-                            "package": "join_agg_sort==1.0"
-                        }
+                {
+                    "pypi": {
+                        "package": "prophecy-libs==1.9.16"
                     }
-                ],
-                "email_notifications": {}
-            }
-        ],
-        "max_concurrent_runs": 1
+                },
+                {
+                    "pypi": {
+                        "package": "customers_orders==1.0"
+                    }
+                }
+            ],
+            "email_notifications": {}
+        },
+        {
+            "task_key": "join_agg",
+            "depends_on": [
+                {
+                    "task_key": "customer_orders"
+                }
+            ],
+            "job_cluster_key": "WheelTestJob_default_small",
+            "python_wheel_task": {
+                "package_name": "join_agg_sort",
+                "entry_point": "main",
+                "parameters": [
+                    "-i",
+                    "default",
+                    "-O",
+                    "{}"
+                ]
+            },
+            "libraries": [
+                {
+                    "maven": {
+                        "coordinates": "io.prophecy:prophecy-libs_2.12:3.3.0-8.3.0-SNAPSHOT",
+                        "repo": "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+                    }
+                },
+                {
+                    "pypi": {
+                        "package": "prophecy-libs==1.9.16"
+                    }
+                },
+                {
+                    "pypi": {
+                        "package": "join_agg_sort==1.0"
+                    }
+                }
+            ],
+            "email_notifications": {}
+        }
+    ],
+    "max_concurrent_runs": 1
     },
     "cluster_mode": {
         "clusterMode": "Single"
@@ -441,6 +441,7 @@ def test_artifactory_databricks_json_update_with_custom_artifactory():
     # Step 1: Parse the JSON string into a Python dictionary
     data_dict = json.loads(input_db_json)
     # Step 2: Modify the 'whl' entries in the 'request' section
-    modified_data = modify_databricks_json_for_private_artifactory(data_dict, artifactory="https://prophecyio.jfrog.io/artifactory/api/pypi/pypi-local")
+    modified_data = modify_databricks_json_for_private_artifactory(data_dict,
+                                                                   artifactory="https://prophecyio.jfrog.io/artifactory/api/pypi/pypi-local")
     modified_json = json.dumps(modified_data, indent=4)
     assert json.loads(modified_json) == json.loads(expected_data)
