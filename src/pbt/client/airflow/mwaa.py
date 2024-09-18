@@ -109,7 +109,14 @@ class MWAARestClient(AirflowRestClient, ABC):
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
         dag_list = self._extract_and_load_list_json(response)
-        dag = next((dag for dag in dag_list if dag["dag_id"] == dag_id and ((dag["is_paused"] is not None) or (dag["paused"] is not None))), None)
+        dag = next(
+            (
+                dag
+                for dag in dag_list
+                if dag["dag_id"] == dag_id and ((dag["is_paused"] is not None) or (dag["paused"] is not None))
+            ),
+            None,
+        )
 
         if dag is not None:
             return DAG.create_from_mwaa(dag)

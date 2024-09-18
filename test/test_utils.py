@@ -441,7 +441,8 @@ def test_artifactory_databricks_json_update_with_custom_artifactory():
     # Step 1: Parse the JSON string into a Python dictionary
     data_dict = json.loads(input_db_json)
     # Step 2: Modify the 'whl' entries in the 'request' section
-    modified_data = modify_databricks_json_for_private_artifactory(data_dict,
-                                                                   artifactory="https://prophecyio.jfrog.io/artifactory/api/pypi/pypi-local")
+    modified_data = modify_databricks_json_for_private_artifactory(
+        data_dict, artifactory="https://prophecyio.jfrog.io/artifactory/api/pypi/pypi-local"
+    )
     modified_json = json.dumps(modified_data, indent=4)
     assert json.loads(modified_json) == json.loads(expected_data)

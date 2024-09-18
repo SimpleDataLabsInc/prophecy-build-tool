@@ -7,7 +7,6 @@ pytest
 wheel==0.41.0
 pytest-html
 pytest-click
-flake8
 black==23.3.0
 pycodestyle==2.10.0
 google-cloud-storage==2.10.0

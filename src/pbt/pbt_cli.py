@@ -35,11 +35,13 @@ class PBTCli(object):
         skip_builds: bool = False,
         dependant_project_paths: str = "",
         migrate: bool = False,
-        artifactory: str = ""
+        artifactory: str = "",
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
-        project_config = ProjectConfig.from_conf_folder(project, conf_folder, fabric_ids, job_ids, skip_builds, migrate, artifactory)
+        project_config = ProjectConfig.from_conf_folder(
+            project, conf_folder, fabric_ids, job_ids, skip_builds, migrate, artifactory
+        )
         return cls(project, project_config)
 
     def build(self, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
@@ -50,8 +52,12 @@ class PBTCli(object):
             if os.path.isdir(driver_library_path):
                 driver_library_path = os.path.abspath(driver_library_path)
                 jar_files = ",".join(
-                    [os.path.join(driver_library_path, file) for file in os.listdir(driver_library_path) if
-                     file.endswith('.jar')])
+                    [
+                        os.path.join(driver_library_path, file)
+                        for file in os.listdir(driver_library_path)
+                        if file.endswith(".jar")
+                    ]
+                )
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
             elif os.path.isfile(driver_library_path):
                 driver_library_path = os.path.abspath(driver_library_path)
@@ -60,7 +66,7 @@ class PBTCli(object):
                 for f in driver_library_path.split(","):
                     if not os.path.isfile(f):
                         raise ValueError(f"{f} is not a file")
-                jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(',')])
+                jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(",")])
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
 
         if "SPARK_JARS_CONFIG" in os.environ:
@@ -74,33 +80,42 @@ class PBTCli(object):
         self.project.validate(treat_warnings_as_errors)
 
     def version_bump(self, bump_type, force):
-        new_version = get_bumped_version(self.project.project.pbt_project_dict['version'], bump_type,
-                                         self.project.project.pbt_project_dict['language'])
+        new_version = get_bumped_version(
+            self.project.project.pbt_project_dict["version"],
+            bump_type,
+            self.project.project.pbt_project_dict["language"],
+        )
 
-        update_all_versions(self.project.project.project_path,
-                            self.project.project.pbt_project_dict['language'],
-                            orig_project_version=self.project.project.pbt_project_dict['version'],
-                            new_version=new_version, force=force)
+        update_all_versions(
+            self.project.project.project_path,
+            self.project.project.pbt_project_dict["language"],
+            orig_project_version=self.project.project.pbt_project_dict["version"],
+            new_version=new_version,
+            force=force,
+        )
 
     def version_set(self, version, force):
         if version is None:
             # sync option will send None, so take existing version.
-            version = self.project.project.pbt_project_dict['version']
+            version = self.project.project.pbt_project_dict["version"]
             force = True
-        update_all_versions(self.project.project.project_path,
-                            self.project.project.pbt_project_dict['language'],
-                            orig_project_version=self.project.project.pbt_project_dict['version'],
-                            new_version=version, force=force)
+        update_all_versions(
+            self.project.project.project_path,
+            self.project.project.pbt_project_dict["language"],
+            orig_project_version=self.project.project.pbt_project_dict["version"],
+            new_version=version,
+            force=force,
+        )
 
     def version_set_prerelease(self, prerelease_string, force):
-        self.version_set(self.project.project.pbt_project_dict['version'] + prerelease_string, force)
+        self.version_set(self.project.project.pbt_project_dict["version"] + prerelease_string, force)
 
     def tag(self, repo_path, no_push=False, branch=None, custom=None):
         repo = git.Repo(repo_path)
         if custom:
             tag = custom
         else:
-            tag = self.project.project.pbt_project_dict['version']
+            tag = self.project.project.pbt_project_dict["version"]
             if branch is None:
                 tag = repo.active_branch.name + "/" + tag
             elif branch != "":
@@ -109,6 +124,6 @@ class PBTCli(object):
         repo.create_tag(tag)
         if not no_push:
             # Pushing the tag to the remote repository
-            origin = repo.remote(name='origin')
+            origin = repo.remote(name="origin")
             origin.push(tag)
             log("Pushing tag to remote")
