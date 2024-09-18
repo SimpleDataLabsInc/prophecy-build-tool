@@ -380,7 +380,6 @@ def test_artifactory_databricks_json_update_with_custom_artifactory():
                         "pypi": {
                             "package": "customers_orders==1.0",
                             "repo": "https://prophecyio.jfrog.io/artifactory/api/pypi/pypi-local"
-                            
                         }
                     }
                 ],
