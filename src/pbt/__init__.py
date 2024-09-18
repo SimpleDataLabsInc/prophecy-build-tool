@@ -31,7 +31,7 @@ def cli():
 @click.option(
     "--ignore-build-errors",
     help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
-    "errors.",
+         "errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -39,7 +39,7 @@ def cli():
 @click.option(
     "--ignore-parse-errors",
     help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
-    "any errors.",
+         "any errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -63,7 +63,7 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
 @click.option(
     "--ignore-build-errors",
     help="Flag to ignore any build errors in pipelines and return success (EXIT_CODE = 0), please refer logs for any "
-    "errors.",
+         "errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -71,7 +71,7 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
 @click.option(
     "--ignore-parse-errors",
     help="Flag to ignore any parsing errors in pipelines and return success (EXIT_CODE = 0), please refer logs for "
-    "any errors.",
+         "any errors.",
     default=False,
     is_flag=True,
     required=False,
@@ -153,14 +153,14 @@ def validate_v2(path, treat_warnings_as_errors):
 )
 @click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
 def deploy(
-    path,
-    dependent_projects_path,
-    release_version,
-    project_id,
-    prophecy_url,
-    fabric_ids,
-    job_ids,
-    skip_builds,
+        path,
+        dependent_projects_path,
+        release_version,
+        project_id,
+        prophecy_url,
+        fabric_ids,
+        job_ids,
+        skip_builds,
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
     pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
@@ -212,17 +212,17 @@ def deploy(
 @click.option("--artifactory", default=None, is_flag=False,
               help="Use Pypi/Maven packages instead of DBFS files for deployment", required=False)
 def deploy_v2(
-    path: str,
-    project_id: str,
-    conf_dir: Optional[str],
-    release_tag: Optional[str],
-    release_version: str,
-    fabric_ids: str,
-    job_ids: str,
-    skip_builds: bool,
-    dependent_projects_path: str,
-    migrate: bool,
-    artifactory: str
+        path: str,
+        project_id: str,
+        conf_dir: Optional[str],
+        release_tag: Optional[str],
+        release_version: str,
+        fabric_ids: str,
+        job_ids: str,
+        skip_builds: bool,
+        dependent_projects_path: str,
+        migrate: bool,
+        artifactory: str
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -374,9 +374,13 @@ def tag(path, repo_path, no_push, branch, custom):
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
 
 
-if __name__ == "pbt":
+def main():
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"
         f"v{pkg_resources.require('prophecy-build-tool')[0].version}[/bold black]\n"
     )
     cli()
+
+
+if __name__ == "__main__":
+    main()
