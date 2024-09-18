@@ -290,7 +290,7 @@ class DatabricksJobsDeployment:
 
     def _update_databricks_json_for_artifactory(self, job_data):
         if self.project_config.artifactory is not None:
-            log(f"{Colors.OKBLUE} Artifactory URL {self.project_config.artifactory} is passed, "
+            log(f"Artifactory URL {self.project_config.artifactory} is passed, "
                 f"updating databricks-jobs.json with package")
             job_data.databricks_job_json = (
                 modify_databricks_json_for_private_artifactory(job_data.databricks_job_json, self.project_config.artifactory)

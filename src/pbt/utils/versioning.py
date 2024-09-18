@@ -14,7 +14,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
             log(f"new version {new_version} is not later than {orig_version}")
             raise ValueError(f"new version {new_version} is not later than {orig_version}")
 
-    def _replace_in_files(matching_regex: str, replacement_string: str, files: list):
+    def _replace_in_files(matching_regex: str, replacement_string: str, files: list, count=1):
         # NOTE: use this pattern matching rather than opening/rewriting files as yaml parsing may shuffle
         #  line order and cause unnecessary changes.
         for file in files:
@@ -23,10 +23,27 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
                 content = fd.read()
             # only replace the first instance of the version encountered. otherwise we risk
             # replacing other versions (especially found in pom.xml)
-            new_content = pattern.sub(replacement_string, content, count=1)
+            new_content = pattern.sub(replacement_string, content, count=count)
             with open(file, 'w') as fd:
                 fd.write(new_content)
                 log(f"[UPDATE]{replacement_string} updated in {file}")
+
+    def _update_whl_version_in_databricks_json(file_paths, new_version):
+        """
+        Update the version in all .whl paths in the given JSON files.
+
+        Args:
+            file_paths (list): List of JSON file paths to update.
+            new_version (str): The new version to set in the .whl paths.
+        """
+        # Regex pattern to find the .whl paths with version
+        whl_version_pattern = r"-(\d+\.\d+)-py3-none-any\.whl"
+
+        # Replacement pattern with the new version
+        replacement_string = f"-{new_version}-py3-none-any.whl"
+
+        # Call the existing _replace_in_files method
+        _replace_in_files(whl_version_pattern, replacement_string, file_paths, count=0)  # replace all occurences
 
     # PBT project
     pbt_project_file = os.path.join(project_path, "pbt_project.yml")
@@ -51,6 +68,11 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
     files_to_fix = glob.glob(os.path.join(project_path, '**', filename_to_find),
                              recursive=True)
     _replace_in_files(matching_regex, replacement_string, files_to_fix)
+
+    # Update in databricks-jobs.json files
+    log(f"Updating versions in Databricks job (databricks-job.json) files")
+    files_to_fix = glob.glob(os.path.join(project_path, '**', "databricks-job.json"), recursive=True)
+    _update_whl_version_in_databricks_json(files_to_fix, new_version)
 
 
 def get_bumped_version(original_version, bump_type, project_language):

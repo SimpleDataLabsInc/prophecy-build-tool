@@ -42,7 +42,8 @@ def modify_databricks_json_for_private_artifactory(data, artifactory=None):
                         new_libraries.append({
                             "pypi": {
                                 "package": f"{package_name}=={package_version}",
-                                "repo": artifactory
+                                "repo": f"{artifactory.rstrip('/')}/simple"  # adding as pip uses simple api
+                                # for downloading packages
                             }
                         })
                     else:
