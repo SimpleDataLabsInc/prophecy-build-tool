@@ -35,10 +35,12 @@ class PBTCli(object):
         skip_builds: bool = False,
         dependant_project_paths: str = "",
         migrate: bool = False,
+        coverage_exclude_io: bool = False,
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
-        project_config = ProjectConfig.from_conf_folder(project, conf_folder, fabric_ids, job_ids, skip_builds, migrate)
+        project_config = ProjectConfig.from_conf_folder(project, conf_folder, fabric_ids, job_ids, skip_builds, migrate,
+                                                        coverage_exclude_io)
         return cls(project, project_config)
 
     def build(self, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):

@@ -249,8 +249,15 @@ def deploy_v2(
     help="Jar path of prophecy-python-libs and other required dependencies",
     required=False,
 )
-def test_v2(path, driver_library_path):
-    pbt = PBTCli.from_conf_folder(path)
+@click.option(
+    "--coverage-exclude-io",
+    help="exclude Sources, Targets, and Scripts from coverage reports",
+    required=False,
+    default=False,
+    is_flag=True,
+)
+def test_v2(path, driver_library_path, coverage_exclude_io):
+    pbt = PBTCli.from_conf_folder(path, coverage_exclude_io=coverage_exclude_io)
     pbt.test(driver_library_path)
 
 

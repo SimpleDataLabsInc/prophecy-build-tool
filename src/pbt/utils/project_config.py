@@ -503,6 +503,7 @@ class ProjectConfig:
         skip_builds: bool = False,
         migrate: bool = False,
         conf_folder: str = "",
+        coverage_exclude_io: bool = False,
     ):
         self.jobs_state = jobs_state
         self.system_config = system_config
@@ -513,6 +514,8 @@ class ProjectConfig:
         self.conf_folder = conf_folder
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
+        self.coverage_exclude_io = coverage_exclude_io,
+
 
     @staticmethod
     def from_path(
@@ -526,6 +529,7 @@ class ProjectConfig:
         skip_build: bool,
         conf_folder: str,
         migrate: bool,
+        coverage_exclude_io: bool,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -534,7 +538,8 @@ class ProjectConfig:
             fabrics = load_fabric_config(fabric_config_path)
             system = load_system_config(system_config_path)
             configs = load_configs_override(configs_override_path)
-            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
+            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build,
+                                 coverage_exclude_io=coverage_exclude_io)
 
         else:
             if not is_based_on_file:
@@ -598,12 +603,14 @@ class ProjectConfig:
                 based_on_file=is_based_on_file,
                 skip_builds=skip_build,
                 migrate=migrate,
+                coverage_exclude_io=coverage_exclude_io
             )
 
     # best used when invoking from execution.
     @classmethod
     def from_conf_folder(
-        cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
+        cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool,
+            coverage_exclude_io: bool,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -621,6 +628,7 @@ class ProjectConfig:
             skip_builds,
             conf_folder,
             migrate,
+            coverage_exclude_io,
         )
 
 

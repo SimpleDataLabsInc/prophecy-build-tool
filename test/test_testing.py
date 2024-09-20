@@ -130,6 +130,14 @@ def test_test_with_pipeline_filter_one_notfound_pipeline():
     assert "Pipelines found [1]" in result.output
     assert "Filtered pipelines doesn't match with passed filter" in result.output
 
+def test_test_v2_with_pipeline_coverage_exclude():
+    runner = CliRunner()
+    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--coverage-exclude-io"])
+    print(result.output)
+    assert "Pipeline Filters passed [2]: ['report_top_customers', 'notfound']" in result.output
+    assert "Pipelines found [1]" in result.output
+    assert "Filtered pipelines doesn't match with passed filter" in result.output
+
 
 def test_test_with_pipeline_filter_all_notfound_pipelines():
     runner = CliRunner()

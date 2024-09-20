@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import re
@@ -593,6 +594,36 @@ class PackageBuilderAndUploader:
             with open(coveragerc_path, "w") as fd:
                 fd.write(COVERAGERC_CONTENT)
 
+        # add source and target files to coverage.rc
+        if self._project_config.coverage_exclude_io:
+            # gather any source / target filenames
+            import yaml
+            with open(os.path.join(self._base_path, ".prophecy/workflow.latest.json")) as fd:
+                workflow = yaml.safe_load(fd)
+
+            def _get_labels_from_processes(processes_dict):
+                labels = []
+                for _, v in processes_dict.items():
+                    if v['component'] in ("Target", "Source", "Script", "SqlStatement"):
+                        labels.append(v['metadata']['label'])
+                    elif v['component'] == 'Subgraph':
+                        sub_labels = _get_labels_from_processes(v['processes'])
+                        labels.extend(sub_labels)
+                return labels
+            labels = _get_labels_from_processes(workflow['processes'])
+
+            files = []
+            for l in labels:
+                file = glob.glob(os.path.join(self._base_path, f"**/{l.replace('-','_').replace(' ', '_')}.py"),
+                                 recursive=True)
+                if not file or len(file) != 1:
+                    raise FileNotFoundError(f"Error finding file {l}.py based on workflow.latest.json")
+                files.append(os.path.relpath(file[0], self._base_path))
+
+            COVERAGERC_CONTENT += (
+
+            )
+
         separator = os.sep
         test_command = ["python3", "-m", "pytest", "-v", "--cov=.", "--cov-report=xml", "--junitxml=report.xml",
                         f"{self._base_path}{separator}test{separator}TestSuite.py"]
@@ -635,7 +666,8 @@ class PackageBuilderAndUploader:
                 output = pipe.readline()
                 if process.poll() is not None and not output:
                     break
-                # Decode line and print it
+
+                # Decode line and print it:
                 response = output.decode().strip()
 
                 # stripping unnecessary logs
