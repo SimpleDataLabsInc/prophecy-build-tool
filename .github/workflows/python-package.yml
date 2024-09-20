@@ -37,4 +37,5 @@ jobs:
         flake8 . --count --exclude=./test/resources/,./.venv/ --statistics
     - name: Test with pytest
       run: |
+        export JAVA_HOME="${JAVA_HOME_11_X64:-$JAVA_HOME_11_arm64}"
         python -m pytest -n auto test/test_* -v
