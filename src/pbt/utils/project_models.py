@@ -47,9 +47,9 @@ class Colors:
     OKBLUE = "\033[34m"  # Blue
     MAGENTA = "\033[35m"
     OKCYAN = "\033[36m"  # Cyan
-    OKGREEN = "\033[32m"  # Green
-    WARNING = "\033[33m"  # Yellow
-    FAIL = "\033[31m"  # Red
+    OKGREEN = "\033[118m"  # Green
+    WARNING = "\033[193m"  # Yellow
+    FAIL = "\033[196m"  # Red
     ENDC = "\033[0m"  # Reset color
 
 
