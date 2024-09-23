@@ -36,11 +36,12 @@ class PBTCli(object):
         dependant_project_paths: str = "",
         migrate: bool = False,
         artifactory: str = "",
+        skip_artifactory_upload: bool = False,
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
         project_config = ProjectConfig.from_conf_folder(
-            project, conf_folder, fabric_ids, job_ids, skip_builds, migrate, artifactory
+            project, conf_folder, fabric_ids, job_ids, skip_builds, migrate, artifactory, skip_artifactory_upload
         )
         return cls(project, project_config)
 

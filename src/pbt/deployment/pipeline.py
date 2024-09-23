@@ -543,6 +543,11 @@ class PackageBuilderAndUploader:
             return None
 
     def _uploading_to_artifactory(self, artifact_path) -> Either:
+        skip_upload = self._project_config.skip_artifactory_upload
+        if skip_upload:
+            log(f"Skipping artifactory upload as --skip-artifactory-upload passed")
+            return Either(right=True)
+
         # Upload the wheel file to the internal Artifactory using Twine.
         username = os.getenv("ARTIFACTORY_USERNAME")
         password = os.getenv("ARTIFACTORY_PASSWORD")

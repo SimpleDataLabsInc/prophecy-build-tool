@@ -513,6 +513,7 @@ class ProjectConfig:
         skip_builds: bool = False,
         migrate: bool = False,
         artifactory: str = "",
+        skip_artifactory_upload: str = "",
         conf_folder: str = "",
     ):
         self.jobs_state = jobs_state
@@ -522,6 +523,7 @@ class ProjectConfig:
         self.skip_builds = skip_builds
         self.migrate = migrate
         self.artifactory = artifactory
+        self.skip_artifactory_upload = skip_artifactory_upload
         self.conf_folder = conf_folder
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
@@ -561,6 +563,7 @@ class ProjectConfig:
         conf_folder: str,
         migrate: bool,
         artifactory: str,
+        skip_artifactory_upload: str,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -634,6 +637,7 @@ class ProjectConfig:
                 skip_builds=skip_build,
                 migrate=migrate,
                 artifactory=artifactory,
+                skip_artifactory_upload=skip_artifactory_upload,
             )
 
     # best used when invoking from execution.
@@ -647,6 +651,7 @@ class ProjectConfig:
         skip_builds: bool,
         migrate: bool,
         artifactory: str,
+        skip_artifactory_upload: str,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -665,6 +670,7 @@ class ProjectConfig:
             conf_folder,
             migrate,
             artifactory,
+            skip_artifactory_upload,
         )
 
 

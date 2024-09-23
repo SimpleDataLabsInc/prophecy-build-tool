@@ -221,6 +221,13 @@ def deploy(
     help="Use Pypi/Maven packages instead of DBFS files for deployment",
     required=False,
 )
+@click.option(
+    "--skip-artifactory-upload",
+    default=False,
+    is_flag=True,
+    help="Flag to skip uploading to private artifactory, must be used with --artifactory option",
+    required=False,
+)
 def deploy_v2(
     path: str,
     project_id: str,
@@ -233,6 +240,7 @@ def deploy_v2(
     dependent_projects_path: str,
     migrate: bool,
     artifactory: str,
+    skip_artifactory_upload: str,
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -246,6 +254,7 @@ def deploy_v2(
         dependent_projects_path,
         migrate,
         artifactory,
+        skip_artifactory_upload,
     )
     if is_online_mode():
         pbt.headers()
