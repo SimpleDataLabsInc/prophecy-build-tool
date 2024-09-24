@@ -75,11 +75,15 @@ class PackageBuilder:
         return self._build(command)
 
     def wheel_build(self):
-        command = ["python3", "setup.py", "bdist_wheel", "upload", "-r", "local"]
-
-        log(f"Running python command {command}", step_id=GEMS)
-
-        return self._build(command)
+        build_command = ["python3", "setup.py", "bdist_wheel"]
+        log(f"Running python command {build_command}", step_id=GEMS)
+        build_status = self._build(build_command)
+        if build_status == 0:
+            upload_command = ["twine", "upload", "-r", "local", "dist/*"]
+            log(f"Running python command {upload_command}", step_id=GEMS)
+            return self._build(upload_command)
+        else:
+            return build_status
 
     # maybe we can try another iteration with yield ?
     def _build(self, command: list):
