@@ -513,7 +513,7 @@ class ProjectConfig:
         skip_builds: bool = False,
         migrate: bool = False,
         artifactory: str = "",
-        skip_artifactory_upload: str = "",
+        skip_artifactory_upload: bool = False,
         conf_folder: str = "",
     ):
         self.jobs_state = jobs_state
@@ -563,7 +563,7 @@ class ProjectConfig:
         conf_folder: str,
         migrate: bool,
         artifactory: str,
-        skip_artifactory_upload: str,
+        skip_artifactory_upload: bool,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -651,7 +651,7 @@ class ProjectConfig:
         skip_builds: bool,
         migrate: bool,
         artifactory: str,
-        skip_artifactory_upload: str,
+        skip_artifactory_upload: bool,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")

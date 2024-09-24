@@ -240,7 +240,7 @@ def deploy_v2(
     dependent_projects_path: str,
     migrate: bool,
     artifactory: str,
-    skip_artifactory_upload: str,
+    skip_artifactory_upload: bool,
 ):
     pbt = PBTCli.from_conf_folder(
         path,
