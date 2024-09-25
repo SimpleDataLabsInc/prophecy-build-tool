@@ -5,9 +5,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
-import xml.etree.ElementTree as ET
 
 from . import JobData
 from .uploader.PipelineUploaderManager import PipelineUploadManager
@@ -112,14 +112,13 @@ class PipelineDeployment:
         else:
             return self._build_and_upload_offline(pipelines_from_job)
 
-    def build_and_upload_pipeline(self, pipeline_id, pipeline_name):
+    def build_and_upload_pipeline(self, pipeline_id, pipeline_name) -> Either:
         log(step_id=pipeline_id, step_status=Status.RUNNING)
 
         all_available_fabrics = set(self.project_config.fabric_config.list_all_fabrics())
         relevant_fabrics_for_pipeline = [
             fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if fabric in all_available_fabrics
         ]
-
         pipeline_builder = PackageBuilderAndUploader(
             self.project,
             pipeline_id,
@@ -197,58 +196,62 @@ class PipelineDeployment:
                 log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
 
     def _add_maven_dependency_info_python(self):
-        if self.project.pbt_project_dict.get('language', '') == 'python':
+        if self.project.pbt_project_dict.get("language", "") == "python":
+
             def _generate_pom_from_dicts(d_list):
                 # Create the root element
-                project = ET.Element("project", {
-                    "xmlns": "http://maven.apache.org/POM/4.0.0",
-                    "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-                    "xsi:schemaLocation": "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
-                })
+                project = ET.Element(
+                    "project",
+                    {
+                        "xmlns": "http://maven.apache.org/POM/4.0.0",
+                        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                        "xsi:schemaLocation": "http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd",
+                    },
+                )
 
                 # project placeholders
-                ET.SubElement(project, 'modelVersion').text = '4.0.0'
-                ET.SubElement(project, 'groupId').text = 'placeholder'
-                ET.SubElement(project, 'artifactId').text = 'placeholder'
-                ET.SubElement(project, 'version').text = '0.0.1'
+                ET.SubElement(project, "modelVersion").text = "4.0.0"
+                ET.SubElement(project, "groupId").text = "placeholder"
+                ET.SubElement(project, "artifactId").text = "placeholder"
+                ET.SubElement(project, "version").text = "0.0.1"
 
                 # Repositories
-                repositories_elem = ET.SubElement(project, 'repositories')
+                repositories_elem = ET.SubElement(project, "repositories")
                 for dep in d_list:
-                    repo_url = dep.get('repo')
+                    repo_url = dep.get("repo")
                     if repo_url:
-                        repository = ET.SubElement(repositories_elem, 'repository')
-                        ET.SubElement(repository, 'id').text = 'custom'
-                        ET.SubElement(repository, 'url').text = repo_url
+                        repository = ET.SubElement(repositories_elem, "repository")
+                        ET.SubElement(repository, "id").text = "custom"
+                        ET.SubElement(repository, "url").text = repo_url
 
                 # Dependencies
-                dependencies_elem = ET.SubElement(project, 'dependencies')
+                dependencies_elem = ET.SubElement(project, "dependencies")
                 for dep in d_list:
-                    if dep.get('type') == 'coordinates':
-                        dependency = ET.SubElement(dependencies_elem, 'dependency')
-                        coords = dep['coordinates'].split(':')
+                    if dep.get("type") == "coordinates":
+                        dependency = ET.SubElement(dependencies_elem, "dependency")
+                        coords = dep["coordinates"].split(":")
                         if len(coords) == 3:
-                            ET.SubElement(dependency, 'groupId').text = coords[0]
-                            ET.SubElement(dependency, 'artifactId').text = coords[1]
-                            ET.SubElement(dependency, 'version').text = coords[2]
-                        if 'exclusions' in dep:
-                            exclusions_elem = ET.SubElement(dependency, 'exclusions')
-                            for ex in dep['exclusions']:
-                                exclusion = ET.SubElement(exclusions_elem, 'exclusion')
-                                group_id, artifact_id = ex.split(':')
-                                ET.SubElement(exclusion, 'groupId').text = group_id
-                                ET.SubElement(exclusion, 'artifactId').text = artifact_id
+                            ET.SubElement(dependency, "groupId").text = coords[0]
+                            ET.SubElement(dependency, "artifactId").text = coords[1]
+                            ET.SubElement(dependency, "version").text = coords[2]
+                        if "exclusions" in dep:
+                            exclusions_elem = ET.SubElement(dependency, "exclusions")
+                            for ex in dep["exclusions"]:
+                                exclusion = ET.SubElement(exclusions_elem, "exclusion")
+                                group_id, artifact_id = ex.split(":")
+                                ET.SubElement(exclusion, "groupId").text = group_id
+                                ET.SubElement(exclusion, "artifactId").text = artifact_id
 
                 ET.indent(project, space="    ", level=0)
-                return ET.tostring(project, encoding='utf-8', method='xml')
+                return ET.tostring(project, encoding="utf-8", method="xml")
 
             # gather project level dependencies:
-            project_level_dependencies = self.project.pbt_project_dict.get('dependencies', [])
-            project_level_maven_dependencies = [d for d in project_level_dependencies if d['type'] == 'coordinates']
+            project_level_dependencies = self.project.pbt_project_dict.get("dependencies", [])
+            project_level_maven_dependencies = [d for d in project_level_dependencies if d["type"] == "coordinates"]
 
             # the plibs maven does not have a normal coordinate so we have to make one:
-            spark_version = os.environ['SPARK_VERSION'] if 'SPARK_VERSION' in os.environ else '{{REPLACE_ME}}'
-            plibs_maven_dep = [d for d in project_level_dependencies if d['type'] == 'plibMaven']
+            spark_version = os.environ["SPARK_VERSION"] if "SPARK_VERSION" in os.environ else "{{REPLACE_ME}}"
+            plibs_maven_dep = [d for d in project_level_dependencies if d["type"] == "plibMaven"]
             if len(plibs_maven_dep) != 1:
                 log(
                     f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
@@ -256,10 +259,10 @@ class PipelineDeployment:
                 )
                 return
             plibs_maven_dep = plibs_maven_dep[0]
-            plibs_maven_dep['type'] = 'coordinates'
-            plibs_maven_dep['package'] = 'prophecy-libs_2.12'
-            plibs_maven_dep['version'] = spark_version + '-' + plibs_maven_dep['version']
-            plibs_maven_dep['coordinates'] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
+            plibs_maven_dep["type"] = "coordinates"
+            plibs_maven_dep["package"] = "prophecy-libs_2.12"
+            plibs_maven_dep["version"] = spark_version + "-" + plibs_maven_dep["version"]
+            plibs_maven_dep["coordinates"] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
             project_level_maven_dependencies.append(plibs_maven_dep)
 
             for pipeline_id in self.project.pipelines:
@@ -268,44 +271,48 @@ class PipelineDeployment:
                 # gather pipeline level dependencies per directory and combine with project
                 # level deps:
                 workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
-                pipeline_level_dependencies = workflow['metainfo']['externalDependencies']
-                pipeline_level_maven_dependencies = [d for d in pipeline_level_dependencies if
-                                                     d['type'] == 'coordinates']
+                pipeline_level_dependencies = workflow["metainfo"]["externalDependencies"]
+                pipeline_level_maven_dependencies = [
+                    d for d in pipeline_level_dependencies if d["type"] == "coordinates"
+                ]
                 maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
 
                 # include all information in pom.xml because there may be specific repos
                 # or exclusions information:
                 pom_xml = _generate_pom_from_dicts(maven_dependencies)
-                with open(os.path.join(self.project.get_pipeline_absolute_path(pipeline_id),
-                                       "pom.xml"),
-                          'w') as fd:
-                    fd.write(pom_xml.decode('utf-8'))
+                with open(os.path.join(self.project.get_pipeline_absolute_path(pipeline_id), "pom.xml"), "w") as fd:
+                    fd.write(pom_xml.decode("utf-8"))
 
                 # write out coordinates to separate file in simple case where user just
                 # wants to specify these with --packages option in spark-submit:
-                coordinates_only = "\n".join([d['coordinates'] for d in maven_dependencies])
-                with open(os.path.join(self.project.get_pipeline_absolute_path(pipeline_id),
-                                       "MAVEN_COORDINATES"),
-                          'w') as fd:
+                coordinates_only = "\n".join([d["coordinates"] for d in maven_dependencies])
+                with open(
+                    os.path.join(self.project.get_pipeline_absolute_path(pipeline_id), "MAVEN_COORDINATES"), "w"
+                ) as fd:
                     fd.write(coordinates_only)
 
                 # modify setup.py to include both of these files
                 setup_py_path = os.path.join(self.project.get_pipeline_absolute_path(pipeline_id), "setup.py")
-                with open(setup_py_path, 'r') as fd:
+                with open(setup_py_path, "r") as fd:
                     setup_py_content = fd.read()
 
                 # WARNING: I am very intentionally using these strings in the replacement. some customers
                 # are also adding their own files to the WHL which we want to keep without overwriting.
                 setup_py_content_modified = setup_py_content.replace(
                     '(".prophecy", [".prophecy/workflow.latest.json"])',
-                    '(".prophecy", [".prophecy/workflow.latest.json"]),("./", ["MAVEN_COORDINATES", "pom.xml"])'
+                    '(".prophecy", [".prophecy/workflow.latest.json"]),("./", ["MAVEN_COORDINATES", "pom.xml"])',
                 )
 
-                with open(setup_py_path, 'w') as fd:
+                with open(setup_py_path, "w") as fd:
                     fd.write(setup_py_content_modified)
 
-    def build(self, pipeline_names: str = "", ignore_build_errors: bool = False, ignore_parse_errors: bool = False,
-              add_pom_python: bool = False):
+    def build(
+        self,
+        pipeline_names: str = "",
+        ignore_build_errors: bool = False,
+        ignore_parse_errors: bool = False,
+        add_pom_python: bool = False,
+    ):
         # these can be names and ids.
         all_pipeline_ids = self._pipeline_to_list_fabrics_full_deployment.keys()
         pipeline_ids_to_name = {
@@ -333,7 +340,7 @@ class PipelineDeployment:
                     f"{Colors.WARNING}Skipping build for pipelines {pipelines_to_skip_build}, Please check the ids/names of provided pipelines {Colors.ENDC}"
                 )
 
-        if add_pom_python and self.project.pbt_project_dict.get('language', '') == 'python':
+        if add_pom_python and self.project.pbt_project_dict.get("language", "") == "python":
             self._add_maven_dependency_info_python()
 
         log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_to_name)}{Colors.ENDC}\n")
@@ -470,6 +477,7 @@ class PackageBuilderAndUploader:
 
     def build_and_upload_pipeline(self) -> Either:
         pipeline_from_nexus = self._download_pipeline_from_nexus()
+
         if pipeline_from_nexus is not None and pipeline_from_nexus.is_right:
             return Either(right=(self._pipeline_id, pipeline_from_nexus.right))
 
@@ -477,6 +485,7 @@ class PackageBuilderAndUploader:
             log("Artifact File already exist, ignoring pipeline build", step_id=self._pipeline_id, indent=2)
             return Either(right=True)
 
+        # trying to build and deploy
         try:
             self._initialize_temp_folder()
 
@@ -498,9 +507,15 @@ class PackageBuilderAndUploader:
                 log("Trying to upload pipeline package to nexus.", self._pipeline_id)
                 self._uploading_to_nexus(path)
 
-            log(f"Uploading pipeline {self._pipeline_id} from path {path}", indent=2)
-
-            return self._upload_pipeline(path)
+            if self._project_config.artifactory is not None:
+                log(
+                    f"Trying to upload pipeline wheel {path} package to artifactory:\n {self._project_config.artifactory}.",
+                    self._pipeline_id,
+                )
+                return self._uploading_to_artifactory(artifact_path=path)
+            else:  # upload to DBFS file path
+                log(f"Uploading pipeline {self._pipeline_id} from path {path} to DBFS", indent=2)
+                return self._upload_pipeline(path)
 
         except Exception as e:
             log(
@@ -526,6 +541,48 @@ class PackageBuilderAndUploader:
         else:
             # log("Project does not have nexus configured, building the pipeline package.", step_id=self._pipeline_id, indent=2)
             return None
+
+    def _uploading_to_artifactory(self, artifact_path) -> Either:
+        skip_upload = self._project_config.skip_artifactory_upload
+        if skip_upload:
+            log(f"Skipping artifactory upload as --skip-artifactory-upload passed")
+            return Either(right=True)
+
+        # Upload the wheel file to the internal Artifactory using Twine.
+        username = os.getenv("ARTIFACTORY_USERNAME")
+        password = os.getenv("ARTIFACTORY_PASSWORD")
+
+        if not username or not password:
+            raise EnvironmentError(
+                "Artifactory credentials not found in environment variables "
+                "ARTIFACTORY_USERNAME and ARTIFACTORY_PASSWORD"
+            )
+
+        artifactory_url = self._project_config.artifactory
+        if artifact_path.endswith(".whl"):
+            wheel_file = artifact_path
+            upload_command = [
+                "twine",
+                "upload",
+                "--repository-url",
+                artifactory_url,
+                "-u",
+                username,
+                "-p",
+                password,
+                wheel_file,
+            ]
+            log(f"Uploading wheel file {wheel_file} to Artifactory at {artifactory_url}")
+            response_code = subprocess.run(upload_command)
+            if response_code.returncode != 0:
+                log(f"Twine upload failed for {wheel_file}")
+                raise Exception(f"Twine upload failed for {wheel_file}")
+            log("Wheel file uploaded to Artifactory.")
+            return Either(right=True)
+        elif artifact_path.endswith(".jar"):
+            return NotImplementedError("Maven repository support is not added yet")
+        else:
+            return Exception(f"Invalid file {artifact_path}, supported file types [.jar, .whl]")
 
     def _uploading_to_nexus(self, upload_path):
         try:
@@ -583,10 +640,7 @@ class PackageBuilderAndUploader:
         return self._build(command)
 
     def wheel_test(self):
-        COVERAGERC_CONTENT = (
-            "[run]\n"
-            "omit=test/**,build/**,dist/**,setup.py\n"
-        )
+        COVERAGERC_CONTENT = "[run]\n" "omit=test/**,build/**,dist/**,setup.py\n"
 
         coveragerc_path = os.path.join(f"{self._base_path}", ".coveragerc")
         if not os.path.exists(coveragerc_path):
@@ -594,8 +648,16 @@ class PackageBuilderAndUploader:
                 fd.write(COVERAGERC_CONTENT)
 
         separator = os.sep
-        test_command = ["python3", "-m", "pytest", "-v", "--cov=.", "--cov-report=xml", "--junitxml=report.xml",
-                        f"{self._base_path}{separator}test{separator}TestSuite.py"]
+        test_command = [
+            "python3",
+            "-m",
+            "pytest",
+            "-v",
+            "--cov=.",
+            "--cov-report=xml",
+            "--junitxml=report.xml",
+            f"{self._base_path}{separator}test{separator}TestSuite.py",
+        ]
         log(f"Running python test {test_command}", step_id=self._pipeline_id, indent=2)
         response_code = self._build(test_command)
 

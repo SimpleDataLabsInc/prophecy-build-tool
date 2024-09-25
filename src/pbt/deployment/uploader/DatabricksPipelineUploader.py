@@ -13,15 +13,15 @@ from ...utils.project_models import Colors
 
 class DatabricksPipelineUploader(PipelineUploader, ABC):
     def __init__(
-            self,
-            project: Project,
-            project_config: ProjectConfig,
-            pipeline_id: str,
-            to_path: str,
-            file_path: str,
-            file_name: str,
-            fabric_id: str,
-            fabric_name: str,
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        pipeline_id: str,
+        to_path: str,
+        file_path: str,
+        file_name: str,
+        fabric_id: str,
+        fabric_name: str,
     ):
         self.project = project
         self.project_config = project_config
@@ -38,7 +38,9 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.is_volume_supported = self.project_config.is_volume_supported(fabric_id)
         self.upload_path = f"{self.base_path}/{self.to_path}/pipeline/{self.file_name}"
         if self.is_volume_supported:
-            self.volume_based_path = f"{self.project_config.get_db_base_path(fabric_id)}/{self.to_path}/pipeline/{self.file_name}"
+            self.volume_based_path = (
+                f"{self.project_config.get_db_base_path(fabric_id)}/{self.to_path}/pipeline/{self.file_name}"
+            )
 
     def upload_pipeline(self, path: str) -> Either:
         try:

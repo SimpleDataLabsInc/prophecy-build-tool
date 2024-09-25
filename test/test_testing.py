@@ -7,9 +7,9 @@ PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 
 def test_test_v2_driver_paths1():
     runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
+    with open("./fake.jar", "w") as fd:
         fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
+    with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
     result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
@@ -20,9 +20,9 @@ def test_test_v2_driver_paths1():
 
 def test_test_v2_driver_paths2():
     runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
+    with open("./fake.jar", "w") as fd:
         fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
+    with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
     result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
@@ -33,9 +33,9 @@ def test_test_v2_driver_paths2():
 
 def test_test_v2_driver_paths3():
     runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
+    with open("./fake.jar", "w") as fd:
         fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
+    with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
     result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
@@ -46,9 +46,9 @@ def test_test_v2_driver_paths3():
 
 def test_test_driver_paths():
     runner = CliRunner()
-    with open('./fake.jar', 'w') as fd:
+    with open("./fake.jar", "w") as fd:
         fd.write("fake")
-    with open('./fake2.jar', 'w') as fd:
+    with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
     result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
@@ -152,19 +152,19 @@ def test_test_coverage_and_test_report_generation():
     result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "customers_orders"])
     print(result.output)
     assert "Unit Testing pipeline pipelines/customers_orders" in result.output
-    assert (os.path.exists(coverage_path))
-    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml")))
+    assert os.path.exists(coverage_path)
+    assert os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml"))
 
-    with open(coverage_path, 'r') as fd:
+    with open(coverage_path, "r") as fd:
         content = fd.read()
         # check to make sure that .coveragerc got picked up and made absolute paths:
-        assert ("<source>/" in content)
+        assert "<source>/" in content
         # verify that some coverage was written
-        assert ("<package name=\"job\"" in content)
+        assert '<package name="job"' in content
         # check that setup.py is ignored
-        assert ("<class name=\"setup.py\"" not in content)
+        assert '<class name="setup.py"' not in content
         # make sure we are not doing coverage for test directory
-        assert ("<package name=\"test\"" not in content)
+        assert '<package name="test"' not in content
 
 
 def test_test_v2_coverage_and_test_report_generation():
@@ -179,16 +179,16 @@ def test_test_v2_coverage_and_test_report_generation():
     print(result.output)
     assert "Testing pipeline `pipelines/customers_orders`" in result.output
     assert "Coverage XML written to file coverage.xml" in result.output
-    assert (os.path.exists(coverage_path))
-    assert (os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml")))
+    assert os.path.exists(coverage_path)
+    assert os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml"))
 
-    with open(coverage_path, 'r') as fd:
+    with open(coverage_path, "r") as fd:
         content = fd.read()
         # check to make sure that .coveragerc got picked up and made absolute paths:
-        assert ("<source>/" in content)
+        assert "<source>/" in content
         # verify that some coverage was written
-        assert ("<package name=\"job\"" in content)
+        assert '<package name="job"' in content
         # check that setup.py is ignored
-        assert ("<class name=\"setup.py\"" not in content)
+        assert '<class name="setup.py"' not in content
         # make sure we are not doing coverage for test directory
-        assert ("<package name=\"test\"" not in content)
+        assert '<package name="test"' not in content

@@ -700,10 +700,7 @@ class ProphecyBuildTool:
         )
 
     def test_python(self, path_pipeline_absolute, path_pipeline):
-        COVERAGERC_CONTENT = (
-                "[run]\n"
-                "omit=test/**,build/**,dist/**,setup.py\n"
-            )
+        COVERAGERC_CONTENT = "[run]\n" "omit=test/**,build/**,dist/**,setup.py\n"
         coveragerc_path = os.path.join(path_pipeline_absolute, ".coveragerc")
         if not os.path.exists(coveragerc_path):
             with open(coveragerc_path, "w") as fd:
@@ -882,8 +879,12 @@ class ProphecyBuildTool:
             if os.path.isdir(driver_library_path):
                 driver_library_path = os.path.abspath(driver_library_path)
                 jar_files = ",".join(
-                    [os.path.join(driver_library_path, file) for file in os.listdir(driver_library_path) if
-                     file.endswith('.jar')])
+                    [
+                        os.path.join(driver_library_path, file)
+                        for file in os.listdir(driver_library_path)
+                        if file.endswith(".jar")
+                    ]
+                )
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
             elif os.path.isfile(driver_library_path):
                 driver_library_path = os.path.abspath(driver_library_path)
@@ -892,7 +893,7 @@ class ProphecyBuildTool:
                 for f in driver_library_path.split(","):
                     if not os.path.isfile(f):
                         raise ValueError(f"{f} is not a file")
-                jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(',')])
+                jar_files = ",".join([os.path.abspath(f) for f in driver_library_path.split(",")])
                 os.environ["SPARK_JARS_CONFIG"] = jar_files
 
         if "SPARK_JARS_CONFIG" in os.environ:

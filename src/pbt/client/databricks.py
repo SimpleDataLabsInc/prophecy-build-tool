@@ -70,8 +70,9 @@ class DatabricksClient:
         if destination_path.startswith("dbfs:/Volumes") or destination_path.startswith("/Volumes"):
             DBRequests(self.host, self.token, self.headers).put_fs(src_path, destination_path, overwrite=True)
         else:
-            self.dbfs.put_file(src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True,
-                               headers=self.headers)
+            self.dbfs.put_file(
+                src_path=src_path, dbfs_path=DbfsPath(destination_path, False), overwrite=True, headers=self.headers
+            )
 
     def path_exist(self, path: str) -> bool:
         return self.dbfs.get_status(DbfsPath(path), headers=self.headers) is not None
@@ -183,8 +184,9 @@ class PermissionsApi(object):
         self.client = client
 
     def patch_job(self, scheduler_job_id: str, data, headers=None):
-        return self.client.perform_query("PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data,
-                                         headers=headers)
+        return self.client.perform_query(
+            "PATCH", f"/2.0/preview/permissions/jobs/{scheduler_job_id}", data=data, headers=headers
+        )
 
 
 class DBRequests(object):
@@ -196,10 +198,7 @@ class DBRequests(object):
     def put_fs(self, src_path: str, destination_path: str, overwrite: bool):
         with open(src_path, "rb") as file:
             file_content = file.read()
-        self.headers.update({
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/octet-stream"
-        })
+        self.headers.update({"Authorization": f"Bearer {self.token}", "Content-Type": "application/octet-stream"})
         destination_path = destination_path.replace("dbfs:", "")
         host = self.host if self.host[-1] == "/" else self.host + "/"
         uri = f"{host}/api/2.0/fs/files{destination_path}"
