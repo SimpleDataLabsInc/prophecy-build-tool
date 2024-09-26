@@ -14,7 +14,6 @@ SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
 
 
 class TaggingTestCase(unittest.TestCase):
-
     @staticmethod
     def _get_tmp_sample_repo(repo_url=SAMPLE_REPO):
         new_path = os.path.join("/tmp/", SAMPLE_REPO.split("/")[-1], f"{uuid.uuid4()}")
@@ -32,7 +31,7 @@ class TaggingTestCase(unittest.TestCase):
 
     @staticmethod
     def _get_pbt_version(path_to_project):
-        with open(os.path.join(path_to_project, "pbt_project.yml"), 'r') as fd:
+        with open(os.path.join(path_to_project, "pbt_project.yml"), "r") as fd:
             for line in fd:
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
@@ -42,14 +41,15 @@ class TaggingTestCase(unittest.TestCase):
 
         custom_tag = "CUSTOM_TAG_UNITTEST"
         runner = CliRunner()
-        result = runner.invoke(tag, ["--path", project_path, "--repo-path", self.repo_path,
-                                     "--no-push", "--custom", custom_tag])
+        result = runner.invoke(
+            tag, ["--path", project_path, "--repo-path", self.repo_path, "--no-push", "--custom", custom_tag]
+        )
         assert result.exit_code == 0
         assert custom_tag in self.repo.tags
 
     @parameterized.expand(["python", "scala"])
     def test_tagging_default(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         pbt_version = TaggingTestCase._get_pbt_version(project_path)
 
         branch_name = "custom_branch_unittest"
@@ -58,8 +58,7 @@ class TaggingTestCase(unittest.TestCase):
 
         custom_tag = f"{branch_name}/{pbt_version}"
         runner = CliRunner()
-        result = runner.invoke(tag, ["--path", project_path, "--repo-path", self.repo_path,
-                                     "--no-push"])
+        result = runner.invoke(tag, ["--path", project_path, "--repo-path", self.repo_path, "--no-push"])
         assert result.exit_code == 0
         assert custom_tag in [str(t) for t in self.repo.tags]
 
@@ -69,8 +68,9 @@ class TaggingTestCase(unittest.TestCase):
 
         custom_tag = f"{pbt_version}"
         runner = CliRunner()
-        result = runner.invoke(tag, ["--path", project_path, "--repo-path", self.repo_path,
-                                     "--no-push", "--branch", ""])
+        result = runner.invoke(
+            tag, ["--path", project_path, "--repo-path", self.repo_path, "--no-push", "--branch", ""]
+        )
         assert result.exit_code == 0
         assert custom_tag in [str(t) for t in self.repo.tags]
 
@@ -81,7 +81,8 @@ class TaggingTestCase(unittest.TestCase):
         custom_branch_name = "nonexistant_branch"
         custom_tag = f"{custom_branch_name}/{pbt_version}"
         runner = CliRunner()
-        result = runner.invoke(tag, ["--path", project_path, "--repo-path", self.repo_path,
-                                     "--no-push", "--branch", custom_branch_name])
+        result = runner.invoke(
+            tag, ["--path", project_path, "--repo-path", self.repo_path, "--no-push", "--branch", custom_branch_name]
+        )
         assert result.exit_code == 0
         assert custom_tag in [str(t) for t in self.repo.tags]

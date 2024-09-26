@@ -76,8 +76,13 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     is_flag=True,
     required=False,
 )
-@click.option("--add-pom-python", default=False, is_flag=True,
-              help="adds pom.xml and MAVEN_COORDINATES files to pyspark pipeline WHL files", required=False)
+@click.option(
+    "--add-pom-python",
+    default=False,
+    is_flag=True,
+    help="adds pom.xml and MAVEN_COORDINATES files to pyspark pipeline WHL files",
+    required=False,
+)
 def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
     pbt = PBTCli.from_conf_folder(path)
     pbt.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
@@ -209,6 +214,20 @@ def deploy(
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
+@click.option(
+    "--artifactory",
+    default=None,
+    is_flag=False,
+    help="Use Pypi/Maven packages instead of DBFS files for deployment",
+    required=False,
+)
+@click.option(
+    "--skip-artifactory-upload",
+    default=False,
+    is_flag=True,
+    help="Flag to skip uploading to private artifactory, must be used with --artifactory option",
+    required=False,
+)
 def deploy_v2(
     path: str,
     project_id: str,
@@ -220,6 +239,8 @@ def deploy_v2(
     skip_builds: bool,
     dependent_projects_path: str,
     migrate: bool,
+    artifactory: str,
+    skip_artifactory_upload: bool,
 ):
     pbt = PBTCli.from_conf_folder(
         path,
@@ -232,6 +253,8 @@ def deploy_v2(
         skip_builds,
         dependent_projects_path,
         migrate,
+        artifactory,
+        skip_artifactory_upload,
     )
     if is_online_mode():
         pbt.headers()
@@ -283,9 +306,9 @@ def test(path, driver_library_path, pipelines):
 )
 @click.option(
     "--bump",
-    type=click.Choice(['major', 'minor', 'patch', 'build', 'prerelease'], case_sensitive=False),
+    type=click.Choice(["major", "minor", "patch", "build", "prerelease"], case_sensitive=False),
     help="bumps one of the semantic version numbers for the project and all pipelines based on the current value. "
-         "Only works if existing versions follow semantic versioning https://semver.org/",
+    "Only works if existing versions follow semantic versioning https://semver.org/",
     required=False,
 )
 @click.option(
@@ -295,7 +318,8 @@ def test(path, driver_library_path, pipelines):
     required=False,
 )
 @click.option(
-    "--force", "--spike",
+    "--force",
+    "--spike",
     default=False,
     is_flag=True,
     help="bypass errors if the version set is lower than the base branch",
@@ -353,7 +377,7 @@ def versioning(path, bump, set, force, sync, set_prerelease):
     "--branch",
     default=None,
     help="normally the tag is prefixed with the branch name: <branch_name>/<version>. "
-         "This overrides <branch_name>. Provide \"\" to omit the branch name.",
+    'This overrides <branch_name>. Provide "" to omit the branch name.',
     required=False,
 )
 @click.option(
@@ -370,9 +394,13 @@ def tag(path, repo_path, no_push, branch, custom):
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
 
 
-if __name__ == "pbt":
+def main():
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"
         f"v{pkg_resources.require('prophecy-build-tool')[0].version}[/bold black]\n"
     )
     cli()
+
+
+if __name__ == "__main__":
+    main()

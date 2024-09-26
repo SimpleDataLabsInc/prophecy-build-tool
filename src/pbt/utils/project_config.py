@@ -209,11 +209,11 @@ class JobInfo(BaseModel):
 
     def is_job_same_as(self, job_info) -> bool:
         return (
-                self.external_job_id == job_info.external_job_id
-                and self.fabric_id == job_info.fabric_id
-                and self.id == job_info.id
-                and self.name == job_info.name
-                and self.type == job_info.type
+            self.external_job_id == job_info.external_job_id
+            and self.fabric_id == job_info.fabric_id
+            and self.id == job_info.id
+            and self.name == job_info.name
+            and self.type == job_info.type
         )
 
     def pause(self, flag: bool):
@@ -221,13 +221,13 @@ class JobInfo(BaseModel):
 
     @staticmethod
     def create_job(
-            name: str,
-            id: str,
-            fabric_id: str,
-            external_job_id: str,
-            release_tag: str,
-            is_paused: bool = False,
-            fabric_provider_type: str = "Databricks",
+        name: str,
+        id: str,
+        fabric_id: str,
+        external_job_id: str,
+        release_tag: str,
+        is_paused: bool = False,
+        fabric_provider_type: str = "Databricks",
     ):
         return JobInfo(
             name=name,
@@ -470,10 +470,10 @@ def load_jobs_state(job_state_path: str, is_based_on_file: bool = True):
 
 def load_system_config(system_config_path: str, is_based_on_file: bool = True):
     if (
-            system_config_path is not None
-            and len(system_config_path) > 0
-            and is_based_on_file
-            and os.path.exists(system_config_path)
+        system_config_path is not None
+        and len(system_config_path) > 0
+        and is_based_on_file
+        and os.path.exists(system_config_path)
     ):
         with open(system_config_path, "r") as system_config:
             return parse_yaml_raw_as(SystemConfig, system_config.read())
@@ -483,10 +483,10 @@ def load_system_config(system_config_path: str, is_based_on_file: bool = True):
 
 def load_configs_override(configs_override_path, is_based_on_file: bool = True):
     if (
-            configs_override_path is not None
-            and len(configs_override_path) > 0
-            and is_based_on_file
-            and os.path.exists(configs_override_path)
+        configs_override_path is not None
+        and len(configs_override_path) > 0
+        and is_based_on_file
+        and os.path.exists(configs_override_path)
     ):
         with open(configs_override_path, "r") as config_override:
             return parse_yaml_raw_as(ConfigsOverride, config_override.read())
@@ -504,15 +504,17 @@ def load_fabric_config(fabric_config_path):
 
 class ProjectConfig:
     def __init__(
-            self,
-            jobs_state: JobsState,
-            fabric_config: FabricConfig,
-            system_config: SystemConfig,
-            config_override: ConfigsOverride,
-            based_on_file: bool = True,
-            skip_builds: bool = False,
-            migrate: bool = False,
-            conf_folder: str = "",
+        self,
+        jobs_state: JobsState,
+        fabric_config: FabricConfig,
+        system_config: SystemConfig,
+        config_override: ConfigsOverride,
+        based_on_file: bool = True,
+        skip_builds: bool = False,
+        migrate: bool = False,
+        artifactory: str = "",
+        skip_artifactory_upload: bool = False,
+        conf_folder: str = "",
     ):
         self.jobs_state = jobs_state
         self.system_config = system_config
@@ -520,6 +522,8 @@ class ProjectConfig:
         self.based_on_file = based_on_file
         self.skip_builds = skip_builds
         self.migrate = migrate
+        self.artifactory = artifactory
+        self.skip_artifactory_upload = skip_artifactory_upload
         self.conf_folder = conf_folder
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
@@ -539,22 +543,27 @@ class ProjectConfig:
         if self.fabric_config.is_databricks_fabric(fabric_id):
             volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume
             # should not be none, empty string {just explicit comparison } and any other volume other than supported volumes.
-            return volume_opt is not None and not volume_opt and not (
-                    volume_opt.startswith("dbfs:/Volumes") or volume_opt.startswith("/Volumes"))
+            return (
+                volume_opt is not None
+                and not volume_opt
+                and not (volume_opt.startswith("dbfs:/Volumes") or volume_opt.startswith("/Volumes"))
+            )
         return False
 
     @staticmethod
     def from_path(
-            project: Project,
-            job_state_path: str,
-            system_config_path: str,
-            configs_override_path: str,
-            fabric_config_path: str,
-            fabric_ids: str,
-            job_ids: str,
-            skip_build: bool,
-            conf_folder: str,
-            migrate: bool,
+        project: Project,
+        job_state_path: str,
+        system_config_path: str,
+        configs_override_path: str,
+        fabric_config_path: str,
+        fabric_ids: str,
+        job_ids: str,
+        skip_build: bool,
+        conf_folder: str,
+        migrate: bool,
+        artifactory: str,
+        skip_artifactory_upload: bool,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -627,12 +636,22 @@ class ProjectConfig:
                 based_on_file=is_based_on_file,
                 skip_builds=skip_build,
                 migrate=migrate,
+                artifactory=artifactory,
+                skip_artifactory_upload=skip_artifactory_upload,
             )
 
     # best used when invoking from execution.
     @classmethod
     def from_conf_folder(
-            cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
+        cls,
+        project: Project,
+        conf_folder,
+        fabric_ids: str,
+        job_ids: str,
+        skip_builds: bool,
+        migrate: bool,
+        artifactory: str,
+        skip_artifactory_upload: bool,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -650,6 +669,8 @@ class ProjectConfig:
             skip_builds,
             conf_folder,
             migrate,
+            artifactory,
+            skip_artifactory_upload,
         )
 
 

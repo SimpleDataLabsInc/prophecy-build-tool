@@ -9,13 +9,13 @@ python -m pytest test/test_* -v
 ```
 
 ### Linting checks
-* we use `flake8` to check linting and `black` to format our code.
-* To check flake8 errors locally use
+* we use `black` to check linting and format our code.
+* To check Black errors locally use
 ```shell
- flake8 . --count --statistics 
+black --check src/ test/
 ```
 
 * To format all code in `src/` and `test/` directories use, use
 ```shell
-black src test
+black -v src/ test/
 ```
