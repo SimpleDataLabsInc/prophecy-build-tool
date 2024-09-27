@@ -51,7 +51,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
                 step_id=self.pipeline_id,
                 indent=2,
             )
-            if self.volume_based_path is not None:
+            if self.is_volume_supported:
                 # why this is important ?
                 # use of volume is hinged on providing volume prefix and
                 # on databricks runtime version

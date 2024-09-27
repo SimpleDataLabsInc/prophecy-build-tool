@@ -690,6 +690,10 @@ class AirflowGitSecrets:
 
             # making this single threaded for now.
             with ThreadPoolExecutor(max_workers=1) as executor:
+                log(
+                    f"{Colors.OKBLACK}Updating git secrets{Colors.ENDC}",
+                    step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID,
+                )
                 for project_git_tokens in self.fabric_config.project_git_tokens:
                     git_tokens = project_git_tokens.git_token
                     project_id = project_git_tokens.project_id
@@ -720,10 +724,6 @@ class AirflowGitSecrets:
             client = self.airflow_jobs.get_airflow_client(job_data.fabric_id)
             key = generate_secure_content(f"{execution_db_suffix}_{project_id}", "gitSecretSalt")
             client.create_secret(key, git_tokens)
-            log(
-                f"{Colors.OKGREEN}Successfully created git secrets for project {project_id}{Colors.ENDC}",
-                step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID,
-            )
             return Either(right=True)
 
         except Exception as e:
