@@ -561,20 +561,10 @@ class PackageBuilderAndUploader:
         artifactory_url = self._project_config.artifactory
         if artifact_path.endswith(".whl"):
             wheel_file = artifact_path
-            upload_command = [
-                "twine",
-                "upload",
-                "--repository-url",
-                artifactory_url,
-                "-u",
-                username,
-                "-p",
-                password,
-                wheel_file,
-            ]
+            upload_command = ["twine", "upload", "-r", "local", wheel_file]
             log(f"Uploading wheel file {wheel_file} to Artifactory at {artifactory_url}")
-            response_code = subprocess.run(upload_command)
-            if response_code.returncode != 0:
+            response_code = self._build(upload_command)
+            if response_code != 0:
                 log(f"Twine upload failed for {wheel_file}")
                 raise Exception(f"Twine upload failed for {wheel_file}")
             log("Wheel file uploaded to Artifactory.")

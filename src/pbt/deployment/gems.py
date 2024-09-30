@@ -79,22 +79,7 @@ class PackageBuilder:
         log(f"Running python command {build_command}", step_id=GEMS)
         build_status = self._build(build_command)
         if build_status == 0:
-            username = os.getenv("ARTIFACTORY_USERNAME")
-            password = os.getenv("ARTIFACTORY_PASSWORD")
-            artifactory_url = os.getenv("ARTIFACTORY_URL")
-            if not username or not password or not artifactory_url:
-                return 1
-            upload_command = [
-                "twine",
-                "upload",
-                "--repository-url",
-                artifactory_url,
-                "-u",
-                username,
-                "-p",
-                password,
-                "dist/*",
-            ]
+            upload_command = ["twine", "upload", "-r", "local", "dist/*"]
             log(f"Running python command {upload_command}", step_id=GEMS)
             return self._build(upload_command)
         else:
