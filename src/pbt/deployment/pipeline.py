@@ -507,7 +507,7 @@ class PackageBuilderAndUploader:
                 log("Trying to upload pipeline package to nexus.", self._pipeline_id)
                 self._uploading_to_nexus(path)
 
-            if self._project_config.artifactory is not None:
+            if self._project_config.artifactory is not None and self._project_config.artifactory != "":
                 log(
                     f"Trying to upload pipeline wheel {path} package to artifactory:\n {self._project_config.artifactory}.",
                     self._pipeline_id,
@@ -561,10 +561,20 @@ class PackageBuilderAndUploader:
         artifactory_url = self._project_config.artifactory
         if artifact_path.endswith(".whl"):
             wheel_file = artifact_path
-            upload_command = ["twine", "upload", "-r", "local", wheel_file]
+            upload_command = [
+                "twine",
+                "upload",
+                "--repository-url",
+                artifactory_url,
+                "-u",
+                username,
+                "-p",
+                password,
+                wheel_file,
+            ]
             log(f"Uploading wheel file {wheel_file} to Artifactory at {artifactory_url}")
-            response_code = self._build(upload_command)
-            if response_code != 0:
+            response_code = subprocess.run(upload_command)
+            if response_code.returncode != 0:
                 log(f"Twine upload failed for {wheel_file}")
                 raise Exception(f"Twine upload failed for {wheel_file}")
             log("Wheel file uploaded to Artifactory.")
