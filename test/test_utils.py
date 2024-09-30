@@ -122,7 +122,6 @@ INPUT_DB_JSON = """
 
 
 class TestUtils:
-
     def test_artifactory_databricks_json_update(self):
         # Input JSON string
         expected_data = """{
