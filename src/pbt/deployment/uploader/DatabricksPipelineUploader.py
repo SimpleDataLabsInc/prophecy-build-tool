@@ -34,8 +34,13 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.fabric_label = get_fabric_label(fabric_name, fabric_id)
 
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
-        self.base_path = self.project_config.system_config.get_dbfs_base_path()
+        self.base_path = self.project_config.get_db_base_path(None)
+        self.is_volume_supported = self.project_config.is_volume_supported(fabric_id)
         self.upload_path = f"{self.base_path}/{self.to_path}/pipeline/{self.file_name}"
+        if self.is_volume_supported:
+            self.volume_based_path = (
+                f"{self.project_config.get_db_base_path(fabric_id)}/{self.to_path}/pipeline/{self.file_name}"
+            )
 
     def upload_pipeline(self, path: str) -> Either:
         try:
@@ -46,6 +51,17 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
                 step_id=self.pipeline_id,
                 indent=2,
             )
+            if self.is_volume_supported:
+                # why this is important ?
+                # use of volume is hinged on providing volume prefix and
+                # on databricks runtime version
+                # we need to upload to both these places.
+                client.upload_src_path(self.file_path, self.volume_based_path)
+                log(
+                    f"Uploading pipeline to databricks from-path `{self.file_path}` to volume based path `{self.volume_based_path}` for fabric `{self.fabric_label}`",
+                    step_id=self.pipeline_id,
+                    indent=2,
+                )
 
             return Either(right=True)
 

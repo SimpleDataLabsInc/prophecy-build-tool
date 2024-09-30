@@ -9,11 +9,11 @@ class AirflowRestClient(ABC):
         pass
 
     @abstractmethod
-    def pause_dag(self, dag_id: str) -> DAG:
+    def pause_dag(self, dag_id: str):
         pass
 
     @abstractmethod
-    def unpause_dag(self, dag_id: str) -> DAG:
+    def unpause_dag(self, dag_id: str):
         pass
 
     @abstractmethod

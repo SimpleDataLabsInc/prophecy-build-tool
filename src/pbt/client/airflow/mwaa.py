@@ -85,16 +85,12 @@ class MWAARestClient(AirflowRestClient, ABC):
             )
 
     # todo improve both pause and unpause.
-    def pause_dag(self, dag_id: str) -> DAG:
-        response_as_text = self._get_response(f"dags pause {dag_id}")
-        response_as_json = self._clean_response(response_as_text)
-        return DAG(**response_as_json)
+    def pause_dag(self, dag_id: str):
+        self._get_response(f"dags pause {dag_id}")
 
-    def unpause_dag(self, dag_id: str) -> DAG:
+    def unpause_dag(self, dag_id: str):
         self.get_dag(dag_id)
-        response_as_text = self._get_response(f"dags unpause {dag_id}")
-        response_as_json = self._clean_response(response_as_text)
-        return DAG.create_from_mwaa(response_as_json)
+        self._get_response(f"dags unpause {dag_id}")
 
     def upload_dag(self, dag_id: str, file_path: str):
         relative_path = f"{self.dag_s3_path}/{dag_id}.zip"
@@ -113,7 +109,15 @@ class MWAARestClient(AirflowRestClient, ABC):
     def get_dag(self, dag_id: str) -> DAG:
         response = self._get_response("dags list -o json")
         dag_list = self._extract_and_load_list_json(response)
-        dag = next((dag for dag in dag_list if dag["dag_id"] == dag_id and dag["paused"] is not None), None)
+        dag = next(
+            (
+                dag
+                for dag in dag_list
+                if dag["dag_id"] == dag_id
+                and ((dag.get("is_paused", None) is not None) or (dag.get("paused", None) is not None))
+            ),
+            None,
+        )
 
         if dag is not None:
             return DAG.create_from_mwaa(dag)

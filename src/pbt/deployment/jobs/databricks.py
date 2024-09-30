@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from requests import HTTPError
 
+from .utils import modify_databricks_json_for_private_artifactory
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
@@ -287,9 +288,23 @@ class DatabricksJobsDeployment:
             if not any(job.id == job_id for job_id in all_jobs.keys())
         }
 
+    def _update_databricks_json_for_artifactory(self, job_data):
+        if self.project_config.artifactory is not None:
+            log(
+                f"Artifactory URL {self.project_config.artifactory} is passed, "
+                f"updating databricks-jobs.json with package"
+            )
+            job_data.databricks_job_json = modify_databricks_json_for_private_artifactory(
+                job_data.databricks_job_json, self.project_config.artifactory
+            )
+            return job_data
+        else:
+            return job_data
+
     """Deploy Jobs """
 
     def _deploy_add_job(self, job_id, job_data, step_id):
+        job_data = self._update_databricks_json_for_artifactory(job_data)
         fabric_id = job_data.fabric_id
         fabric_config = self.project_config.fabric_config.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
@@ -718,7 +733,6 @@ class DBTComponents:
         try:
             client = self.databricks_jobs.get_databricks_client(fabric_id)
             client.upload_content(content, path)
-
             log(
                 f"{Colors.OKGREEN}Successfully uploaded dbt content {path}{Colors.ENDC}",
                 step_id=self._DBT_CONTENT_COMPONENT_STEP_NAME,
@@ -827,6 +841,7 @@ class ScriptComponents:
     def _upload_content(self, script: dict, fabric_id: str, job_id: str):
         node_name = script.get("nodeName")
         fabric_config = self.fabric_config.get_fabric(fabric_id)
+
         fabric_name = fabric_config.name if fabric_config is not None else None
         fabric_label = get_fabric_label(fabric_name, fabric_id)
 
@@ -901,46 +916,57 @@ class PipelineConfigurations:
                 count = sum(len(v) for v in self.pipeline_configurations.values())
                 log(f"\n\n{Colors.OKBLUE} Uploading {count} pipeline configurations {Colors.ENDC}\n\n")
 
-            def execute_job(_fabric_id, config_content, config_path):
+            def execute_job(_fabric_id, pipeline_id, config_name, config_content):
                 futures.append(
                     executor.submit(
                         lambda f_id=str(
                             _fabric_id
-                        ), conf_content=config_content, conf_path=config_path: self._upload_configuration(
-                            f_id, conf_content, conf_path
+                        ), p_id=pipeline_id, conf_name=config_name, conf_content=config_content: self._upload_configuration(
+                            f_id, p_id, conf_name, conf_content
                         )
                     )
                 )
 
             for pipeline_id, configurations in self.pipeline_configurations.items():
-                path = self.project_config.system_config.get_dbfs_base_path()
-                pipeline_path = (
-                    f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
-                )
-
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_path = f"{pipeline_path}/{configuration_name}.json"
-
                     for fabric_id in self.project_config.fabric_config.db_fabrics():
-                        execute_job(fabric_id, configuration_content, configuration_path)
+                        execute_job(fabric_id, pipeline_id, configuration_name, configuration_content)
 
         return await_futures_and_update_states(futures, self._STEP_ID)
 
-    def _upload_configuration(self, fabric_id, configuration_content, configuration_path):
-        try:
-            client = self.databricks_jobs.get_databricks_client(str(fabric_id))
-            client.upload_content(configuration_content, configuration_path)
+    def _upload_configuration(self, fabric_id, pipeline_id, config_name, configuration_content):
+        def base_path(fab_id: Optional[str]):
+            path = self.project_config.get_db_base_path(fab_id)
+            pipeline_path = (
+                f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
+            )
+            return pipeline_path
 
+        try:
+            # we are creating path and then uploading the content
+            # we need to upload for the scenerios
+            # in case volumes is set or not.
+            # after some versions most likely databricks will deprecate the dbfs one.
+            client = self.databricks_jobs.get_databricks_client(str(fabric_id))
+            base_p = base_path(None)  # old dbfs path first.
+            configuration_path = f"{base_p}/{config_name}.json"
+            client.upload_content(configuration_content, configuration_path)
             log(
                 f"{Colors.OKGREEN}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
-
+            if self.project_config.is_volume_supported(fabric_id):
+                config_path_volume = f"{base_path(fabric_id)}/{config_name}.json"
+                client.upload_content(configuration_content, config_path_volume)
+                log(
+                    f"{Colors.OKGREEN}Uploaded pipeline configuration on path {config_path_volume} with volume support{Colors.ENDC}",
+                    step_id=self._STEP_ID,
+                )
             return Either(right=True)
 
         except Exception as e:
             log(
-                f"{Colors.FAIL}Failed to upload pipeline configuration for path {configuration_path}{Colors.ENDC}",
+                f"{Colors.FAIL}Failed to upload pipeline configuration for path {config_name}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )

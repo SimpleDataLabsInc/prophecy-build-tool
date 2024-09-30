@@ -135,3 +135,4 @@ class TestTesting(IsolatedRepoTestCase):
                 assert ("<package name=\"test\"" not in content)
                 # verify that some coverage was written
                 assert ("<package name=" in content)
+

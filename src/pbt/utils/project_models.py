@@ -47,9 +47,9 @@ class Colors:
     OKBLUE = "\033[34m"  # Blue
     MAGENTA = "\033[35m"
     OKCYAN = "\033[36m"  # Cyan
-    OKGREEN = "\033[32m"  # Green
-    WARNING = "\033[33m"  # Yellow
-    FAIL = "\033[31m"  # Red
+    OKGREEN = "\033[38;2;2;122;72m"  # Green
+    WARNING = "\033[38;2;181;71;8m"  # Yellow
+    FAIL = "\033[38;2;180;35;24m"  # Red
     ENDC = "\033[0m"  # Reset color
 
 
@@ -247,8 +247,8 @@ class DAG:
     @staticmethod
     def create_from_mwaa(response: dict):
         dag_id = response.get("dag_id")
-        fileloc = response.get("filepath", None)
-        is_paused = response.get("paused", None)
-        owner = response.get("owner", None)
+        fileloc = response.get("filepath", None) or response.get("fileloc", None)
+        is_paused = response.get("paused", None) or response.get("is_paused", None)
+        owner = response.get("owner", None) or response.get("owners", None)
         owners = [] if owner is None else ([owner] if isinstance(owner, str) else owner)
         return DAG(dag_id, fileloc=fileloc, is_paused=is_paused is None or bool(is_paused), owners=owners)

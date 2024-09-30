@@ -10,7 +10,7 @@ class TestVersioning(IsolatedRepoTestCase):
 
     @staticmethod
     def _get_pbt_version(path_to_project):
-        with open(os.path.join(path_to_project, "pbt_project.yml"), 'r') as fd:
+        with open(os.path.join(path_to_project, "pbt_project.yml"), "r") as fd:
             for line in fd:
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
@@ -57,7 +57,7 @@ class TestVersioning(IsolatedRepoTestCase):
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--sync'])
+        result = runner.invoke(versioning, ["--path", project_path, "--sync"])
         assert result.exit_code == 0
 
         result = runner.invoke(build_v2, ["--path", project_path])
@@ -67,12 +67,12 @@ class TestVersioning(IsolatedRepoTestCase):
         #              later on we should use a different mechanism to verify versions were correctly changed.
 
         # Find any .whl files in the current directory
-        whl_files = glob.glob(os.path.join(project_path, "**", '*.whl'), recursive=True)
+        whl_files = glob.glob(os.path.join(project_path, "**", "*.whl"), recursive=True)
         for file_name in whl_files:
             assert f"-{pbt_version}-py3-none-any" in file_name
 
         # Find any .jar files in the current directory
-        jar_files = glob.glob(os.path.join(project_path, "**", '*.jar'), recursive=True)
+        jar_files = glob.glob(os.path.join(project_path, "**", "*.jar"), recursive=True)
         for file_name in jar_files:
             assert f"{pbt_version}" in file_name
 
@@ -82,15 +82,15 @@ class TestVersioning(IsolatedRepoTestCase):
     def test_versioning_version_set_below_no_force(self):
         project_path = self.python_project_path
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--set', "0.0.0"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set", "0.0.0"])
         assert result.exit_code == 1
 
     def test_versioning_bump_and_version_set_prerelease_maven(self):
         project_path = self.scala_project_path
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--bump', 'major'])
+        result = runner.invoke(versioning, ["--path", project_path, "--bump", "major"])
         assert result.exit_code == 0
-        result = runner.invoke(versioning, ["--path", project_path, '--set-prerelease', '-SNAPSHOT', '--force'])
+        result = runner.invoke(versioning, ["--path", project_path, "--set-prerelease", "-SNAPSHOT", "--force"])
         assert result.exit_code == 0
 
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
@@ -99,9 +99,9 @@ class TestVersioning(IsolatedRepoTestCase):
     def test_versioning_set_prerelease_and_bump_python(self):
         project_path = self.python_project_path
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--set-prerelease', '-rc.4', '--force'])
+        result = runner.invoke(versioning, ["--path", project_path, "--set-prerelease", "-rc.4", "--force"])
         assert result.exit_code == 0
-        result = runner.invoke(versioning, ["--path", project_path, '--bump', 'prerelease'])
+        result = runner.invoke(versioning, ["--path", project_path, "--bump", "prerelease"])
         assert result.exit_code == 0
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version == '0.0.1-rc.5'
@@ -109,7 +109,7 @@ class TestVersioning(IsolatedRepoTestCase):
     def test_versioning_version_set_below_force(self):
         project_path = self.python_project_path
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--set', "invalid-0.0.0-thing", "--force"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set", "invalid-0.0.0-thing", "--force"])
         assert result.exit_code == 0
 
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
@@ -118,7 +118,7 @@ class TestVersioning(IsolatedRepoTestCase):
     def test_versioning_version_set(self):
         project_path = self.python_project_path
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--set', "999999.0.0"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set", "999999.0.0"])
         assert result.exit_code == 0
 
         new_pbt_version = TestVersioning._get_pbt_version(project_path)

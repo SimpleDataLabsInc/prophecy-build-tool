@@ -143,11 +143,13 @@ class DatabricksInfo(BaseModel):
     url: str
     token: str
     user_agent: Optional[str]
+    volume: Optional[str] = None
 
     @staticmethod
     def create(host: str, token: str, user_agent: Optional[str] = "Prophecy"):
         return DatabricksInfo(url=host, token=token, user_agent=user_agent)
 
+    # resolve environment variables.
     def resolve(self):
         url_match = re.match(pattern, self.url)
         if url_match:
@@ -156,6 +158,11 @@ class DatabricksInfo(BaseModel):
         token_match = re.match(pattern, self.token)
         if token_match:
             self.token = os.environ[token_match.group(1)]
+
+        if self.volume is not None:
+            volume_match = re.match(pattern, self.volume)
+            if volume_match:
+                self.volume = os.environ[volume_match.group(1)]
 
 
 class FabricInfo(BaseModel):
@@ -436,8 +443,11 @@ class SystemConfig(BaseModel):
     prophecy_salt: Optional[str] = "execution"
     nexus: Optional[NexusConfig] = None
 
-    def get_dbfs_base_path(self):
-        return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
+    def get_dbfs_base_path(self, volume: Optional[str]):
+        if volume is None:
+            return f"{DBFS_FILE_STORE}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
+        else:
+            return f"{volume}/{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
 
     def get_s3_base_path(self):
         return f"{PROPHECY_ARTIFACTS}/{self.customer_name}/{self.control_plane_name}"
@@ -502,6 +512,8 @@ class ProjectConfig:
         based_on_file: bool = True,
         skip_builds: bool = False,
         migrate: bool = False,
+        artifactory: str = "",
+        skip_artifactory_upload: bool = False,
         conf_folder: str = "",
     ):
         self.jobs_state = jobs_state
@@ -510,9 +522,33 @@ class ProjectConfig:
         self.based_on_file = based_on_file
         self.skip_builds = skip_builds
         self.migrate = migrate
+        self.artifactory = artifactory
+        self.skip_artifactory_upload = skip_artifactory_upload
         self.conf_folder = conf_folder
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
+
+    def get_db_base_path(self, fabric_id: Optional[str]):
+        if fabric_id is None:
+            return self.system_config.get_dbfs_base_path(None)
+        elif fabric_id and self.fabric_config.is_databricks_fabric(fabric_id):
+            volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume
+            return self.system_config.get_dbfs_base_path(volume_opt)
+        return None
+
+    # fabric and DB connections are loosely linked and generally a multiple fabrics can point to a single DB workspace.
+    # so this information cannot be at DB layer it has to be at fabric layer.
+    # not supporting any other string other than dbfs:/Volumes and /Volumes
+    def is_volume_supported(self, fabric_id):
+        if self.fabric_config.is_databricks_fabric(fabric_id):
+            volume_opt = self.fabric_config.get_fabric(fabric_id).databricks.volume
+            # should not be none, empty string {just explicit comparison } and any other volume other than supported volumes.
+            return (
+                volume_opt is not None
+                and not volume_opt
+                and not (volume_opt.startswith("dbfs:/Volumes") or volume_opt.startswith("/Volumes"))
+            )
+        return False
 
     @staticmethod
     def from_path(
@@ -526,6 +562,8 @@ class ProjectConfig:
         skip_build: bool,
         conf_folder: str,
         migrate: bool,
+        artifactory: str,
+        skip_artifactory_upload: bool,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -598,12 +636,22 @@ class ProjectConfig:
                 based_on_file=is_based_on_file,
                 skip_builds=skip_build,
                 migrate=migrate,
+                artifactory=artifactory,
+                skip_artifactory_upload=skip_artifactory_upload,
             )
 
     # best used when invoking from execution.
     @classmethod
     def from_conf_folder(
-        cls, project: Project, conf_folder, fabric_ids: str, job_ids: str, skip_builds: bool, migrate: bool
+        cls,
+        project: Project,
+        conf_folder,
+        fabric_ids: str,
+        job_ids: str,
+        skip_builds: bool,
+        migrate: bool,
+        artifactory: str,
+        skip_artifactory_upload: bool,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -621,6 +669,8 @@ class ProjectConfig:
             skip_builds,
             conf_folder,
             migrate,
+            artifactory,
+            skip_artifactory_upload,
         )
 
 

@@ -110,6 +110,6 @@ def get_temp_aws_role_creds(role_arn: str, _access_key: str, _secret_key: str):
         # Use Static Credentials
         credentials = boto3.Session(aws_access_key_id=_access_key, aws_secret_access_key=_secret_key)
 
-    sts_client = credentials.client('sts')
+    sts_client = credentials.client("sts")
     sts_assumed_role = sts_client.assume_role(RoleArn=role_arn, RoleSessionName="ProphecyReleaseAssumedRoleSession")
     return sts_assumed_role["Credentials"]
