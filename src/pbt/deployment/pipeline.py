@@ -507,7 +507,7 @@ class PackageBuilderAndUploader:
                 log("Trying to upload pipeline package to nexus.", self._pipeline_id)
                 self._uploading_to_nexus(path)
 
-            if self._project_config.artifactory is not None:
+            if self._project_config.artifactory is not None and self._project_config.artifactory != "":
                 log(
                     f"Trying to upload pipeline wheel {path} package to artifactory:\n {self._project_config.artifactory}.",
                     self._pipeline_id,

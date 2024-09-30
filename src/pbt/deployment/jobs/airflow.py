@@ -691,7 +691,7 @@ class AirflowGitSecrets:
             # making this single threaded for now.
             with ThreadPoolExecutor(max_workers=1) as executor:
                 log(
-                    f"{Colors.OKBLACK}Updating git secrets{Colors.ENDC}",
+                    f"{Colors.OKGREEN}Updating git secrets{Colors.ENDC}",
                     step_id=self._AIRFLOW_GIT_SECRETS_STEP_ID,
                 )
                 for project_git_tokens in self.fabric_config.project_git_tokens:
