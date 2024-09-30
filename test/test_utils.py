@@ -121,7 +121,7 @@ INPUT_DB_JSON = """
 """
 
 
-class TestTagging:
+class TestUtils:
 
     def test_artifactory_databricks_json_update(self):
         # Input JSON string
