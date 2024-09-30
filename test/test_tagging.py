@@ -6,8 +6,6 @@ from test.isolated_repo_test_case import IsolatedRepoTestCase
 
 
 class TestTagging(IsolatedRepoTestCase):
-
-
     @staticmethod
     def _get_pbt_version(path_to_project):
         with open(os.path.join(path_to_project, "pbt_project.yml"), "r") as fd:
@@ -28,7 +26,7 @@ class TestTagging(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_tagging_default(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         pbt_version = TestTagging._get_pbt_version(project_path)
 
         branch_name = "custom_branch_unittest"

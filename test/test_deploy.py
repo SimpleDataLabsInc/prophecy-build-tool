@@ -12,11 +12,10 @@ if os.environ.get("DATABRICKS_TOKEN") is None:
 
 @pytest.mark.dependency(depends="test_build_path_default")
 class TestDeploy(IsolatedRepoTestCase):
-
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy])  # TODO deploy_v2 does not work here.
     def test_deploy_path_default_databricks_jobs(self, language, command):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path])
 
@@ -42,7 +41,7 @@ class TestDeploy(IsolatedRepoTestCase):
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy_v2])
     def test_deploy_path_default_airflow_jobs(self, language, command):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--job-ids", "AirflowEndToEndJob"])
         print(result.output)
@@ -66,7 +65,7 @@ class TestDeploy(IsolatedRepoTestCase):
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy])
     def test_deploy_path_default_skip_builds(self, language, command):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         fabric_id = "16433"
         result = runner.invoke(command, ["--path", project_path, "--skip-builds", "--fabric-ids", fabric_id])
@@ -85,7 +84,7 @@ class TestDeploy(IsolatedRepoTestCase):
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy, deploy_v2])
     def test_deploy_path_fabric_id_filter(self, language, command):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         fabric_id = "16432"
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--fabric-ids", fabric_id, "--skip-builds"])
@@ -105,7 +104,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_invalid_fabric_id(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--fabric-ids", "999999"])
         assert "Found 2 jobs:" in result.output
@@ -114,7 +113,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_with_fabric_id_and_job_id_filter(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--fabric-ids", "999", "--job-ids", "test-job"])
         assert result.exit_code == 1
@@ -122,7 +121,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_with_job_id_filter_and_skip_builds(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "test-job", "--skip-builds"])
         assert result.exit_code == 1
@@ -133,7 +132,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_job_id_filter(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "EndToEndJob"])
 
@@ -156,7 +155,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_multiple_job_id_filter(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "EndToEndJob,DatabricksJob2"])
 
@@ -170,7 +169,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_one_invalid_job_id_filter(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,EndToEndJob"])
 
@@ -184,7 +183,7 @@ class TestDeploy(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_deploy_v1_path_pipeline_with_all_invalid_job_ids_filter(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,invalid2"])
 

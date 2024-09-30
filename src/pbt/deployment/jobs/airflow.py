@@ -131,10 +131,10 @@ class AirflowJob(JobData, ABC):
                 pipeline_id_newer_format = properties.get("pipelineId", {})
 
                 if (
-                        pipeline_id_newer_format
-                        and isinstance(pipeline_id_newer_format, dict)
-                        and pipeline_id_newer_format.get("type", None) == "literal"
-                        and pipeline_id_newer_format.get("value", None)
+                    pipeline_id_newer_format
+                    and isinstance(pipeline_id_newer_format, dict)
+                    and pipeline_id_newer_format.get("type", None) == "literal"
+                    and pipeline_id_newer_format.get("value", None)
                 ):
                     pipeline_id = pipeline_id_newer_format.get("value")
 

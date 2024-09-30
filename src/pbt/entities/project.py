@@ -214,12 +214,12 @@ class Project:
         leave pipeline id blank to get dependencies for all pipelines.
         """
         # gather project level dependencies:
-        project_level_dependencies = self.pbt_project_dict.get('dependencies', [])
-        project_level_maven_dependencies = [d for d in project_level_dependencies if d['type'] == 'coordinates']
+        project_level_dependencies = self.pbt_project_dict.get("dependencies", [])
+        project_level_maven_dependencies = [d for d in project_level_dependencies if d["type"] == "coordinates"]
 
         # the plibs maven does not have a normal coordinate so we have to make one:
-        spark_version = os.environ['SPARK_VERSION'] if 'SPARK_VERSION' in os.environ else '{{REPLACE_ME}}'
-        plibs_maven_deps = [d for d in project_level_dependencies if d['name'] == 'plibMaven']
+        spark_version = os.environ["SPARK_VERSION"] if "SPARK_VERSION" in os.environ else "{{REPLACE_ME}}"
+        plibs_maven_deps = [d for d in project_level_dependencies if d["name"] == "plibMaven"]
         if len(plibs_maven_deps) != 1:
             log(
                 f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
@@ -227,10 +227,10 @@ class Project:
             )
             return None
         plibs_maven_dep = copy.deepcopy(plibs_maven_deps[0])
-        plibs_maven_dep['type'] = 'coordinates'
-        plibs_maven_dep['package'] = 'prophecy-libs_2.12'
-        plibs_maven_dep['version'] = spark_version + '-' + plibs_maven_dep['version']
-        plibs_maven_dep['coordinates'] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
+        plibs_maven_dep["type"] = "coordinates"
+        plibs_maven_dep["package"] = "prophecy-libs_2.12"
+        plibs_maven_dep["version"] = spark_version + "-" + plibs_maven_dep["version"]
+        plibs_maven_dep["coordinates"] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
         project_level_maven_dependencies.append(plibs_maven_dep)
 
         pipeline_level_maven_dependencies = []
@@ -241,9 +241,8 @@ class Project:
             # gather pipeline level dependencies per directory and combine with project
             # level deps:
             workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
-            pipeline_level_dependencies = workflow['metainfo']['externalDependencies']
-            pipeline_level_maven_dependencies += [d for d in pipeline_level_dependencies if
-                                                  d['type'] == 'coordinates']
+            pipeline_level_dependencies = workflow["metainfo"]["externalDependencies"]
+            pipeline_level_maven_dependencies += [d for d in pipeline_level_dependencies if d["type"] == "coordinates"]
         maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
         return maven_dependencies
 

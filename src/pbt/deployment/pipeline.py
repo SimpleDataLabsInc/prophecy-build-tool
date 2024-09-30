@@ -652,42 +652,45 @@ class PackageBuilderAndUploader:
 
         # Load the setup.py file and generate egg info
         os.chdir(self._base_path)
-        setup_path = os.path.join(self._base_path, 'setup.py')
+        setup_path = os.path.join(self._base_path, "setup.py")
         spec = importlib.util.spec_from_file_location("setup", setup_path)
         setup_module = importlib.util.module_from_spec(spec)
-        sys.argv = ['setup.py', '-q', 'egg_info']
+        sys.argv = ["setup.py", "-q", "egg_info"]
         spec.loader.exec_module(setup_module)
         # restore original working dir
         os.chdir(cwd)
 
         # Extract the distribution info
         distribution = pkg_resources.get_distribution(self._get_package_name().split("-")[0])
-        requirements = [str(r) for r in distribution.requires(extras=['test'])]
+        requirements = [str(r) for r in distribution.requires(extras=["test"])]
 
         sys.argv = orig_sys_argv
 
         # call pip
         try:
             log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--disable-pip-version-check', '-q']
-                                  + requirements)
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements
+            )
         except subprocess.CalledProcessError as e:
             print(f"An error occurred while trying to install requirements: {e}")
 
     def get_maven_dependencies_python(self):
         if "SPARK_JARS_CONFIG" not in os.environ or len(os.environ["SPARK_JARS_CONFIG"]) != 0:
-            log(f"{Colors.OKBLUE}Skipping installing maven dependencies: using {os.environ['SPARK_JARS_CONFIG']}{Colors.ENDC}")
+            log(
+                f"{Colors.OKBLUE}Skipping installing maven dependencies: using {os.environ['SPARK_JARS_CONFIG']}{Colors.ENDC}"
+            )
             return
 
         # gather project level dependencies:
         maven_deps = self._project.get_maven_dependencies_for_python_pipelines(self._pipeline_id)
-        maven_deps = [d['coordinates'].replace("{{REPLACE_ME}}", pyspark.__version__) for d in maven_deps]
+        maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", pyspark.__version__) for d in maven_deps]
 
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
         # call mvn
         for d in maven_deps:
             try:
-                subprocess.check_call(['mvn', 'dependency:get', d])
+                subprocess.check_call(["mvn", "dependency:get", d])
             except subprocess.CalledProcessError as e:
                 print(f"An error occurred while trying to install maven requirements: {e}")
 

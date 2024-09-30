@@ -7,7 +7,6 @@ from test.isolated_repo_test_case import IsolatedRepoTestCase
 
 
 class TestVersioning(IsolatedRepoTestCase):
-
     @staticmethod
     def _get_pbt_version(path_to_project):
         with open(os.path.join(path_to_project, "pbt_project.yml"), "r") as fd:
@@ -15,14 +14,10 @@ class TestVersioning(IsolatedRepoTestCase):
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
 
-    @pytest.mark.parametrize("bump_type, version_result", [
-            ("major", "1.0.0"),
-            ("minor", "0.1.0"),
-            ("patch", "0.0.2")
-    ])
+    @pytest.mark.parametrize("bump_type, version_result", [("major", "1.0.0"), ("minor", "0.1.0"), ("patch", "0.0.2")])
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_versioning_bump(self, bump_type, version_result, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -33,13 +28,16 @@ class TestVersioning(IsolatedRepoTestCase):
         assert new_pbt_version != pbt_version
         assert new_pbt_version == version_result
 
-    @pytest.mark.parametrize("bump_type, version_result", [
+    @pytest.mark.parametrize(
+        "bump_type, version_result",
+        [
             ("build", "0.0.1+build.1"),
             ("prerelease", "0.0.1-rc.1"),
-        ])
+        ],
+    )
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_versioning_bump_build_pre_python(self, bump_type, version_result, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -53,7 +51,7 @@ class TestVersioning(IsolatedRepoTestCase):
 
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_versioning_sync(self, language):
-        project_path = self.python_project_path if language == 'python' else self.scala_project_path
+        project_path = self.python_project_path if language == "python" else self.scala_project_path
         pbt_version = TestVersioning._get_pbt_version(project_path)
 
         runner = CliRunner()
@@ -94,7 +92,7 @@ class TestVersioning(IsolatedRepoTestCase):
         assert result.exit_code == 0
 
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
-        assert new_pbt_version == '1.0.0-SNAPSHOT'
+        assert new_pbt_version == "1.0.0-SNAPSHOT"
 
     def test_versioning_set_prerelease_and_bump_python(self):
         project_path = self.python_project_path
@@ -104,7 +102,7 @@ class TestVersioning(IsolatedRepoTestCase):
         result = runner.invoke(versioning, ["--path", project_path, "--bump", "prerelease"])
         assert result.exit_code == 0
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
-        assert new_pbt_version == '0.0.1-rc.5'
+        assert new_pbt_version == "0.0.1-rc.5"
 
     def test_versioning_version_set_below_force(self):
         project_path = self.python_project_path
