@@ -38,7 +38,14 @@ jobs:
         flake8 . --count --exclude=./test/resources/,./.venv/ --statistics
     - name: Test with pytest
       run: |
+        ##### TODO it looks like ivy2 cache is being clobbered by concurrent processes:
+        #### https://lists.apache.org/thread/4xp1cgtzd99ntvwtv0lbdc25no0ctq79
+        #### yeah.... ivy has a lockstrategy that is not usually set. 
+        ### so we can either change defaultCacheDir or lockStrategy in ivysettings.
+        ### let's make ivysettings.xml and add lockstrategy first. need to pass ivysettings field to pyspark
+        export SPARK_JARS_CONFIGS='{"spark.jars.ivySettings":"$GITHUB_WORKSPACE/test/ivySettings.xml"}'
         export JAVA_HOME="${JAVA_HOME_11_X64:-$JAVA_HOME_11_arm64}"
+        echo $SPARK_JARS_CONFIG
         python -m pytest -n auto test/test_* -v
     - name: Build package
       run: python -m build

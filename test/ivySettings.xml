@@ -1,0 +1,5 @@
+<ivysettings>
+    <!-- Define default cache settings with artifact-lock. this allows parallel pytests to hit .m2 cache -->
+    <caches lockStrategy="artifact-lock">
+    </caches>
+</ivysettings>
