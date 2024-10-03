@@ -5,13 +5,11 @@ import subprocess
 import sys
 import tempfile
 import threading
-import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 import xml.etree.ElementTree as ET
-import importlib
-import pkg_resources
 import pyspark
+import ast
 
 from . import JobData
 from .uploader.PipelineUploaderManager import PipelineUploadManager
@@ -647,24 +645,29 @@ class PackageBuilderAndUploader:
     def get_python_dependencies(self):
         log(f"{Colors.OKBLUE}Getting python dependencies for {self._pipeline_name} {Colors.ENDC}")
 
-        orig_sys_argv = sys.argv
-        cwd = os.getcwd()
+        def extract_install_requires_from_setup(setup_py_path):
+            with open(setup_py_path, "r") as file:
+                setup_code = file.read()
 
-        # Load the setup.py file and generate egg info
-        os.chdir(self._base_path)
-        setup_path = os.path.join(self._base_path, "setup.py")
-        spec = importlib.util.spec_from_file_location("setup", setup_path)
-        setup_module = importlib.util.module_from_spec(spec)
-        sys.argv = ["setup.py", "-q", "egg_info"]
-        spec.loader.exec_module(setup_module)
-        # restore original working dir
-        os.chdir(cwd)
+            # Parse the setup.py code into an AST
+            tree = ast.parse(setup_code)
+            install_requires = []
 
-        # Extract the distribution info
-        distribution = pkg_resources.get_distribution(self._get_package_name().split("-")[0])
-        requirements = [str(r) for r in distribution.requires(extras=["test"])]
+            # Walk through all nodes in the AST
+            for node in ast.walk(tree):
+                # Look for a function call to setup()
+                if isinstance(node, ast.Call) and hasattr(node.func, 'id') and node.func.id == 'setup':
+                    # Traverse the keyword arguments of the setup() call
+                    for keyword in node.keywords:
+                        if keyword.arg == 'install_requires' and isinstance(keyword.value, ast.List):
+                            install_requires += [elt.s for elt in keyword.value.elts if isinstance(elt, ast.Str)]
+                        elif keyword.arg == 'extras_require' and isinstance(keyword.value, ast.Dict):
+                            for key, value in zip(keyword.value.keys, keyword.value.values):
+                                if isinstance(key, ast.Str) and key.s == 'test' and isinstance(value, ast.List):
+                                    install_requires += [elt.s for elt in value.elts if isinstance(elt, ast.Str)]
+            return install_requires
 
-        sys.argv = orig_sys_argv
+        requirements = extract_install_requires_from_setup(os.path.join(self._base_path, "setup.py"))
 
         # call pip
         try:
@@ -690,7 +693,7 @@ class PackageBuilderAndUploader:
         # call mvn
         for d in maven_deps:
             try:
-                subprocess.check_call(["mvn", "dependency:get", d])
+                subprocess.check_call(["mvn", "dependency:get", f"-Dartifact={d}"])
             except subprocess.CalledProcessError as e:
                 print(f"An error occurred while trying to install maven requirements: {e}")
 
