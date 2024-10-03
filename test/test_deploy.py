@@ -10,7 +10,6 @@ if os.environ.get("DATABRICKS_TOKEN") is None:
     os.environ["DATABRICKS_TOKEN"] = "test"
 
 
-@pytest.mark.dependency(depends="test_build_path_default")
 class TestDeploy(IsolatedRepoTestCase):
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [deploy])  # TODO deploy_v2 does not work here.

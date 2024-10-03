@@ -6,7 +6,6 @@ import pytest
 from test.isolated_repo_test_case import IsolatedRepoTestCase
 
 
-@pytest.mark.dependency(depends="test_build_path_default")
 @pytest.mark.xdist_group(name="serial_tests")  # these tests must be run serially or github action worker OOM
 class TestTesting(IsolatedRepoTestCase):
     @staticmethod
