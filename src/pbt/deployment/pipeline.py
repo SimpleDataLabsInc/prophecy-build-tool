@@ -656,14 +656,14 @@ class PackageBuilderAndUploader:
             # Walk through all nodes in the AST
             for node in ast.walk(tree):
                 # Look for a function call to setup()
-                if isinstance(node, ast.Call) and hasattr(node.func, 'id') and node.func.id == 'setup':
+                if isinstance(node, ast.Call) and hasattr(node.func, "id") and node.func.id == "setup":
                     # Traverse the keyword arguments of the setup() call
                     for keyword in node.keywords:
-                        if keyword.arg == 'install_requires' and isinstance(keyword.value, ast.List):
+                        if keyword.arg == "install_requires" and isinstance(keyword.value, ast.List):
                             install_requires += [elt.s for elt in keyword.value.elts if isinstance(elt, ast.Str)]
-                        elif keyword.arg == 'extras_require' and isinstance(keyword.value, ast.Dict):
+                        elif keyword.arg == "extras_require" and isinstance(keyword.value, ast.Dict):
                             for key, value in zip(keyword.value.keys, keyword.value.values):
-                                if isinstance(key, ast.Str) and key.s == 'test' and isinstance(value, ast.List):
+                                if isinstance(key, ast.Str) and key.s == "test" and isinstance(value, ast.List):
                                     install_requires += [elt.s for elt in value.elts if isinstance(elt, ast.Str)]
             return install_requires
 

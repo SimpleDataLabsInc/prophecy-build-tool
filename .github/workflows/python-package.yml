@@ -37,7 +37,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        export SPARK_JARS_CONFIGS='{"spark.jars.ivySettings":"$GITHUB_WORKSPACE/test/ivySettings.xml"}'
-        export JAVA_HOME="${JAVA_HOME_11_X64:-$JAVA_HOME_11_arm64}"
-        echo $SPARK_JARS_CONFIG
         python -m pytest -n auto test/test_* -v
