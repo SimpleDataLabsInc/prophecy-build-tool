@@ -48,6 +48,7 @@ setuptools.setup(
             "pyspark>=3.3.0,<4.0.0",
             "mock",  # or any other testing-specific packages you need
             "pytest-xdist",
+            "pytest-dependency"
         ]
     },
     python_requires=">=3.7",

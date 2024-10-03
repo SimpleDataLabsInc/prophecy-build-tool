@@ -21,5 +21,6 @@ pytest-cov
 gitpython
 botocore~=1.34.154
 packaging~=24.1
-pyspark~=3.3.0
+pyspark==3.5.1
 pytest-xdist
+pytest-dependency
