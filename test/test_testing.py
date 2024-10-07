@@ -39,6 +39,8 @@ class TestTesting(IsolatedRepoTestCase):
             fd.write("fake")
 
         result = runner.invoke(command, ["--path", project_path, "--driver-library-path", driver_library_path])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         assert "fake.jar" in result.output.replace("\n", "")
         assert "fake2.jar" in result.output.replace("\n", "")
@@ -49,6 +51,8 @@ class TestTesting(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         items = [
             i
@@ -67,7 +71,8 @@ class TestTesting(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", os.path.relpath(project_path, os.getcwd())])
-        print(result.output)
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
 
     @pytest.mark.parametrize("language", ["python", "scala"])
@@ -81,6 +86,8 @@ class TestTesting(IsolatedRepoTestCase):
         ][:2]
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--pipelines", ",".join(pipelines_to_test)])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         for p in pipelines_to_test:
             if command is _test:
@@ -99,6 +106,8 @@ class TestTesting(IsolatedRepoTestCase):
         ][0]
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--pipelines", f"{pipeline_to_test},notfound"])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
 
@@ -108,6 +117,8 @@ class TestTesting(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--pipelines", "notfound1,notfound2,notfound3"])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
 
@@ -119,9 +130,10 @@ class TestTesting(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path])
-        print(result.output)
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
-
+    
         pipelines_to_test = [
             i
             for i in os.listdir(os.path.join(project_path, "pipelines"))

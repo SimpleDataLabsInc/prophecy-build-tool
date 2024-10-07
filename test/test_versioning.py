@@ -59,6 +59,8 @@ class TestVersioning(IsolatedRepoTestCase):
         assert result.exit_code == 0
 
         result = runner.invoke(build_v2, ["--path", project_path])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
 
         # future TODO; building the artifacts is kind of lazy and causes dependency on buildv2 command.

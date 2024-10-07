@@ -28,6 +28,8 @@ class TestBuild(IsolatedRepoTestCase):
         runner = CliRunner()
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         result = runner.invoke(command, ["--path", project_path])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         assert "Found 5 pipelines" in result.output
         TestBuild._check_for_artifacts(project_path, language, n=5)
@@ -50,6 +52,8 @@ class TestBuild(IsolatedRepoTestCase):
             fd.close()
         runner = CliRunner()
         result = runner.invoke(build_v2, ["--path", project_path])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 1
         TestBuild._check_for_artifacts(project_path, language, n=4)
 
@@ -71,6 +75,8 @@ class TestBuild(IsolatedRepoTestCase):
             fd.close()
         runner = CliRunner()
         result = runner.invoke(build_v2, ["--path", project_path, "--ignore-build-errors"])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         TestBuild._check_for_artifacts(project_path, language, n=4)
 
@@ -80,6 +86,8 @@ class TestBuild(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--pipelines", "raw_bronze,gold_sales"])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         TestBuild._check_for_artifacts(project_path, language, n=2)
 
@@ -97,6 +105,8 @@ class TestBuild(IsolatedRepoTestCase):
                 "raw_bronze,INVALID_PIPELINE_NAME",
             ],
         )
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         TestBuild._check_for_artifacts(project_path, language, n=1)
 
@@ -106,6 +116,8 @@ class TestBuild(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--pipelines", "INVALID_PIPELINE_NAME"])
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 1
         TestBuild._check_for_artifacts(project_path, language, n=0)
 
@@ -115,7 +127,8 @@ class TestBuild(IsolatedRepoTestCase):
         project_path = self.python_project_path
         runner = CliRunner()
         result = runner.invoke(build_v2, ["--path", project_path, "--add-pom-python"])
-        print(result.output)
+        print(result.stdout)
+        print(result.stderr)
         assert result.exit_code == 0
         artifacts = TestBuild._check_for_artifacts(project_path, "python", n=5)
 
