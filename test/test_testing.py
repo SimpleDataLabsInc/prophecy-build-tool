@@ -133,7 +133,7 @@ class TestTesting(IsolatedRepoTestCase):
         print(result.stdout)
         print(result.stderr)
         assert result.exit_code == 0
-    
+
         pipelines_to_test = [
             i
             for i in os.listdir(os.path.join(project_path, "pipelines"))
