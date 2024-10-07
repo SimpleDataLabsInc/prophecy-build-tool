@@ -289,7 +289,7 @@ class DatabricksJobsDeployment:
         }
 
     def _update_databricks_json_for_artifactory(self, job_data):
-        if self.project_config.artifactory is not None:
+        if self.project_config.artifactory:
             log(
                 f"Artifactory URL {self.project_config.artifactory} is passed, "
                 f"updating databricks-jobs.json with package"
