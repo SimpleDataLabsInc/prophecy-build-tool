@@ -157,10 +157,10 @@ class ProphecyBuildTool:
                     diagnostics = workflow["diagnostics"]
                     for diagnostic in diagnostics:
                         if diagnostic.get("severity") == 1:
-                            print(f"\n[red]\[error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
+                            print(f"\n[red][error] {pipeline['name']}: {diagnostic.get('message')}[/red]")
                             num_errors += 1
                         elif diagnostic.get("severity") == 2:
-                            print(f"\n[yellow]\[warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
+                            print(f"\n[yellow][warn] {pipeline['name']}: {diagnostic.get('message')}[/yellow]")
                             num_warnings += 1
                     print(f"\n{pipeline['name']} has {num_errors} errors and {num_warnings} warnings.")
                     if num_errors > 0 or (treat_warnings_as_errors and num_warnings > 0):
@@ -368,9 +368,9 @@ class ProphecyBuildTool:
                     ):
                         # Check if this shared pipelineComponent has configs
                         dependent_pipeline_regex_pattern = (
-                            "(^[0-9]+?\/pipelines\/[-_.A-Za-z0-9 \/]+)$"
-                            "|^.*projectSubscriptionProjectId=([0-9]+).*path=([-_.A-Za-z0-9 \/]+).*$"
-                            "|^.*path=([-_.A-Za-z0-9 \/]+).*projectSubscriptionProjectId=([0-9]+).*$"
+                            "(^[0-9]+?/pipelines/[-_.A-Za-z0-9 /]+)$"
+                            "|^.*projectSubscriptionProjectId=([0-9]+).*path=([-_.A-Za-z0-9 /]+).*$"
+                            "|^.*path=([-_.A-Za-z0-9 /]+).*projectSubscriptionProjectId=([0-9]+).*$"
                         )
                         print(f"Parsing basepipeline: {pipeline_uri}")
                         search_regex_id = re.search(dependent_pipeline_regex_pattern, pipeline_uri)
