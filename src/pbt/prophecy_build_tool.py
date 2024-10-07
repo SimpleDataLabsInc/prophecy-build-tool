@@ -18,6 +18,7 @@ from rich import print
 
 from .process import Process
 import tempfile
+from .utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
 
 
 class ProphecyBuildTool:
@@ -681,7 +682,7 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "clean", "package", "-q", "-DskipTests"],
+                    ["mvn", "clean", "package", "-q", "-DskipTests"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -692,7 +693,7 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()],
+                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
