@@ -10,6 +10,15 @@ orchestration (e.g. Databricks Workflows).
 
 For the latest information on how to use Prophecy-build-tool please visit https://docs.prophecy.io/releases-and-deployment/prophecy-build-tool/.
 
+## DEVELOPERS
+
+Developers should install all hooks:
+
+```shell
+chmod a+x install_hooks.sh
+./install_hooks.sh
+```
+
 ## Installation
 
 To install PBT, simply run:
