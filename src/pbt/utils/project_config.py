@@ -545,8 +545,8 @@ class ProjectConfig:
             # should not be none, empty string {just explicit comparison } and any other volume other than supported volumes.
             return (
                 volume_opt is not None
-                and not volume_opt
-                and not (volume_opt.startswith("dbfs:/Volumes") or volume_opt.startswith("/Volumes"))
+                and volume_opt
+                and (volume_opt.startswith("dbfs:/Volumes") or volume_opt.startswith("/Volumes"))
             )
         return False
 
