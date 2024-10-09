@@ -732,6 +732,7 @@ class ProphecyBuildTool:
                         "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
                         "--junitxml=report.xml",
+                        "--html=report.html --self-contained-html",
                         f"test{os.sep}TestSuite.py",
                     ],
                     path_pipeline_absolute,
