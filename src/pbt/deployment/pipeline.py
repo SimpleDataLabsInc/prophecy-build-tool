@@ -627,7 +627,7 @@ class PackageBuilderAndUploader:
             return f"{result}-1.0-py3-none-any.whl"
 
     def mvn_build(self, ignore_build_errors: bool = False):
-        command = ["mvn", "package"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        command = ["mvn", "package"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS + os.environ['MAVEN_OPTS']
         if not self._are_tests_enabled:
             command.extend(["-DskipTests"])
         else:
@@ -638,7 +638,7 @@ class PackageBuilderAndUploader:
         return self._build(command, ignore_build_errors)
 
     def mvn_test(self):
-        command = ["mvn", "package", "-Dfabric=default"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        command = ["mvn", "package", "-Dfabric=default"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS + os.environ['MAVEN_OPTS']
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command)
@@ -694,7 +694,8 @@ class PackageBuilderAndUploader:
         # call mvn
         for d in maven_deps:
             try:
-                subprocess.check_call(["mvn", "dependency:get", f"-Dartifact={d}"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS)
+                subprocess.check_call(["mvn", "dependency:get", f"-Dartifact={d}"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS +
+                                      os.environ['MAVEN_OPTS'])
             except subprocess.CalledProcessError as e:
                 print(f"An error occurred while trying to install maven requirements: {e}")
 
