@@ -69,7 +69,11 @@ class PackageBuilder:
             return self.wheel_build()
 
     def mvn_build(self):
-        command = ["mvn", "deploy", "-DskipTests"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS + os.environ["MAVEN_OPTS"]
+        command = (
+            ["mvn", "deploy", "-DskipTests"]
+            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+            + os.environ["MAVEN_OPTS"].strip().split(" ")
+        )
 
         log(f"Running mvn command {command}", step_id=GEMS)
 

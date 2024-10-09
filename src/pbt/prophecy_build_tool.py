@@ -684,7 +684,7 @@ class ProphecyBuildTool:
                 Process(
                     ["mvn", "clean", "package", "-q", "-DskipTests"]
                     + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
-                    + os.environ["MAVEN_OPTS"],
+                    + os.environ["MAVEN_OPTS"].strip().split(" "),
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -697,7 +697,7 @@ class ProphecyBuildTool:
                 Process(
                     ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()]
                     + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
-                    + os.environ["MAVEN_OPTS"],
+                    + os.environ["MAVEN_OPTS"].strip().split(" "),
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )

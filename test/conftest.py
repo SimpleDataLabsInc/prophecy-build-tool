@@ -16,5 +16,5 @@ def pytest_configure():
 
     # point maven opts to save ivysettings file so that the scala-maven-plugin will pass this location to sbt correctly
     os.environ["MAVEN_OPTS"] = " ".join(
-        os.environ.get("MAVEN_OPTS", ""), f"-Dsbt.ivy.home={os.path.basename(ivysettings_file)}"
+        [os.environ.get("MAVEN_OPTS", ""), f"-Dsbt.ivy.home={os.path.dirname(ivysettings_file)}"]
     )
