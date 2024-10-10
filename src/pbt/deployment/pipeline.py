@@ -657,10 +657,12 @@ class PackageBuilderAndUploader:
 
         # gather project level dependencies:
         maven_deps = self._project.get_maven_dependencies_for_python_pipelines(self._pipeline_id)
-        maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", pyspark.__version__) for d in maven_deps]
+        if "{{REPLACE_ME}}" in ''.join([str(d) for d in maven_deps]):
+            # if spark version not defined then use whatever pyspark version is installed.
+            plibs_pyspark_version = ".".join(pyspark.__version__.split(".")[:2] + ["0"])
+            maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", plibs_pyspark_version) for d in maven_deps]
 
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
-        # call mvn
         for d in maven_deps:
             try:
                 subprocess.check_call(["mvn", "dependency:get", f"-Dartifact={d}"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS)
