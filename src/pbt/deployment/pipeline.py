@@ -690,6 +690,7 @@ class PackageBuilderAndUploader:
             "--cov=.",
             "--cov-report=xml",
             "--junitxml=report.xml",
+            "--html=report.html",
             f"{self._base_path}{separator}test{separator}TestSuite.py",
         ]
         log(f"Running python test {test_command}", step_id=self._pipeline_id, indent=2)
