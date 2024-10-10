@@ -182,6 +182,8 @@ def test_test_v2_coverage_and_test_report_generation():
     assert os.path.exists(coverage_path)
     assert os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.xml"))
 
+    assert os.path.exists(os.path.join(PROJECT_PATH, "./pipelines/customers_orders/code/report.html"))
+
     with open(coverage_path, "r") as fd:
         content = fd.read()
         # check to make sure that .coveragerc got picked up and made absolute paths:
