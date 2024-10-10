@@ -140,7 +140,7 @@ class TestTesting(IsolatedRepoTestCase):
             assert "Coverage XML written to file coverage.xml" in result.output
             assert os.path.exists(coverage_path)
             assert os.path.exists(os.path.join(project_path, f"./pipelines/{p}/code/report.xml"))
-            assert os.path.exists(os.path.join(PROJECT_PATH, f"./pipelines/{p}/code/report.html"))
+            assert os.path.exists(os.path.join(project_path, f"./pipelines/{p}/code/report.html"))
 
             with open(coverage_path, "r") as fd:
                 content = fd.read()
