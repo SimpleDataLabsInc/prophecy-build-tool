@@ -13,8 +13,3 @@ def pytest_configure():
     spark_config = json.loads(os.environ.get("SPARK_CONFIG_JSON", "{}"))
     spark_config["spark.jars.ivySettings"] = ivysettings_file
     os.environ["SPARK_CONFIG_JSON"] = json.dumps(spark_config)
-
-    # point maven opts to save ivysettings file so that the scala-maven-plugin will pass this location to sbt correctly
-    os.environ["MAVEN_OPTS"] = " ".join(
-        [os.environ.get("MAVEN_OPTS", ""), f"-Dsbt.ivy.home={os.path.dirname(ivysettings_file)}"]
-    )

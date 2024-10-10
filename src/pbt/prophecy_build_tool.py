@@ -681,12 +681,9 @@ class ProphecyBuildTool:
     def build_scala(self, path_pipeline_absolute):
         return Process.process_sequential(
             [
-                Process(
-                    ["mvn", "clean", "package", "-q", "-DskipTests"]
-                    + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
-                    + os.environ["MAVEN_OPTS"].strip().split(" "),
-                    path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32"),
+                Process(["mvn", "clean", "package", "-q", "-DskipTests"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
+                        path_pipeline_absolute,
+                        is_shell=(self.operating_system == "win32"),
                 )
             ]
         )
@@ -694,12 +691,9 @@ class ProphecyBuildTool:
     def test_scala(self, path_pipeline_absolute):
         return Process.process_sequential(
             [
-                Process(
-                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()]
-                    + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
-                    + os.environ["MAVEN_OPTS"].strip().split(" "),
-                    path_pipeline_absolute,
-                    is_shell=(self.operating_system == "win32"),
+                Process(["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
+                        path_pipeline_absolute,
+                        is_shell=(self.operating_system == "win32"),
                 )
             ]
         )
