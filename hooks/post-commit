@@ -1,0 +1,8 @@
+#!/bin/sh
+# .git/hooks/post-commit
+
+black --check src/ test/
+if [ $? -ne 0 ]; then
+  echo "Code formatting check failed."
+  exit 1
+fi
