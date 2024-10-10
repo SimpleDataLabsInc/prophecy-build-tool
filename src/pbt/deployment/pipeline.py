@@ -657,7 +657,7 @@ class PackageBuilderAndUploader:
 
         # gather project level dependencies:
         maven_deps = self._project.get_maven_dependencies_for_python_pipelines(self._pipeline_id)
-        if "{{REPLACE_ME}}" in ''.join([str(d) for d in maven_deps]):
+        if "{{REPLACE_ME}}" in "".join([str(d) for d in maven_deps]):
             # if spark version not defined then use whatever pyspark version is installed.
             plibs_pyspark_version = ".".join(pyspark.__version__.split(".")[:2] + ["0"])
             maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", plibs_pyspark_version) for d in maven_deps]
