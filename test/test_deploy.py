@@ -17,6 +17,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path])
+        print(result.output)
 
         if command is deploy:
             assert "Found 2 jobs:" in result.output
@@ -68,6 +69,7 @@ class TestDeploy(IsolatedRepoTestCase):
         runner = CliRunner()
         fabric_id = "16433"
         result = runner.invoke(command, ["--path", project_path, "--skip-builds", "--fabric-ids", fabric_id])
+        print(result.output)
         if command is deploy:
             assert "[SKIP]: Skipping builds for all pipelines as '--skip-builds' flag is passed." in result.output
         elif command is deploy_v2:
@@ -87,6 +89,7 @@ class TestDeploy(IsolatedRepoTestCase):
         fabric_id = "16432"
         runner = CliRunner()
         result = runner.invoke(command, ["--path", project_path, "--fabric-ids", fabric_id, "--skip-builds"])
+        print(result.output)
 
         if command is deploy:
             assert "Found 2 jobs" in result.output
@@ -106,6 +109,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--fabric-ids", "999999"])
+        print(result.output)
         assert "Found 2 jobs:" in result.output
         assert "Deploying jobs only for given Fabric IDs: ['999999']" in result.output
         assert "[SKIP]: Job " in result.output
@@ -115,6 +119,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--fabric-ids", "999", "--job-ids", "test-job"])
+        print(result.output)
         assert result.exit_code == 1
         assert "[ERROR]: Can't combine filters, Please pass either --fabric_ids or --job_id" in result.output
 
@@ -123,6 +128,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "test-job", "--skip-builds"])
+        print(result.output)
         assert result.exit_code == 1
         assert (
             "[ERROR]: Can't skip builds for job_id filter,\nas it only builds depending pipelines ,\nPlease pass "
@@ -134,6 +140,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "EndToEndJob"])
+        print(result.output)
 
         # tODO there is a bad error message, you can get it by passing "--job-ids jobs/EndToEndJob ":
         #       Deploying jobs only for given Job IDs: ['jobs/EndToEndJob']
@@ -157,6 +164,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "EndToEndJob,DatabricksJob2"])
+        print(result.output)
 
         assert "Found 2 jobs: EndToEndJob, DatabricksJob2" in result.output
         assert "Deploying jobs only for given Job IDs: ['EndToEndJob', 'DatabricksJob2']" in result.output
@@ -171,6 +179,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,EndToEndJob"])
+        print(result.output)
 
         assert "Found 2 jobs: " in result.output
         assert "Deploying jobs only for given Job IDs: ['invalid1', 'EndToEndJob']" in result.output
@@ -185,6 +194,7 @@ class TestDeploy(IsolatedRepoTestCase):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         runner = CliRunner()
         result = runner.invoke(deploy, ["--path", project_path, "--job-ids", "invalid1,invalid2"])
+        print(result.output)
 
         assert result.exit_code == 1
         assert "Found 2 jobs: " in result.output

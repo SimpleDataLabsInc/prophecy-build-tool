@@ -48,7 +48,6 @@ MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS = [
     "-Daether.syncContext.named.factory=file-lock",
     "-Daether.syncContext.named.nameMapper=file-gav",
     "-Daether.syncContext.named.time=120",
-    "--debug"
     # aether.syncContext.named.time (optional, default is 30): the time value for being blocked by trying to acquire a lock.
     # https://maven.apache.org/resolver/maven-resolver-impl/synccontextfactory.html
     # NOTE: may want to give a higher time. depending on how long builds block for...
