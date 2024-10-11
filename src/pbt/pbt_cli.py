@@ -116,18 +116,21 @@ class PBTCli(object):
         self.version_set(self.project.project.pbt_project_dict["version"] + prerelease_string, force)
 
     def version_check_sync(self):
-        version_check_sync(self.project.project.project_path,
-                           self.project.project.pbt_project_dict['language'],
-                           self.project.project.pbt_project_dict['version'])
+        version_check_sync(
+            self.project.project.project_path,
+            self.project.project.pbt_project_dict["language"],
+            self.project.project.pbt_project_dict["version"],
+        )
 
     def version_check_if_bumped(self, repo_path, branch):
-        current_pbt_version = self.project.project.pbt_project_dict['version']
+        current_pbt_version = self.project.project.pbt_project_dict["version"]
         repo = git.Repo(repo_path)
-        subpath = os.path.relpath(os.path.join(self.project.project.project_path, "pbt_project.yml"),
-                                  os.path.abspath(repo_path))
-        branch_content = repo.git.show(f'{branch}:{subpath}')
+        subpath = os.path.relpath(
+            os.path.join(self.project.project.project_path, "pbt_project.yml"), os.path.abspath(repo_path)
+        )
+        branch_content = repo.git.show(f"{branch}:{subpath}")
         branch_pbt_dict = yaml.safe_load(branch_content)
-        branch_pbt_version = branch_pbt_dict['version']
+        branch_pbt_version = branch_pbt_dict["version"]
         try:
             if semver.parse_version_info(current_pbt_version) <= semver.parse_version_info(branch_pbt_version):
                 log(f"Current version is not higher than base version: {current_pbt_version} <= {branch_pbt_version}")

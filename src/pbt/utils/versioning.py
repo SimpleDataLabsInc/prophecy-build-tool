@@ -9,34 +9,34 @@ import xml.etree.ElementTree as ET
 
 
 def version_check_sync(project_path, project_language, pbt_project_version):
-    if project_language == 'python':
+    if project_language == "python":
         filename_to_find = "setup.py"
-    elif project_language == 'scala':
+    elif project_language == "scala":
         filename_to_find = "pom.xml"
-    elif project_language == 'sql':
+    elif project_language == "sql":
         filename_to_find = "dbt_project.yml"
     else:
         raise ValueError("bad project language: ", project_language)
 
-    files_to_check = glob.glob(os.path.join(project_path, '**', filename_to_find), recursive=True)
+    files_to_check = glob.glob(os.path.join(project_path, "**", filename_to_find), recursive=True)
 
     for f in files_to_check:
-        with open(f, 'r') as fd:
+        with open(f, "r") as fd:
             # replace version in language specific files:
-            if project_language == 'python':
+            if project_language == "python":
                 version_match_re = re.search(r"version\s*=\s*['\"]([^'\"]+)['\"]", fd.read())
                 if version_match_re:
                     file_version = version_match_re.group(1)
                 else:
                     raise ValueError(f"could not find version in file: {f}")
-            elif project_language == 'scala':
+            elif project_language == "scala":
                 tree = ET.parse(fd)
                 root = tree.getroot()
-                namespace = {'ns': 'http://maven.apache.org/POM/4.0.0'}
-                file_version = root.find('ns:version', namespace).text
-            elif project_language == 'sql':
+                namespace = {"ns": "http://maven.apache.org/POM/4.0.0"}
+                file_version = root.find("ns:version", namespace).text
+            elif project_language == "sql":
                 content_dict = yaml.safe_load(fd)
-                file_version = content_dict['version']
+                file_version = content_dict["version"]
             else:
                 raise ValueError("bad project language: ", project_language)
 
