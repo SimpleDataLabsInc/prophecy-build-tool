@@ -354,20 +354,29 @@ def test(path, driver_library_path, pipelines):
     "--check-if-bumped",
     type=str,
     help="Checks to see if current branch has a greater version number than the branch name you provide. "
-         "(takes --repo-path if necessary)",
+    "(takes --repo-path if necessary)",
     required=False,
 )
 def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sync, check_if_bumped):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
-    if sum([set is not None,
-            bump is not None,
-            sync,
-            check_sync,
-            check_if_bumped is not None,
-            set_prerelease is not None]) > 1:
-        raise click.UsageError("Options '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', '--check-if-bumped' are mutually exclusive.")
+    if (
+        sum(
+            [
+                set is not None,
+                bump is not None,
+                sync,
+                check_sync,
+                check_if_bumped is not None,
+                set_prerelease is not None,
+            ]
+        )
+        > 1
+    ):
+        raise click.UsageError(
+            "Options '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', '--check-if-bumped' are mutually exclusive."
+        )
     elif set:
         pbt.version_set(set, force)
     elif bump:

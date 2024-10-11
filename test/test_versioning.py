@@ -175,15 +175,14 @@ class VersioningTestCase(unittest.TestCase):
     def test_versioning_version_check_sync_python(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
-        with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), 'r') as fd:
+        with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), "r") as fd:
             content = fd.read()
 
         content = content.replace("version = '1.0'", "version = '999.0'")
 
-        with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), 'w') as fd:
+        with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), "w") as fd:
             fd.write(content)
 
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, '--check-sync'])
+        result = runner.invoke(versioning, ["--path", project_path, "--check-sync"])
         assert result.exit_code == 0
-
