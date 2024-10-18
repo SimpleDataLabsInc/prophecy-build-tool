@@ -4,6 +4,7 @@ import subprocess
 import threading
 from typing import List
 
+from ..utils.constants import SCALA_LANGUAGE, PYTHON_LANGUAGE
 from ..entities.project import Project
 from ..utils.project_config import ProjectConfig
 from ..utils.project_models import StepMetadata, StepType, Operation, Status
@@ -61,11 +62,11 @@ class PackageBuilder:
     def __init__(self, path: str, language: str):
         self.path = path
         self.language = language
-        if self.language == "python":
+        if self.language == PYTHON_LANGUAGE:
             self._python_cmd, self._pip_cmd = get_python_commands(self.path)
 
     def build(self):
-        if self.language == "scala":
+        if self.language == SCALA_LANGUAGE:
             return self.mvn_build()
         else:
             return self.wheel_build()
