@@ -8,6 +8,7 @@ from ..entities.project import Project
 from ..utils.project_config import ProjectConfig
 from ..utils.project_models import StepMetadata, StepType, Operation, Status
 from ..utility import custom_print as log, Either
+from . import get_python_commands
 
 GEMS = "Gems"
 
@@ -60,6 +61,8 @@ class PackageBuilder:
     def __init__(self, path: str, language: str):
         self.path = path
         self.language = language
+        if self.language == "python":
+            self._python_cmd, self._pip_cmd = get_python_commands(self.path)
 
     def build(self):
         if self.language == "scala":
@@ -75,7 +78,7 @@ class PackageBuilder:
         return self._build(command)
 
     def wheel_build(self):
-        build_command = ["python3", "setup.py", "bdist_wheel"]
+        build_command = [self._python_cmd, "setup.py", "bdist_wheel"]
         log(f"Running python command {build_command}", step_id=GEMS)
         build_status = self._build(build_command)
         if build_status == 0:
