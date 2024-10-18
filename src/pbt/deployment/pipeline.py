@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
-from . import JobData
+from . import JobData, get_python_commands
 from .uploader.PipelineUploaderManager import PipelineUploadManager
 from ..client.nexus import NexusClient
 from ..deployment.jobs.airflow import AirflowJobDeployment
@@ -451,6 +451,8 @@ class PackageBuilderAndUploader:
         self.pipeline_upload_manager = PipelineUploadManager(
             self._project, self._project_config, self._pipeline_id, self._pipeline_name, self.fabrics
         )
+        if self.project.project_language == "python":
+            self._python_cmd, self._pip_cmd = get_python_commands(self._base_path)
 
     def _initialize_temp_folder(self):
         rdc = self._project.load_pipeline_folder(self._pipeline_id)
@@ -649,7 +651,7 @@ class PackageBuilderAndUploader:
 
         separator = os.sep
         test_command = [
-            "python3",
+            self._python_cmd,
             "-m",
             "pytest",
             "-v",
@@ -670,7 +672,7 @@ class PackageBuilderAndUploader:
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
-        command = ["python3", "setup.py", "bdist_wheel"]
+        command = [self._python_cmd, "setup.py", "bdist_wheel"]
 
         log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
 
