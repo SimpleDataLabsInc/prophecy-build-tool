@@ -1,6 +1,6 @@
 import json
 
-from pbt.deployment.jobs.utils import modify_databricks_json_for_private_artifactory
+from src.pbt.deployment.jobs.utils import modify_databricks_json_for_private_artifactory
 
 input_db_json = """
 {
