@@ -39,8 +39,12 @@ def invert_entity_to_fabric_mapping(
 
 
 def get_python_commands(cwd):
-    py3_proc = subprocess.Popen(["python3", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-    py_proc = subprocess.Popen(["python", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+    py3_proc = subprocess.Popen(
+        ["python3", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd
+    )
+    py_proc = subprocess.Popen(
+        ["python", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd
+    )
     try:
         py3_proc.wait(timeout=1)
     except subprocess.TimeoutExpired:
