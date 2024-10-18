@@ -39,18 +39,22 @@ def invert_entity_to_fabric_mapping(
 
 
 def get_python_commands(cwd):
-    if (
-        subprocess.Popen(["python3", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        == 0
-    ):
+    py3_proc = subprocess.Popen(["python3", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+    py_proc = subprocess.Popen(["python", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+    try:
+        py3_proc.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        try:
+            py_proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+
+    if py3_proc.returncode == 0:
         return "python3", "pip3"
-    elif (
-        subprocess.Popen(["python3", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        == 0
-    ):
+    elif py_proc.returncode == 0:
         return "python", "pip"
     else:
-        print("ERROR: python not found")
+        print("ERROR: no `python3` or `python` found")
         sys.exit(1)
 
 
