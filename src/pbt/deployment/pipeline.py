@@ -9,14 +9,14 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
-from . import JobData
+from . import JobData, get_python_commands
 from .uploader.PipelineUploaderManager import PipelineUploadManager
 from ..client.nexus import NexusClient
 from ..deployment.jobs.airflow import AirflowJobDeployment
 from ..deployment.jobs.databricks import DatabricksJobsDeployment
 from ..entities.project import Project
 from ..utility import Either, custom_print as log, is_online_mode
-from ..utils.constants import SCALA_LANGUAGE
+from ..utils.constants import SCALA_LANGUAGE, PYTHON_LANGUAGE
 from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
@@ -196,7 +196,7 @@ class PipelineDeployment:
                 log(f"{Colors.FAIL} Pipeline test failed : `{pipeline_id}`  {Colors.ENDC}")
 
     def _add_maven_dependency_info_python(self):
-        if self.project.pbt_project_dict.get("language", "") == "python":
+        if self.project.pbt_project_dict.get("language", "") == PYTHON_LANGUAGE:
 
             def _generate_pom_from_dicts(d_list):
                 # Create the root element
@@ -340,7 +340,7 @@ class PipelineDeployment:
                     f"{Colors.WARNING}Skipping build for pipelines {pipelines_to_skip_build}, Please check the ids/names of provided pipelines {Colors.ENDC}"
                 )
 
-        if add_pom_python and self.project.pbt_project_dict.get("language", "") == "python":
+        if add_pom_python and self.project.pbt_project_dict.get("language", "") == PYTHON_LANGUAGE:
             self._add_maven_dependency_info_python()
 
         log(f"\n\n{Colors.OKBLUE}Building pipelines {len(pipeline_ids_to_name)}{Colors.ENDC}\n")
@@ -444,13 +444,15 @@ class PackageBuilderAndUploader:
         self._pipeline_name = pipeline_name
         self._are_tests_enabled = are_tests_enabled
         self._project = project
-        self._project_langauge = project.project_language
+        self._project_language = project.project_language
         self._base_path = project.load_pipeline_base_path(pipeline_id)
         self._project_config = project_config
         self.fabrics = fabrics
         self.pipeline_upload_manager = PipelineUploadManager(
             self._project, self._project_config, self._pipeline_id, self._pipeline_name, self.fabrics
         )
+        if self._project_language == PYTHON_LANGUAGE:
+            self._python_cmd, self._pip_cmd = get_python_commands(self._base_path)
 
     def _initialize_temp_folder(self):
         rdc = self._project.load_pipeline_folder(self._pipeline_id)
@@ -464,13 +466,13 @@ class PackageBuilderAndUploader:
         self._base_path = temp_dir
 
     def test(self):
-        if self._project_langauge == SCALA_LANGUAGE:
+        if self._project_language == SCALA_LANGUAGE:
             return self.mvn_test()
         else:
             return self.wheel_test()
 
     def build(self, ignore_build_errors: bool = False):
-        if self._project_langauge == SCALA_LANGUAGE:
+        if self._project_language == SCALA_LANGUAGE:
             return self.mvn_build(ignore_build_errors)
         else:
             return self.wheel_build(ignore_build_errors)
@@ -491,7 +493,7 @@ class PackageBuilderAndUploader:
 
             log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
 
-            if self._project_langauge == SCALA_LANGUAGE:
+            if self._project_language == SCALA_LANGUAGE:
                 self.mvn_build()
             else:
                 self.wheel_build()
@@ -612,7 +614,7 @@ class PackageBuilderAndUploader:
             return Either(left=e)
 
     def _get_package_name(self):
-        if self._project_langauge == SCALA_LANGUAGE:
+        if self._project_language == SCALA_LANGUAGE:
             return f"{self._pipeline_name}.jar"
         else:
             # todo combine in a single regex
@@ -649,7 +651,7 @@ class PackageBuilderAndUploader:
 
         separator = os.sep
         test_command = [
-            "python3",
+            self._python_cmd,
             "-m",
             "pytest",
             "-v",
@@ -670,7 +672,7 @@ class PackageBuilderAndUploader:
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
-        command = ["python3", "setup.py", "bdist_wheel"]
+        command = [self._python_cmd, "setup.py", "bdist_wheel"]
 
         log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
 

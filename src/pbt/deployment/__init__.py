@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional, List, Dict
+import subprocess
+import sys
 
 
 class OperationType(Enum):
@@ -34,6 +36,30 @@ def invert_entity_to_fabric_mapping(
             result[inner.entity_id].append(EntityIdToFabricId(entity_uri, inner.fabric_id))
 
     return result
+
+
+def get_python_commands(cwd):
+    py3_proc = subprocess.Popen(
+        ["python3", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd
+    )
+    py_proc = subprocess.Popen(
+        ["python", "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd
+    )
+    try:
+        py3_proc.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        try:
+            py_proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+
+    if py3_proc.returncode == 0:
+        return "python3", "pip3"
+    elif py_proc.returncode == 0:
+        return "python", "pip"
+    else:
+        print("ERROR: no `python3` or `python` found")
+        sys.exit(1)
 
 
 # creating an abstract class helps to morge both airflow and databricks jobs and have common behavior for both of them.
