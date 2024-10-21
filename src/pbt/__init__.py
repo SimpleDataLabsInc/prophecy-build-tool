@@ -339,9 +339,10 @@ def test(path, driver_library_path, pipelines):
     required=False,
 )
 @click.option(
-    "--set-prerelease",
+    "--set-suffix",
     type=str,
-    help="Set a prerelease string. example '-SNAPSHOT' or '-rc.4'",
+    help="Set a suffix string. example '-SNAPSHOT' or '-rc.4' . If this is not a valid semVer string an error will be "
+         "thrown.",
     required=False,
 )
 @click.option(
@@ -356,13 +357,26 @@ def test(path, driver_library_path, pipelines):
     "--compare",
     type=str,
     help="Checks to see if current branch has a greater version number than the <TARGET> branch name provided. Returns "
-    "0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it will"
-    "compare the current version with the version in the target branch and use the bump strategy IF the current "
-    "version is lower than the target. ",
+         "0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it will"
+         "compare the current version with the version in the target branch and use the bump strategy IF the current "
+         "version is lower than the target. ",
     required=False,
     default="main",
 )
-def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sync, compare_to_target):
+@click.option(
+    "--make-unique",
+    help="Helper function that makes a version unique for feature branches. Adds build-metadata suffix to differentiate"
+         " this feature branch from other dev branches (hash based on branch name). Adds Prerelease candidate to "
+         " deprioritize this version from being chosen over other versions (recommended so that it does not "
+         " accidentally get chosen over a real release. "
+         "format: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
+         "python example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
+         "scala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
@@ -372,8 +386,9 @@ def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sy
             bump is not None,
             sync,
             check_sync,
-            set_prerelease is not None,
+            set_suffix is not None,
             compare_to_target is not None,
+            make_unique
         ]
     )
 
@@ -392,25 +407,25 @@ def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sy
         pbt.version_bump(bump, force)
     elif sync:
         pbt.version_set(None, force)
-    elif set_prerelease:
-        pbt.version_set_prerelease(set_prerelease, force)
+    elif set_suffix:
+        pbt.version_set_suffix(set_suffix, force)
     elif check_sync:
         pbt.version_check_sync()
     elif compare_to_target:
-        if not bump:
-            # when bump is not given, then just return 0 or 1 to compare versions
-            if not pbt.version_compare_to_target(repo_path, compare_to_target):
-                sys.exit(1)
-                pbt.version_check_sync()
-            raise click.UsageError("Must provide bump strategy in value for '--bump' if using '--merge-prep-target'")
-        else:
-            # when bump is given then use the strategy to bump over the version found in the target.
-            if not pbt.version_compare_to_target(repo_path, compare_to_target):
+        if not pbt.version_compare_to_target(repo_path, compare_to_target):
+            if bump:
+                # when bump is given then use the strategy to bump over the version found in the target.
                 target_version = pbt.version_get_target_branch_version(repo_path, compare_to_target)
                 pbt.version_set(target_version, force=True)
                 pbt.version_bump(repo_path, bump)
             else:
-                pbt.version_check_sync()
+                # when bump is not given, then just return 0 or 1 to compare versions
+                sys.exit(1)
+        else:
+            # always if our version is already higher, make sure we are sync'd.
+            pbt.version_check_sync()
+    elif make_unique:
+        pbt.version_make_unique(repo_path)
     else:
         raise click.UsageError(
             "must give ONE of: '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', "

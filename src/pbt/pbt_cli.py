@@ -10,6 +10,8 @@ from .utility import custom_print as log
 import git
 from .utils.versioning import update_all_versions, get_bumped_version, version_check_sync
 import semver
+from .utils.constants import SCALA_LANGUAGE
+import hashlib
 
 
 class PBTCli(object):
@@ -112,8 +114,8 @@ class PBTCli(object):
             force=force,
         )
 
-    def version_set_prerelease(self, prerelease_string, force):
-        self.version_set(self.project.project.pbt_project_dict["version"] + prerelease_string, force)
+    def version_set_suffix(self, suffix, force):
+        self.version_set(self.project.project.pbt_project_dict["version"] + suffix, force)
 
     def version_check_sync(self):
         version_check_sync(
@@ -121,6 +123,15 @@ class PBTCli(object):
             self.project.project.pbt_project_dict["language"],
             self.project.project.pbt_project_dict["version"],
         )
+
+    def version_make_unique(self, repo_path, force):
+        repo = git.Repo(repo_path)
+        branch_name = repo.active_branch.name
+        branch_hash = hashlib.sha256(branch_name.encode()).hexdigest()[:8]
+        if self.project.project.project_language == SCALA_LANGUAGE:
+            self.version_set_suffix(f"-SNAPSHOT+sha.{branch_hash}", force)
+        else:
+            self.version_set_suffix(f"-dev+sha.{branch_hash}", force)
 
     def version_get_target_branch_version(self, repo_path, target_branch):
         repo = git.Repo(repo_path)
