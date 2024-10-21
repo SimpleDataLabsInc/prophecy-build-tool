@@ -342,7 +342,7 @@ def test(path, driver_library_path, pipelines):
     "--set-suffix",
     type=str,
     help="Set a suffix string. example '-SNAPSHOT' or '-rc.4' . If this is not a valid semVer string an error will be "
-         "thrown.",
+    "thrown.",
     required=False,
 )
 @click.option(
@@ -357,21 +357,21 @@ def test(path, driver_library_path, pipelines):
     "--compare",
     type=str,
     help="Checks to see if current branch has a greater version number than the <TARGET> branch name provided. Returns "
-         "0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it will"
-         "compare the current version with the version in the target branch and use the bump strategy IF the current "
-         "version is lower than the target. ",
+    "0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it will"
+    "compare the current version with the version in the target branch and use the bump strategy IF the current "
+    "version is lower than the target. ",
     required=False,
     default="main",
 )
 @click.option(
     "--make-unique",
     help="Helper function that makes a version unique for feature branches. Adds build-metadata suffix to differentiate"
-         " this feature branch from other dev branches (hash based on branch name). Adds Prerelease candidate to "
-         " deprioritize this version from being chosen over other versions (recommended so that it does not "
-         " accidentally get chosen over a real release. "
-         "format: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
-         "python example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
-         "scala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
+    " this feature branch from other dev branches (hash based on branch name). Adds Prerelease candidate to "
+    " deprioritize this version from being chosen over other versions (recommended so that it does not "
+    " accidentally get chosen over a real release. "
+    "format: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
+    "python example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
+    "scala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
     default=False,
     is_flag=True,
     required=False,
@@ -388,7 +388,7 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
             check_sync,
             set_suffix is not None,
             compare_to_target is not None,
-            make_unique
+            make_unique,
         ]
     )
 
