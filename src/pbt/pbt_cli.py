@@ -122,25 +122,28 @@ class PBTCli(object):
             self.project.project.pbt_project_dict["version"],
         )
 
-    def version_check_if_bumped(self, repo_path, branch):
-        current_pbt_version = self.project.project.pbt_project_dict["version"]
+    def version_get_target_branch_version(self, repo_path, target_branch):
         repo = git.Repo(repo_path)
         subpath = os.path.relpath(
             os.path.join(self.project.project.project_path, "pbt_project.yml"), os.path.abspath(repo_path)
         )
-        branch_content = repo.git.show(f"{branch}:{subpath}")
+        branch_content = repo.git.show(f"{target_branch}:{subpath}")
         branch_pbt_dict = yaml.safe_load(branch_content)
         branch_pbt_version = branch_pbt_dict["version"]
+        return branch_pbt_version
+
+    def version_compare_to_target(self, repo_path, target_branch):
+        current_pbt_version = self.project.project.pbt_project_dict["version"]
+        branch_pbt_version = self.version_get_target_branch_version(repo_path, target_branch)
         try:
             if semver.parse_version_info(current_pbt_version) <= semver.parse_version_info(branch_pbt_version):
                 log(f"Current version is not higher than base version: {current_pbt_version} <= {branch_pbt_version}")
-                exit(1)
+                return False
         except ValueError as e:
-            log("failed to parse one or more versions. marking invalid.")
-            log(e)
-            exit(1)
-
+            log(f"failed to parse one or more versions. marking invalid: {e}")
+            return False
         log(f"Success: {current_pbt_version} > {branch_pbt_version}")
+        return True
 
     def tag(self, repo_path, no_push=False, branch=None, custom=None):
         repo = git.Repo(repo_path)

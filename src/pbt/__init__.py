@@ -1,6 +1,7 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+import sys
 from typing import Optional
 
 import click
@@ -351,32 +352,40 @@ def test(path, driver_library_path, pipelines):
     required=False,
 )
 @click.option(
-    "--check-if-bumped",
+    "--compare-to-target",
+    "--compare",
     type=str,
-    help="Checks to see if current branch has a greater version number than the branch name you provide. "
-    "(takes --repo-path if necessary)",
+    help="Checks to see if current branch has a greater version number than the <TARGET> branch name provided. Returns "
+        "0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it will"
+        "compare the current version with the version in the target branch and use the bump strategy IF the current "
+        "version is lower than the target. ",
     required=False,
+    default="main"
 )
-def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sync, check_if_bumped):
+def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sync, compare_to_target):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
-    if (
-        sum(
+    option_total = sum(
             [
                 set is not None,
                 bump is not None,
                 sync,
                 check_sync,
-                check_if_bumped is not None,
                 set_prerelease is not None,
-            ]
+                compare_to_target is not None,
+                ]
         )
-        > 1
-    ):
-        raise click.UsageError(
-            "Options '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', '--check-if-bumped' are mutually exclusive."
-        )
+
+    if (option_total > 1):
+        if option_total == 2 and compare_to_target and bump:
+            pass  # this is the one combo that is allowed; compare_to_target and bump
+        else:
+            raise click.UsageError(
+                "Options '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', '--check-sync', "
+                " '--compare-to-target'"
+                "are mutually exclusive."
+            )
     elif set:
         pbt.version_set(set, force)
     elif bump:
@@ -387,10 +396,24 @@ def versioning(path, repo_path, bump, set, force, sync, set_prerelease, check_sy
         pbt.version_set_prerelease(set_prerelease, force)
     elif check_sync:
         pbt.version_check_sync()
-    elif check_if_bumped:
-        pbt.version_check_if_bumped(repo_path, check_if_bumped)
+    elif compare_to_target:
+        if not bump:
+            # when bump is not given, then just return 0 or 1 to compare versions
+            if not pbt.version_compare_to_target(repo_path, compare_to_target):
+                sys.exit(1)
+                pbt.version_check_sync()
+            raise click.UsageError("Must provide bump strategy in value for '--bump' if using '--merge-prep-target'")
+        else:
+            # when bump is given then use the strategy to bump over the version found in the target.
+            if not pbt.version_compare_to_target(repo_path, compare_to_target):
+                target_version = pbt.version_get_target_branch_version(repo_path, compare_to_target)
+                pbt.version_set(target_version, force=True)
+                pbt.version_bump(repo_path, bump)
+            else:
+                pbt.version_check_sync()
     else:
-        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', --set-prerelease'")
+        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', "
+                               " '--compare-to-target'")
 
 
 @cli.command()
