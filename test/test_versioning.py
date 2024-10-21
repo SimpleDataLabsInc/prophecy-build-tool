@@ -191,4 +191,3 @@ class VersioningTestCase(unittest.TestCase):
         result = runner.invoke(versioning, ["--path", project_path, "--check-sync"])
         assert result.exit_code == 1
         assert "Versions are out of sync" in result.output
-
