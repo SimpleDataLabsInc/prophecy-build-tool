@@ -46,7 +46,7 @@ def get_python_commands(cwd):
             )
             return True
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
-            print(e)
+            print(f"Could not find binary {binary_name}. subprocess returned: {e}")
         return False
 
     if _cmd_check("python3"):
