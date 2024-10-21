@@ -7,7 +7,7 @@ ERROR_PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorldBuildError"
 
 
 def test_build_v2_binary_check(monkeypatch):
-    monkeypatch.setenv('PATH', '')
+    monkeypatch.setenv("PATH", "")
     runner = CliRunner()
     result = runner.invoke(build_v2, ["--path", PROJECT_PATH])
     print(result.output)
