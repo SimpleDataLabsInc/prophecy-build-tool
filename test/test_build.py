@@ -6,6 +6,15 @@ PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 ERROR_PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorldBuildError"
 
 
+def test_build_v2_binary_check(monkeypatch):
+    monkeypatch.setenv('PATH', '')
+    runner = CliRunner()
+    result = runner.invoke(build_v2, ["--path", PROJECT_PATH])
+    print(result.output)
+    assert result.exit_code == 1
+    assert "ERROR: no `python3` or `python` found" in result.output
+
+
 def test_build_path_default():
     runner = CliRunner()
     result = runner.invoke(build, ["--path", PROJECT_PATH])
