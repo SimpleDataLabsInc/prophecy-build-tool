@@ -195,9 +195,9 @@ class VersioningTestCase(unittest.TestCase):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
         # pull the following branches for testing.
-        self.repo.git.fetch('origin', 'pytest/test_big_version')
-        self.repo.git.fetch('origin', 'pytest/test_small_version')
-        self.repo.git.fetch('origin', 'pytest/test_bad_version')
+        self.repo.git.fetch("origin", "pytest/test_big_version")
+        self.repo.git.fetch("origin", "pytest/test_small_version")
+        self.repo.git.fetch("origin", "pytest/test_bad_version")
         current_branch = self.repo.active_branch.name
         self.repo.git.checkout("pytest/test_big_version")
         self.repo.git.checkout("pytest/test_small_version")
@@ -227,7 +227,7 @@ class VersioningTestCase(unittest.TestCase):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
         # pull the following branches for testing.
-        self.repo.git.fetch('origin', 'pytest/test_big_version')
+        self.repo.git.fetch("origin", "pytest/test_big_version")
         current_branch = self.repo.active_branch.name
         self.repo.git.checkout("pytest/test_big_version")
         self.repo.git.checkout(current_branch)
