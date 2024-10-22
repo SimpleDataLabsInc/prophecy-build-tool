@@ -197,15 +197,18 @@ class VersioningTestCase(unittest.TestCase):
 
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
-                                            "--compare", "pytest_big_version"])
+                                            "--compare", "pytest/test_big_version"])
+        print(result.output)
         assert result.exit_code == 1
 
         result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
-                                            "--compare", "pytest_small_version"])
+                                            "--compare", "pytest/test_small_version"])
+        print(result.output)
         assert result.exit_code == 0
 
         result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
-                                            "--compare", "pytest_bad_version"])
+                                            "--compare", "pytest/test_bad_version"])
+        print(result.output)
         assert result.exit_code == 0
 
         

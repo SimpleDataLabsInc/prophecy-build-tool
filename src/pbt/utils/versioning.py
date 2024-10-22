@@ -45,7 +45,8 @@ def version_check_sync(project_path, project_language, pbt_project_version):
                     log(f"Versions are out of sync: {pbt_project_version} != {file_version}")
                     exit(1)
             except ValueError as e:
-                log("failed to parse one or more versions. marking invalid.")
+                log("Error: check-sync failed to parse one or more versions. "
+                    "versions are not synchronized in your code. Please run `pbt versioning --sync` to fix")
                 log(e)
                 exit(1)
 
