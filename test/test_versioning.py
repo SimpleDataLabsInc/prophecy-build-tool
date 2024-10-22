@@ -138,7 +138,7 @@ class VersioningTestCase(unittest.TestCase):
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--bump", "major"])
         assert result.exit_code == 0
-        result = runner.invoke(versioning, ["--path", project_path, "--set-prerelease", "-SNAPSHOT", "--force"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set-suffix", "-SNAPSHOT", "--force"])
         assert result.exit_code == 0
 
         new_pbt_version = VersioningTestCase._get_pbt_version(project_path)
@@ -147,7 +147,7 @@ class VersioningTestCase(unittest.TestCase):
     def test_versioning_set_prerelease_and_bump_python(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, "--set-prerelease", "-rc.4", "--force"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set-suffix", "-rc.4", "--force"])
         assert result.exit_code == 0
         result = runner.invoke(versioning, ["--path", project_path, "--bump", "prerelease"])
         assert result.exit_code == 0
@@ -192,7 +192,6 @@ class VersioningTestCase(unittest.TestCase):
         assert "Versions are out of sync" in result.output
 
     def test_versioning_compare_to_target(self):
-
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
         runner = CliRunner()
@@ -209,14 +208,38 @@ class VersioningTestCase(unittest.TestCase):
         result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
                                             "--compare", "pytest/test_bad_version"])
         print(result.output)
-        assert result.exit_code == 0
+        assert result.exit_code == 1
 
-        
 
     def test_versioning_bump_target(self):
-        pass
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
+                                            "--compare", "pytest/test_big_version",
+                                            "--bump", "patch"])
+        print(result.output)
+        assert result.exit_code == 0
+        pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        assert pbt_version == "9999.0.1"
+
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
+                                            "--compare", "pytest/test_small_version",
+                                            "--bump", "patch"])
+        print(result.output)
+        assert result.exit_code == 0
+        assert pbt_version == "9999.0.1"
+
 
     def test_versioning_make_unique(self):
-        pass
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
+                                            "--make-unique"])
+        print(result.output)
+        assert result.exit_code == 0
+        pbt_version = VersioningTestCase._get_pbt_version(project_path)
+        assert pbt_version == "0.0.1-dev+sha.612978c2"
 
 

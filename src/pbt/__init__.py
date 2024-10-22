@@ -8,6 +8,7 @@ import click
 import pkg_resources
 from rich import print
 
+from .utils.versioning import get_bumped_version
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
@@ -304,11 +305,13 @@ def test(path, driver_library_path, pipelines):
     "--path",
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
+    metavar="<PATH>"
 )
 @click.option(
     "--repo-path",
     help="Path to the repository root. If left blank it will use '--path'",
     required=False,
+    metavar="<PATH>"
 )
 @click.option(
     "--bump",
@@ -355,13 +358,14 @@ def test(path, driver_library_path, pipelines):
 @click.option(
     "--compare-to-target",
     "--compare",
+    metavar="<TARGET_BRANCH>",
     type=str,
-    help="Checks to see if current branch has a greater version number than the <TARGET> branch name provided. Returns "
-    "0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it will"
-    "compare the current version with the version in the target branch and use the bump strategy IF the current "
+    help="Checks to see if current branch has a greater version number than the <TARGET_BRANCH> branch name provided. "
+    "Returns 0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it "
+    "will compare the current version with the version in the target branch and use the bump strategy IF the current "
     "version is lower than the target. ",
     required=False,
-    default="main",
+    default=None,
 )
 @click.option(
     "--make-unique",
@@ -369,9 +373,9 @@ def test(path, driver_library_path, pipelines):
     " this feature branch from other dev branches (hash based on branch name). Adds Prerelease candidate to "
     " deprioritize this version from being chosen over other versions (recommended so that it does not "
     " accidentally get chosen over a real release. "
-    "format: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
-    "python example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
-    "scala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
+    " \nformat: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
+    " \npython example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
+    " \nscala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
     default=False,
     is_flag=True,
     required=False,
@@ -401,9 +405,10 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
                 " '--compare-to-target'"
                 "are mutually exclusive."
             )
-    elif set:
+
+    if set:
         pbt.version_set(set, force)
-    elif bump:
+    elif bump and not compare_to_target:
         pbt.version_bump(bump, force)
     elif sync:
         pbt.version_set(None, force)
@@ -416,8 +421,10 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
             if bump:
                 # when bump is given then use the strategy to bump over the version found in the target.
                 target_version = pbt.version_get_target_branch_version(repo_path, compare_to_target)
-                pbt.version_set(target_version, force=True)
-                pbt.version_bump(repo_path, bump)
+                new_version = get_bumped_version(
+                    target_version, bump, pbt.project.project.pbt_project_dict["language"],
+                )
+                pbt.version_set(new_version, force=True)
             else:
                 # when bump is not given, then just return 0 or 1 to compare versions
                 sys.exit(1)
@@ -425,11 +432,11 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
             # always if our version is already higher, make sure we are sync'd.
             pbt.version_check_sync()
     elif make_unique:
-        pbt.version_make_unique(repo_path)
+        pbt.version_make_unique(repo_path, force=True)
     else:
         raise click.UsageError(
             "must give ONE of: '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', "
-            " '--compare-to-target'"
+            " '--compare-to-target' '--make-unique' "
         )
 
 

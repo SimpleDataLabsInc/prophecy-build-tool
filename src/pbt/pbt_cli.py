@@ -8,7 +8,7 @@ from .entities.project import Project
 from .utils.project_config import ProjectConfig
 from .utility import custom_print as log
 import git
-from .utils.versioning import update_all_versions, get_bumped_version, version_check_sync
+from .utils.versioning import get_bumped_version, version_check_sync
 import semver
 from .utils.constants import SCALA_LANGUAGE
 import hashlib
@@ -93,27 +93,16 @@ class PBTCli(object):
             bump_type,
             self.project.project.pbt_project_dict["language"],
         )
-
-        update_all_versions(
-            self.project.project.project_path,
-            self.project.project.pbt_project_dict["language"],
-            orig_project_version=self.project.project.pbt_project_dict["version"],
-            new_version=new_version,
-            force=force,
-        )
+        log(f"Bumping {bump_type}. New version: {new_version}")
+        self.project.project.update_version(new_version=new_version, force=force)
+        log("Success.")
 
     def version_set(self, version, force):
         if version is None:
             # sync option will send None, so take existing version.
             version = self.project.project.pbt_project_dict["version"]
             force = True
-        update_all_versions(
-            self.project.project.project_path,
-            self.project.project.pbt_project_dict["language"],
-            orig_project_version=self.project.project.pbt_project_dict["version"],
-            new_version=version,
-            force=force,
-        )
+        self.project.project.update_version(new_version=version, force=force)
 
     def version_set_suffix(self, suffix, force):
         if not semver.Version.is_valid(self.project.project.pbt_project_dict["version"]):
@@ -157,12 +146,12 @@ class PBTCli(object):
         branch_pbt_version = self.version_get_target_branch_version(repo_path, target_branch)
         try:
             if semver.parse_version_info(current_pbt_version) <= semver.parse_version_info(branch_pbt_version):
-                log(f"Current version is not higher than base version: {current_pbt_version} <= {branch_pbt_version}")
+                log(f"Current version is not higher than target version: {current_pbt_version} <= {branch_pbt_version}")
                 return False
         except ValueError as e:
             log(f"failed to parse one or more versions. marking invalid: {e}")
             return False
-        log(f"Success: {current_pbt_version} > {branch_pbt_version}")
+        log(f"Comparison success: current {current_pbt_version} > target {branch_pbt_version}")
         return True
 
     def tag(self, repo_path, no_push=False, branch=None, custom=None):

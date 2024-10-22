@@ -24,6 +24,7 @@ from ..utils.constants import (
     PROJECT_URL_PLACEHOLDER_REGEX,
 )
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
+from ..utils.versioning import update_all_versions
 
 SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
     r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
@@ -393,6 +394,13 @@ class Project:
                         return is_dynamic
 
         return False
+
+    def update_version(self, new_version, force=False):
+        update_all_versions(self.project_path, self.project_language,
+                            orig_project_version=self.pbt_project_dict["version"],
+                            new_version=new_version, force=force)
+        # update our internal reference in case calls get chained which use this field.
+        self.pbt_project_dict["version"] = new_version
 
 
 class DependentProject(ABC):
