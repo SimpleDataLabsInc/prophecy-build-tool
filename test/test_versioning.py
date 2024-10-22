@@ -194,6 +194,16 @@ class VersioningTestCase(unittest.TestCase):
     def test_versioning_compare_to_target(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
+        # pull the following branches for testing.
+        self.repo.git.fetch('origin', 'pytest/test_big_version')
+        self.repo.git.fetch('origin', 'pytest/test_small_version')
+        self.repo.git.fetch('origin', 'pytest/test_bad_version')
+        current_branch = self.repo.active_branch.name
+        self.repo.git.checkout("pytest/test_big_version")
+        self.repo.git.checkout("pytest/test_small_version")
+        self.repo.git.checkout("pytest/test_bad_version")
+        self.repo.git.checkout(current_branch)
+
         runner = CliRunner()
         result = runner.invoke(
             versioning, ["--path", project_path, "--repo-path", REPO_PATH, "--compare", "pytest/test_big_version"]
@@ -215,6 +225,12 @@ class VersioningTestCase(unittest.TestCase):
 
     def test_versioning_bump_target(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+
+        # pull the following branches for testing.
+        self.repo.git.fetch('origin', 'pytest/test_big_version')
+        current_branch = self.repo.active_branch.name
+        self.repo.git.checkout("pytest/test_big_version")
+        self.repo.git.checkout(current_branch)
 
         runner = CliRunner()
         result = runner.invoke(
