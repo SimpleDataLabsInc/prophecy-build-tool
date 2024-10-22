@@ -12,6 +12,7 @@ from .utils.versioning import update_all_versions, get_bumped_version, version_c
 import semver
 from .utils.constants import SCALA_LANGUAGE
 import hashlib
+import sys
 
 
 class PBTCli(object):
@@ -115,7 +116,15 @@ class PBTCli(object):
         )
 
     def version_set_suffix(self, suffix, force):
-        self.version_set(self.project.project.pbt_project_dict["version"] + suffix, force)
+        if not semver.Version.is_valid(self.project.project.pbt_project_dict["version"]):
+            print("ERROR: current version is not in semVer syntax. cannot proceed.")
+            sys.exit(1)
+        current_version = semver.parse_version_info(self.project.project.pbt_project_dict["version"])
+        new_version_str = f"{current_version.major}.{current_version.minor}.{current_version.patch}{suffix}"
+        if not semver.Version.is_valid(new_version_str) and not force:
+            print("ERROR: suffix provided is not valid semVer syntax. You can use --force to ignore this.")
+            sys.exit(1)
+        self.version_set(new_version_str, force)
 
     def version_check_sync(self):
         version_check_sync(

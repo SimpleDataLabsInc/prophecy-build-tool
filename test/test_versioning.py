@@ -187,7 +187,33 @@ class VersioningTestCase(unittest.TestCase):
         with open(os.path.join(project_path, "pipelines/customers_orders/code/setup.py"), "w") as fd:
             fd.write(content)
 
-        runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--check-sync"])
         assert result.exit_code == 1
         assert "Versions are out of sync" in result.output
+
+    def test_versioning_compare_to_target(self):
+
+        project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
+                                            "--compare", "pytest_big_version"])
+        assert result.exit_code == 1
+
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
+                                            "--compare", "pytest_small_version"])
+        assert result.exit_code == 0
+
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
+                                            "--compare", "pytest_bad_version"])
+        assert result.exit_code == 0
+
+        
+
+    def test_versioning_bump_target(self):
+        pass
+
+    def test_versioning_make_unique(self):
+        pass
+
+
