@@ -1,6 +1,6 @@
 name: HelloWorld
 description: ''
-version: 0.0.1
+version: 1.invalid
 author: ashish@prophecy.io
 language: python
 buildSystem: ''
