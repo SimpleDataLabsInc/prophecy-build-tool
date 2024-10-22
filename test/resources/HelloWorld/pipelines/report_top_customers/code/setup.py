@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
     name = 'report_top_customers',
-    version = '1.0',
+    version = '9999.0.0',
     packages = find_packages(include = ('job*', )) + ["prophecy_config_instances"],
     package_dir = {'prophecy_config_instances' : 'configs/resources/config'},
     package_data = {'prophecy_config_instances' : ['*.json', '*.py']},
