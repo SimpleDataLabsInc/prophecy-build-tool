@@ -302,16 +302,13 @@ def test(path, driver_library_path, pipelines):
 
 @cli.command()
 @click.option(
-    "--path",
-    help="Path to the directory containing the pbt_project.yml file",
-    required=True,
-    metavar="<PATH>"
+    "--path", help="Path to the directory containing the pbt_project.yml file", required=True, metavar="<PATH>"
 )
 @click.option(
     "--repo-path",
     help="Path to the repository root. If left blank it will use '--path'",
     required=False,
-    metavar="<PATH>"
+    metavar="<PATH>",
 )
 @click.option(
     "--bump",
@@ -422,7 +419,9 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
                 # when bump is given then use the strategy to bump over the version found in the target.
                 target_version = pbt.version_get_target_branch_version(repo_path, compare_to_target)
                 new_version = get_bumped_version(
-                    target_version, bump, pbt.project.project.pbt_project_dict["language"],
+                    target_version,
+                    bump,
+                    pbt.project.project.pbt_project_dict["language"],
                 )
                 pbt.version_set(new_version, force=True)
             else:
