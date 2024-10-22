@@ -196,6 +196,10 @@ class VersioningTestCase(unittest.TestCase):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
         runner = CliRunner()
+
+        result = runner.invoke(versioning, ["--path", project_path, "--set", "1.0.0"])
+        assert result.exit_code == 0
+
         result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH,
                                             "--compare", "pytest_big_version"])
         assert result.exit_code == 1

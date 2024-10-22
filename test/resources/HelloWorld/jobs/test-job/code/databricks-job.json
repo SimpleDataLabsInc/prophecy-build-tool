@@ -4,21 +4,21 @@
     "PipelineComponent" : {
       "id" : "pipelines/customers_orders",
       "nodeName" : "customers_orders",
-      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/customers_orders1243-1.0-py3-none-any.whl",
+      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/customers_orders1243-0.0.1-prerelease1-py3-none-any.whl",
       "language" : "python"
     }
   }, {
     "PipelineComponent" : {
       "id" : "pipelines/join_agg_sort",
       "nodeName" : "join_agg_sort",
-      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/join_agg_sort-1.0-py3-none-any.whl",
+      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/join_agg_sort-0.0.1-prerelease1-py3-none-any.whl",
       "language" : "python"
     }
   }, {
     "PipelineComponent" : {
       "id" : "pipelines/report_top_customers",
       "nodeName" : "report_top_customers",
-      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/report_top_customers-1.0-py3-none-any.whl",
+      "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/report_top_customers-0.0.1-prerelease1-py3-none-any.whl",
       "language" : "python"
     }
   } ],
@@ -42,7 +42,7 @@
           "prophecy.metadata.is.interactive.run" : "false",
           "prophecy.project.id" : "__PROJECT_ID_PLACEHOLDER__",
           "prophecy.execution.service.url" : "wss://execution.dp.app.prophecy.io/eventws",
-          "prophecy.packages.path" : "{\"pipelines/customers_orders\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/customers_orders1243-1.0-py3-none-any.whl\",\"pipelines/join_agg_sort\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/join_agg_sort-1.0-py3-none-any.whl\",\"pipelines/report_top_customers\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/report_top_customers-1.0-py3-none-any.whl\"}",
+          "prophecy.packages.path" : "{\"pipelines/customers_orders\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/customers_orders1243-0.0.1-prerelease1-py3-none-any.whl\",\"pipelines/join_agg_sort\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/join_agg_sort-0.0.1-prerelease1-py3-none-any.whl\",\"pipelines/report_top_customers\":\"dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/report_top_customers-0.0.1-prerelease1-py3-none-any.whl\"}",
           "prophecy.metadata.job.branch" : "__PROJECT_RELEASE_VERSION_PLACEHOLDER__",
           "prophecy.metadata.url" : "__PROPHECY_URL_PLACEHOLDER__",
           "prophecy.execution.metrics.disabled" : false
@@ -67,7 +67,7 @@
           "package" : "prophecy-libs==1.5.0"
         }
       }, {
-        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/customers_orders1243-1.0-py3-none-any.whl"
+        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/customers_orders1243-0.0.1-prerelease1-py3-none-any.whl"
       } ],
       "email_notifications" : { },
       "max_retries" : 0
@@ -91,7 +91,7 @@
           "package" : "prophecy-libs==1.5.0"
         }
       }, {
-        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/join_agg_sort-1.0-py3-none-any.whl"
+        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/join_agg_sort-0.0.1-prerelease1-py3-none-any.whl"
       } ],
       "email_notifications" : { },
       "max_retries" : 0
@@ -115,7 +115,7 @@
           "package" : "prophecy-libs==1.5.0"
         }
       }, {
-        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/report_top_customers-1.0-py3-none-any.whl"
+        "whl" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/report_top_customers-0.0.1-prerelease1-py3-none-any.whl"
       } ],
       "email_notifications" : { },
       "max_retries" : 0

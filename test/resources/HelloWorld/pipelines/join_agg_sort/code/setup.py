@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
     name = 'join_agg_sort',
-    version = '1.0',
+    version = '0.0.1-prerelease1',
     packages = find_packages(include = ('job*', )) + ["prophecy_config_instances"],
     package_dir = {'prophecy_config_instances' : 'configs/resources/config'},
     package_data = {'prophecy_config_instances' : ['*.json', '*.py']},
