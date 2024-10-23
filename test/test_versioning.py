@@ -29,7 +29,6 @@ class VersioningTestCase(unittest.TestCase):
         cls.repo.git.checkout("pytest/test_bad_version")
         cls.repo.git.checkout(current_branch)
 
-
     @classmethod
     def tearDown(cls):
         # Reset all changes in the 'test/' directory
