@@ -23,7 +23,7 @@ class VersioningTestCase(unittest.TestCase):
         cls.repo.git.fetch("origin", "pytest/test_big_version")
         cls.repo.git.fetch("origin", "pytest/test_small_version")
         cls.repo.git.fetch("origin", "pytest/test_bad_version")
-        current_branch = cls.repo.active_branch.name
+        current_branch = cls.repo.head.commit.hexsha
         cls.repo.git.checkout("pytest/test_big_version")
         cls.repo.git.checkout("pytest/test_small_version")
         cls.repo.git.checkout("pytest/test_bad_version")
