@@ -277,14 +277,20 @@ class VersioningTestCase(unittest.TestCase):
     def test_versioning_make_unique(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
-        if "pytest/static_branch_name" not in self.repo.branches:
-            self.repo.git.checkout("-b", "pytest/static_branch_name")
-        else:
-            self.repo.git.checkout("pytest/static_branch_name")
+        self.repo.git.stash("save")
+        try:
+            if "pytest/static_branch_name" not in self.repo.branches:
+                self.repo.git.checkout("-b", "pytest/static_branch_name")
+            else:
+                self.repo.git.checkout("pytest/static_branch_name")
 
-        runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH, "--make-unique"])
-        print(result.output)
-        assert result.exit_code == 0
-        pbt_version = VersioningTestCase._get_pbt_version(project_path)
-        assert pbt_version == "0.0.1-dev+sha.062f87eb"
+            runner = CliRunner()
+            result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH, "--make-unique"])
+            print(result.output)
+            assert result.exit_code == 0
+            pbt_version = VersioningTestCase._get_pbt_version(project_path)
+            assert pbt_version == "0.0.1-dev+sha.062f87eb"
+        finally:
+            self.reset_changed_files("test/resources/")
+            self.repo.git.checkout(self.orig_repo_head)
+            self.repo.git.stash("pop")
