@@ -1,11 +1,18 @@
 import os
 from typing import Optional
+
+import yaml
+
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
 from .utils.project_config import ProjectConfig
 from .utility import custom_print as log
 import git
-from .utils.versioning import update_all_versions, get_bumped_version
+from .utils.versioning import get_bumped_version, version_check_sync
+import semver
+from .utils.constants import SCALA_LANGUAGE
+import hashlib
+import sys
 
 
 class PBTCli(object):
@@ -86,30 +93,66 @@ class PBTCli(object):
             bump_type,
             self.project.project.pbt_project_dict["language"],
         )
-
-        update_all_versions(
-            self.project.project.project_path,
-            self.project.project.pbt_project_dict["language"],
-            orig_project_version=self.project.project.pbt_project_dict["version"],
-            new_version=new_version,
-            force=force,
-        )
+        log(f"Bumping {bump_type}. New version: {new_version}")
+        self.project.project.update_version(new_version=new_version, force=force)
+        log("Success.")
 
     def version_set(self, version, force):
         if version is None:
             # sync option will send None, so take existing version.
             version = self.project.project.pbt_project_dict["version"]
             force = True
-        update_all_versions(
+        self.project.project.update_version(new_version=version, force=force)
+
+    def version_set_suffix(self, suffix, force):
+        if not semver.Version.is_valid(self.project.project.pbt_project_dict["version"]):
+            print("ERROR: current version is not in semVer syntax. cannot proceed.")
+            sys.exit(1)
+        current_version = semver.parse_version_info(self.project.project.pbt_project_dict["version"])
+        new_version_str = f"{current_version.major}.{current_version.minor}.{current_version.patch}{suffix}"
+        if not semver.Version.is_valid(new_version_str) and not force:
+            print("ERROR: suffix provided is not valid semVer syntax. You can use --force to ignore this.")
+            sys.exit(1)
+        self.version_set(new_version_str, force)
+
+    def version_check_sync(self):
+        version_check_sync(
             self.project.project.project_path,
             self.project.project.pbt_project_dict["language"],
-            orig_project_version=self.project.project.pbt_project_dict["version"],
-            new_version=version,
-            force=force,
+            self.project.project.pbt_project_dict["version"],
         )
 
-    def version_set_prerelease(self, prerelease_string, force):
-        self.version_set(self.project.project.pbt_project_dict["version"] + prerelease_string, force)
+    def version_make_unique(self, repo_path, force):
+        repo = git.Repo(repo_path)
+        branch_name = repo.active_branch.name
+        branch_hash = hashlib.sha256(branch_name.encode()).hexdigest()[:8]
+        if self.project.project.project_language == SCALA_LANGUAGE:
+            self.version_set_suffix(f"-SNAPSHOT+sha.{branch_hash}", force)
+        else:
+            self.version_set_suffix(f"-dev+sha.{branch_hash}", force)
+
+    def version_get_target_branch_version(self, repo_path, target_branch):
+        repo = git.Repo(repo_path)
+        subpath = os.path.relpath(
+            os.path.join(self.project.project.project_path, "pbt_project.yml"), os.path.abspath(repo_path)
+        )
+        branch_content = repo.git.show(f"{target_branch}:{subpath}")
+        branch_pbt_dict = yaml.safe_load(branch_content)
+        branch_pbt_version = branch_pbt_dict["version"]
+        return branch_pbt_version
+
+    def version_compare_to_target(self, repo_path, target_branch):
+        current_pbt_version = self.project.project.pbt_project_dict["version"]
+        branch_pbt_version = self.version_get_target_branch_version(repo_path, target_branch)
+        try:
+            if semver.parse_version_info(current_pbt_version) <= semver.parse_version_info(branch_pbt_version):
+                log(f"Current version is not higher than target version: {current_pbt_version} <= {branch_pbt_version}")
+                return False
+        except ValueError as e:
+            log(f"failed to parse one or more versions. marking invalid: {e}")
+            return False
+        log(f"Comparison success: current {current_pbt_version} > target {branch_pbt_version}")
+        return True
 
     def tag(self, repo_path, no_push=False, branch=None, custom=None):
         repo = git.Repo(repo_path)

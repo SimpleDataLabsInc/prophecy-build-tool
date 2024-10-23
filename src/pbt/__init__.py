@@ -1,12 +1,14 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+import sys
 from typing import Optional
 
 import click
 import pkg_resources
 from rich import print
 
+from .utils.versioning import get_bumped_version
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
@@ -300,9 +302,13 @@ def test(path, driver_library_path, pipelines):
 
 @cli.command()
 @click.option(
-    "--path",
-    help="Path to the directory containing the pbt_project.yml file",
-    required=True,
+    "--path", help="Path to the directory containing the pbt_project.yml file", required=True, metavar="<PATH>"
+)
+@click.option(
+    "--repo-path",
+    help="Path to the repository root. If left blank it will use '--path'",
+    required=False,
+    metavar="<PATH>",
 )
 @click.option(
     "--bump",
@@ -333,26 +339,104 @@ def test(path, driver_library_path, pipelines):
     required=False,
 )
 @click.option(
-    "--set-prerelease",
+    "--set-suffix",
     type=str,
-    help="Set a prerelease string. example '-SNAPSHOT' or '-rc.4'",
+    help="Set a suffix string. example '-SNAPSHOT' or '-rc.4' . If this is not a valid semVer string an error will be "
+    "thrown.",
     required=False,
 )
-def versioning(path, bump, set, force, sync, set_prerelease):
+@click.option(
+    "--check-sync",
+    help="check to see if versions are synced. exit code 0 success, 1 failure.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+@click.option(
+    "--compare-to-target",
+    "--compare",
+    metavar="<TARGET_BRANCH>",
+    type=str,
+    help="Checks to see if current branch has a greater version number than the <TARGET_BRANCH> branch name provided. "
+    "Returns 0 true, or 1 false. (Also performs --sync check). NOTE: if you provide '--bump'  with this option then it "
+    "will compare the current version with the version in the target branch and use the bump strategy IF the current "
+    "version is lower than the target. ",
+    required=False,
+    default=None,
+)
+@click.option(
+    "--make-unique",
+    help="Helper function that makes a version unique for feature branches. Adds build-metadata suffix to differentiate"
+    " this feature branch from other dev branches (hash based on branch name). Adds Prerelease candidate to "
+    " deprioritize this version from being chosen over other versions (recommended so that it does not "
+    " accidentally get chosen over a real release. "
+    " \nformat: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
+    " \npython example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
+    " \nscala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique):
     pbt = PBTCli.from_conf_folder(path)
+    if not repo_path:
+        repo_path = path
+    option_total = sum(
+        [
+            set is not None,
+            bump is not None,
+            sync,
+            check_sync,
+            set_suffix is not None,
+            compare_to_target is not None,
+            make_unique,
+        ]
+    )
 
-    if sum([set is not None, bump is not None, sync, set_prerelease is not None]) > 1:
-        raise click.UsageError("Options '--set', '--bump', '--sync' are mutually exclusive.")
-    elif set:
+    if option_total > 1:
+        if option_total == 2 and compare_to_target and bump:
+            pass  # this is the one combo that is allowed; compare_to_target and bump
+        else:
+            raise click.UsageError(
+                "Options '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', '--check-sync', "
+                " '--compare-to-target'"
+                "are mutually exclusive."
+            )
+
+    if set:
         pbt.version_set(set, force)
-    elif bump:
+    elif bump and not compare_to_target:
         pbt.version_bump(bump, force)
     elif sync:
         pbt.version_set(None, force)
-    elif set_prerelease:
-        pbt.version_set_prerelease(set_prerelease, force)
+    elif set_suffix:
+        pbt.version_set_suffix(set_suffix, force)
+    elif check_sync:
+        pbt.version_check_sync()
+    elif compare_to_target:
+        if not pbt.version_compare_to_target(repo_path, compare_to_target):
+            if bump:
+                # when bump is given then use the strategy to bump over the version found in the target.
+                target_version = pbt.version_get_target_branch_version(repo_path, compare_to_target)
+                new_version = get_bumped_version(
+                    target_version,
+                    bump,
+                    pbt.project.project.pbt_project_dict["language"],
+                )
+                pbt.version_set(new_version, force=True)
+            else:
+                # when bump is not given, then just return 0 or 1 to compare versions
+                sys.exit(1)
+        else:
+            # always if our version is already higher, make sure we are sync'd.
+            pbt.version_check_sync()
+    elif make_unique:
+        pbt.version_make_unique(repo_path, force=True)
     else:
-        raise click.UsageError("must give ONE of: '--set', '--bump', '--sync', --set-prerelease'")
+        raise click.UsageError(
+            "must give ONE of: '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', "
+            " '--compare-to-target' '--make-unique' "
+        )
 
 
 @cli.command()
