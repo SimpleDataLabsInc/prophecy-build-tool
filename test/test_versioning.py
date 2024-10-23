@@ -21,7 +21,9 @@ class VersioningTestCase(unittest.TestCase):
         cls.repo = git.Repo(os.getcwd())
         cls.orig_repo_head = cls.get_current_repo_head()
         # pull the following branches for testing.
-        cls.repo.git.stash("save")
+        repo_dirty = cls.repo.is_dirty()
+        if repo_dirty:
+             cls.repo.git.stash("save")
         cls.repo.git.fetch("origin", "pytest/test_big_version")
         cls.repo.git.fetch("origin", "pytest/test_small_version")
         cls.repo.git.fetch("origin", "pytest/test_bad_version")
@@ -29,7 +31,8 @@ class VersioningTestCase(unittest.TestCase):
         cls.repo.git.checkout("pytest/test_small_version")
         cls.repo.git.checkout("pytest/test_bad_version")
         cls.repo.git.checkout(cls.orig_repo_head)
-        cls.repo.git.stash("pop")
+        if repo_dirty:
+            cls.repo.git.stash("pop")
 
     @classmethod
     def tearDown(cls):
@@ -277,7 +280,9 @@ class VersioningTestCase(unittest.TestCase):
     def test_versioning_make_unique(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
-        self.repo.git.stash("save")
+        repo_dirty = self.repo.is_dirty()
+        if repo_dirty:
+            self.repo.git.stash("save")
         try:
             if "pytest/static_branch_name" not in self.repo.branches:
                 self.repo.git.checkout("-b", "pytest/static_branch_name")
@@ -293,4 +298,5 @@ class VersioningTestCase(unittest.TestCase):
         finally:
             self.reset_changed_files("test/resources/")
             self.repo.git.checkout(self.orig_repo_head)
-            self.repo.git.stash("pop")
+            if repo_dirty:
+                self.repo.git.stash("pop")
