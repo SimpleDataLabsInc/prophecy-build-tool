@@ -19,21 +19,34 @@ class VersioningTestCase(unittest.TestCase):
     def setUpClass(cls):
         # Initialize the repo object and set it as a class attribute
         cls.repo = git.Repo(os.getcwd())
+        cls.orig_repo_head = cls.get_current_repo_head()
         # pull the following branches for testing.
+        cls.repo.git.stash("save")
         cls.repo.git.fetch("origin", "pytest/test_big_version")
         cls.repo.git.fetch("origin", "pytest/test_small_version")
         cls.repo.git.fetch("origin", "pytest/test_bad_version")
-        current_branch = cls.repo.head.commit.hexsha
         cls.repo.git.checkout("pytest/test_big_version")
         cls.repo.git.checkout("pytest/test_small_version")
         cls.repo.git.checkout("pytest/test_bad_version")
-        cls.repo.git.checkout(current_branch)
+        cls.repo.git.checkout(cls.orig_repo_head)
+        cls.repo.git.stash("pop")
 
     @classmethod
     def tearDown(cls):
         # Reset all changes in the 'test/' directory
         cls.reset_changed_files("test/resources/")
         VersioningTestCase._remove_tmp_dirs()
+
+        # check out original branch
+        if cls.get_current_repo_head() != cls.orig_repo_head:
+            cls.repo.git.checkout(cls.orig_repo_head)
+
+    @classmethod
+    def get_current_repo_head(cls):
+        if cls.repo.head.is_detached:
+            return cls.repo.head.commit.hexsha
+        else:
+            return cls.repo.active_branch.name
 
     @classmethod
     def reset_changed_files(cls, directory):
@@ -264,9 +277,14 @@ class VersioningTestCase(unittest.TestCase):
     def test_versioning_make_unique(self):
         project_path = os.path.join(RESOURCES_PATH, "HelloWorld")
 
+        if "pytest/static_branch_name" not in self.repo.branches:
+            self.repo.git.checkout("-b", "pytest/static_branch_name")
+        else:
+            self.repo.git.checkout("pytest/static_branch_name")
+
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--repo-path", REPO_PATH, "--make-unique"])
         print(result.output)
         assert result.exit_code == 0
         pbt_version = VersioningTestCase._get_pbt_version(project_path)
-        assert pbt_version == "0.0.1-dev+sha.612978c2"
+        assert pbt_version == "0.0.1-dev+sha.062f87eb"
