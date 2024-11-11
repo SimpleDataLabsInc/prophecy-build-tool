@@ -8,7 +8,7 @@ To learn more about Prophecy visit https://docs.prophecy.io/.
 PySpark pipelines) to integrate them with your own CI / CD (e.g. Github Actions), build system (e.g. Jenkins), and
 orchestration (e.g. Databricks Workflows).
 
-For the latest information on how to use Prophecy-build-tool please visit https://docs.prophecy.io/releases-and-deployment/prophecy-build-tool/.
+For the latest information on how to use Prophecy-build-tool, please visit the Prophecy Build Tool documentation [here](https://docs.prophecy.io/deployment/prophecy-build-tool/).
 
 ## Installation
 
