@@ -1,5 +1,7 @@
 import os
 import tempfile
+from warnings import deprecated
+
 import requests
 
 from typing import Dict, Optional
@@ -19,9 +21,11 @@ from ..utils.exceptions import DuplicateJobNameException
 
 
 class DatabricksClient:
-    def __init__(self, host: str = None, token: str = None, user_agent: Optional[str] = None):
+    def __init__(self, host: str = None, auth_type: Optional[str] = None, token: str = None, oauth_client_secret: Optional[str] = None, user_agent: Optional[str] = None):
         self.host = host
+        self.auth_type = auth_type
         self.token = token
+        self.oauth_client_secret = oauth_client_secret
         self.headers = {"User-Agent": user_agent or "Prophecy"}
 
         verify = True
@@ -45,8 +49,13 @@ class DatabricksClient:
         return cls(host, token)
 
     @classmethod
+    @deprecated("Deprecated in favor of from_databricks_info")
     def from_host_and_token(cls, host: str, token: str, user_agent: Optional[str]):
-        return cls(host, token, user_agent)
+        return cls(host, None, token, None, user_agent)
+
+    @classmethod
+    def from_databricks_info(cls, host: str, auth_type: Optional[str], token: str, oauth_client_secret: Optional[str], user_agent: Optional[str]):
+        return cls(host, auth_type, token, oauth_client_secret, user_agent)
 
     def upload_content(self, content: str, path: str):
         with tempfile.NamedTemporaryFile() as temp_file:

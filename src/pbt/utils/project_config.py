@@ -2,8 +2,8 @@ import copy
 import enum
 import os
 import re
-from asyncio import Future
-from concurrent.futures import as_completed
+from concurrent.futures import as_completed, Future
+from dataclasses import field
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -25,9 +25,9 @@ class SchedulerType(enum.Enum):
     EMR = "EMR"
     OpenSource = "OpenSource"
 
-    @staticmethod
-    def from_type(provider_type: str):
-        return SchedulerType[provider_type]
+    @classmethod
+    def from_type(cls, provider_type: str):
+        return cls(provider_type)
 
 
 class FabricType(enum.Enum):
@@ -135,13 +135,20 @@ class OpenSourceAirflowInfo(BaseModel):
     location: str
 
 
-# catpure the group.
+class OAuthCredentials(BaseModel):
+    client_id: str
+    client_secret: str
+
+
+# capture the group.
 pattern = r"{{(\w+)}}"
 
 
 class DatabricksInfo(BaseModel):
     url: str
     token: str
+    auth_type: Optional[str] = None
+    oauth_credentials: Optional[OAuthCredentials] = None
     user_agent: Optional[str]
     volume: Optional[str] = None
 
@@ -149,7 +156,11 @@ class DatabricksInfo(BaseModel):
     def create(host: str, token: str, user_agent: Optional[str] = "Prophecy"):
         return DatabricksInfo(url=host, token=token, user_agent=user_agent)
 
-    # resolve environment variables.
+    @staticmethod
+    def create_with_oauth(host: str, token: str, auth_type: Optional[str], oauth_credentials: Optional[OAuthCredentials], user_agent: Optional[str] = "Prophecy"):
+        return DatabricksInfo(url=host, auth_type = auth_type, token=token, oauth_credentials = oauth_credentials, user_agent=user_agent)
+
+    # resolve environment variables. Introduce resolution for client ID and client Secret if needed
     def resolve(self):
         url_match = re.match(pattern, self.url)
         if url_match:
@@ -178,9 +189,9 @@ class FabricInfo(BaseModel):
     dataproc: Optional[DataprocInfo] = None
 
     @staticmethod
-    def create_db_fabric(id: str, host: str, token: str):
+    def create_db_fabric(fabric_id: str, host: str, token: str):
         return FabricInfo(
-            id=id,
+            id=fabric_id,
             name="",
             type=FabricType.Spark,
             provider=FabricProviderType.Databricks,
@@ -222,7 +233,7 @@ class JobInfo(BaseModel):
     @staticmethod
     def create_job(
         name: str,
-        id: str,
+        job_id: str,
         fabric_id: str,
         external_job_id: str,
         release_tag: str,
@@ -232,7 +243,7 @@ class JobInfo(BaseModel):
         return JobInfo(
             name=name,
             type=SchedulerType.from_type(fabric_provider_type),
-            id=id,
+            id=job_id,
             fabric_id=fabric_id,
             external_job_id=external_job_id,
             release_tag=release_tag,
@@ -246,8 +257,8 @@ class ProjectAndGitTokens(BaseModel):
 
 
 class FabricConfig(BaseModel):
-    fabrics: List[FabricInfo] = []
-    project_git_tokens: List[ProjectAndGitTokens] = []
+    fabrics: List[FabricInfo] = field(default_factory=list)
+    project_git_tokens: List[ProjectAndGitTokens] = field(default_factory=list)
 
     def resolve_env_vars(self):
         self.fabrics = [fabric.resolve() for fabric in self.fabrics]
@@ -306,14 +317,14 @@ class FabricConfig(BaseModel):
 
     def filter_provided_fabrics(self, fabric_ids: str):
         if fabric_ids is not None and len(fabric_ids) > 0:
-            fabrics = set(fabric_ids.split(","))
+            fabric_ids_set = set(fabric_ids.split(","))
 
-            self.fabrics = [fabric for fabric in self.fabrics if fabric.id in fabrics]
+            self.fabrics = [fabric for fabric in self.fabrics if fabric.id in fabric_ids_set]
 
 
 class JobsState(BaseModel):
     version: str = "1.0"
-    jobs: List[JobInfo] = []
+    jobs: List[JobInfo] = field(default_factory=list)
 
     @staticmethod
     def empty():
@@ -385,9 +396,9 @@ class JobsState(BaseModel):
 
     def filter_provided_jobs(self, job_ids):
         if job_ids is not None and len(job_ids) > 0:
-            jobs = set([f"jobs/{job}" for job in job_ids.split(",")])
+            job_ids_set = set([f"jobs/{job}" for job in job_ids.split(",")])
 
-            self.jobs = [job for job in self.jobs if job.id in jobs]
+            self.jobs = [job for job in self.jobs if job.id in job_ids_set]
 
 
 class JobAndFabric(BaseModel):
@@ -580,11 +591,11 @@ class ProjectConfig:
                 host = os.environ.get("DATABRICKS_HOST", "test")
                 token = os.environ.get("DATABRICKS_TOKEN", "test")
                 if not fabric_ids:
-                    allowed_fabrics = project.fabrics()
+                    allowed_fabric_ids = project.fabrics()
                 else:
-                    allowed_fabrics = fabric_ids.split(",")
+                    allowed_fabric_ids = fabric_ids.split(",")
                 fabric_list = [
-                    FabricInfo.create_db_fabric(id=fabric, host=host, token=token) for fabric in allowed_fabrics
+                    FabricInfo.create_db_fabric(fabric_id=fabric_id, host=host, token=token) for fabric_id in allowed_fabric_ids
                 ]
                 fabrics_config = FabricConfig(fabrics=fabric_list)
 
