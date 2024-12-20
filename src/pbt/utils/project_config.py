@@ -3,7 +3,6 @@ import enum
 import os
 import re
 from concurrent.futures import as_completed, Future
-from dataclasses import field
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -257,8 +256,8 @@ class ProjectAndGitTokens(BaseModel):
 
 
 class FabricConfig(BaseModel):
-    fabrics: List[FabricInfo] = field(default_factory=list)
-    project_git_tokens: List[ProjectAndGitTokens] = field(default_factory=list)
+    fabrics: List[FabricInfo] = []
+    project_git_tokens: List[ProjectAndGitTokens] = []
 
     def resolve_env_vars(self):
         self.fabrics = [fabric.resolve() for fabric in self.fabrics]
@@ -324,7 +323,7 @@ class FabricConfig(BaseModel):
 
 class JobsState(BaseModel):
     version: str = "1.0"
-    jobs: List[JobInfo] = field(default_factory=list)
+    jobs: List[JobInfo] = []
 
     @staticmethod
     def empty():

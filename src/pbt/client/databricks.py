@@ -1,6 +1,5 @@
 import os
 import tempfile
-from warnings import deprecated
 
 import requests
 
@@ -48,8 +47,8 @@ class DatabricksClient:
         token = config.get_config().token
         return cls(host, token)
 
+    # deprecated in favor of from_databricks_info
     @classmethod
-    @deprecated("Deprecated in favor of from_databricks_info")
     def from_host_and_token(cls, host: str, token: str, user_agent: Optional[str]):
         return cls(host, None, token, None, user_agent)
 
