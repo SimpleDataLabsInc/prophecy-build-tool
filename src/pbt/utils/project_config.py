@@ -156,8 +156,16 @@ class DatabricksInfo(BaseModel):
         return DatabricksInfo(url=host, token=token, user_agent=user_agent)
 
     @staticmethod
-    def create_with_oauth(host: str, token: str, auth_type: Optional[str], oauth_credentials: Optional[OAuthCredentials], user_agent: Optional[str] = "Prophecy"):
-        return DatabricksInfo(url=host, auth_type = auth_type, token=token, oauth_credentials = oauth_credentials, user_agent=user_agent)
+    def create_with_oauth(
+        host: str,
+        token: str,
+        auth_type: Optional[str],
+        oauth_credentials: Optional[OAuthCredentials],
+        user_agent: Optional[str] = "Prophecy",
+    ):
+        return DatabricksInfo(
+            url=host, auth_type=auth_type, token=token, oauth_credentials=oauth_credentials, user_agent=user_agent
+        )
 
     # resolve environment variables. Introduce resolution for client ID and client Secret if needed
     def resolve(self):
@@ -594,7 +602,8 @@ class ProjectConfig:
                 else:
                     allowed_fabric_ids = fabric_ids.split(",")
                 fabric_list = [
-                    FabricInfo.create_db_fabric(fabric_id=fabric_id, host=host, token=token) for fabric_id in allowed_fabric_ids
+                    FabricInfo.create_db_fabric(fabric_id=fabric_id, host=host, token=token)
+                    for fabric_id in allowed_fabric_ids
                 ]
                 fabrics_config = FabricConfig(fabrics=fabric_list)
 

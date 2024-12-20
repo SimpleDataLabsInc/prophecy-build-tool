@@ -20,7 +20,14 @@ from ..utils.exceptions import DuplicateJobNameException
 
 
 class DatabricksClient:
-    def __init__(self, host: str = None, auth_type: Optional[str] = None, token: str = None, oauth_client_secret: Optional[str] = None, user_agent: Optional[str] = None):
+    def __init__(
+        self,
+        host: str = None,
+        auth_type: Optional[str] = None,
+        token: str = None,
+        oauth_client_secret: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ):
         self.host = host
         self.auth_type = auth_type
         self.token = token
@@ -53,7 +60,14 @@ class DatabricksClient:
         return cls(host, None, token, None, user_agent)
 
     @classmethod
-    def from_databricks_info(cls, host: str, auth_type: Optional[str], token: str, oauth_client_secret: Optional[str], user_agent: Optional[str]):
+    def from_databricks_info(
+        cls,
+        host: str,
+        auth_type: Optional[str],
+        token: str,
+        oauth_client_secret: Optional[str],
+        user_agent: Optional[str],
+    ):
         return cls(host, auth_type, token, oauth_client_secret, user_agent)
 
     def upload_content(self, content: str, path: str):
