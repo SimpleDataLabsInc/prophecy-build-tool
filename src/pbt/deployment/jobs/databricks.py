@@ -667,7 +667,10 @@ class DBTComponents:
 
             sql_client = self.databricks_jobs.get_databricks_client(dbt_component["sqlFabricId"])
             git_token = self.fabrics_config.git_token_for_project(dbt_component["projectId"])
-            master_token = f"{sql_client.token};{git_token}"
+            if sql_client.auth_type is not None and sql_client.auth_type == "oauth":
+                master_token = f"{sql_client.oauth_client_secret};{git_token}"
+            else:
+                master_token = f"{sql_client.token};{git_token}"
 
             sql_client.create_secret(dbt_component_model.secret_scope, dbt_component["secretKey"], master_token)
 

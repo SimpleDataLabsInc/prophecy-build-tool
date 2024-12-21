@@ -61,7 +61,16 @@ class RestClientFactory:
         databricks = self._get_fabric_info(fabric_id).databricks
 
         if databricks is not None:
-            client = DatabricksClient.from_host_and_token(databricks.url, databricks.token, databricks.user_agent)
+            oauth_client_secret = (
+                databricks.oauth_credentials.client_secret if databricks.oauth_credentials is not None else None
+            )
+            client = DatabricksClient.from_databricks_info(
+                host=databricks.url,
+                auth_type=databricks.auth_type,
+                token=databricks.token,
+                oauth_client_secret=oauth_client_secret,
+                user_agent=databricks.user_agent,
+            )
             self.fabric_id_to_rest_client[fabric_id] = client
             return client
 
