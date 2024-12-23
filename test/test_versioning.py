@@ -134,19 +134,18 @@ class VersioningTestCase(unittest.TestCase):
         assert result.exit_code == 0
 
         result = runner.invoke(build_v2, ["--path", project_path])
-        print("#output#")
-        print(result.output)
-        print("#stdout#")
-        print(result.stdout)
-        print("#exit_code#")
-        print(result.exit_code)
-        if result.stderr_bytes is not None:
-            print("#stderr#")
-            print(result.stderr)
-        if result.exception is not None:
-            print("#exception#")
-            print(result.exception)
-        # assert result.exit_code == 0
+        if result.exit_code != 0:
+            print("#output#")
+            print(result.output)
+            print("#stdout#")
+            print(result.stdout)
+            if result.stderr_bytes is not None:
+                print("#stderr#")
+                print(result.stderr)
+            if result.exception is not None:
+                print("#exception#")
+                print(result.exception)
+        assert result.exit_code == 0
 
         # future TODO; building the artifacts is kind of lazy and causes dependency on buildv2 command.
         #              later on we should use a different mechanism to verify versions were correctly changed.
