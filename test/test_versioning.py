@@ -134,6 +134,14 @@ class VersioningTestCase(unittest.TestCase):
         assert result.exit_code == 0
 
         result = runner.invoke(build_v2, ["--path", project_path])
+        print("#output#")
+        print(result.output)
+        print("#stdout#")
+        print(result.stdout)
+        print("#stderr#")
+        print(result.stderr)
+        print("#exception#")
+        print(result.exception)
         assert result.exit_code == 0
 
         # future TODO; building the artifacts is kind of lazy and causes dependency on buildv2 command.
