@@ -207,19 +207,20 @@ class Project:
         except Exception:
             return self.dependant_project.get_pipeline_name(pipeline_id)
 
-    def _read_directory(self, base_path: str):
+    @staticmethod
+    def _read_directory(base_path: str):
         rdc = {}
-        IGNORE_DIRS = ["build", "dist", "__pycache__"]
+        ignore_dirs = ["build", "dist", "__pycache__"]
 
         for dir_path, dir_names, filenames in os.walk(base_path):
-            if os.path.basename(dir_path) in IGNORE_DIRS:
+            if os.path.basename(dir_path) in ignore_dirs:
                 continue
 
             # Add resources to RDC
             if "resources" in dir_names:
                 resource_dir_path = os.path.join(dir_path, "resources")
                 for resource_subdir_path, _, resource_filenames in os.walk(resource_dir_path):
-                    if os.path.basename(resource_subdir_path) in IGNORE_DIRS:
+                    if os.path.basename(resource_subdir_path) in ignore_dirs:
                         continue
 
                     for resource_filename in resource_filenames:
@@ -319,7 +320,8 @@ class Project:
             )
         )
 
-    def _stripPrefix(self, value, prefix):
+    @staticmethod
+    def strip_prefix(value, prefix):
         if value.startswith(prefix):
             return value[len(prefix) :]
         return value
@@ -408,7 +410,8 @@ class Project:
 
 
 class DependentProject(ABC):
-    def is_cross_project_pipeline(self, pipeline_id):
+    @staticmethod
+    def is_cross_project_pipeline(pipeline_id):
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         if pid is not None and tag is not None and path is not None:
             return True
