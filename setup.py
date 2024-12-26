@@ -30,7 +30,7 @@ setuptools.setup(
         "rich>=12.5.1",
         "wheel",
         "build",
-        "google-cloud-secret-manager==2.16.2",
+        "google-cloud-secret-manager~=2.22.0",
         "google-cloud-storage==2.10.0",
         "pydantic~=1.10",
         "pydantic-yaml==1.1.1",
