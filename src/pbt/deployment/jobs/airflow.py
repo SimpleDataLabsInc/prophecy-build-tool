@@ -137,7 +137,7 @@ class AirflowJob(JobData, ABC):
                 ):
                     pipeline_id = pipeline_id_newer_format.get("value")
 
-                if cluster_size is not None and pipeline_id:
+                if cluster_size and pipeline_id and isinstance(pipeline_id, str):
                     # shady stuff but can't help
                     pipeline_and_fabric_ids.append(EntityIdToFabricId(pipeline_id, cluster_size.split("/")[0]))
 
