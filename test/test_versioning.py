@@ -10,8 +10,7 @@ from parameterized import parameterized
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
 PROJECT_PATH = CURRENT_DIRECTORY + "/resources/HelloWorld"
-# PROJECTS_TO_TEST = ["HelloWorld", "BaseDirectory", "ProjectCreatedOn160523"]
-PROJECTS_TO_TEST = ["HelloWorld", "BaseDirectory"]
+PROJECTS_TO_TEST = ["HelloWorld", "BaseDirectory", "ProjectCreatedOn160523"]
 RESOURCES_PATH = os.path.join(CURRENT_DIRECTORY, "resources")
 
 
