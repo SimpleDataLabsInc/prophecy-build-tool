@@ -94,7 +94,7 @@ class PackageBuilder:
         env = dict(os.environ)
 
         # Set the MAVEN_OPTS variable
-        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
+        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
 
         process = subprocess.Popen(
             command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=self.path

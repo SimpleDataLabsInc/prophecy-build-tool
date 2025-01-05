@@ -686,7 +686,7 @@ class PackageBuilderAndUploader:
         env = dict(os.environ)
 
         # Set the MAVEN_OPTS variable
-        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxPermSize=512m -Xss32m"
+        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
 
         if env.get("FABRIC_NAME", None) is None:
             env["FABRIC_NAME"] = "default"  # for python test runs.
