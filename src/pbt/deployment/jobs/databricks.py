@@ -419,7 +419,7 @@ class DatabricksJobsDeployment:
                     return Either(left=e)
             else:
                 log_success(
-                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id}, no acl found{Colors.ENDC}"
+                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id}{Colors.ENDC}"
                 )
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))

@@ -16,7 +16,7 @@ from ..deployment.jobs.airflow import AirflowJobDeployment
 from ..deployment.jobs.databricks import DatabricksJobsDeployment
 from ..entities.project import Project
 from ..utility import Either, custom_print as log, is_online_mode
-from ..utils.constants import SCALA_LANGUAGE, PYTHON_LANGUAGE
+from ..utils.constants import PYTHON_LANGUAGE, SCALA_LANGUAGE
 from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
@@ -104,13 +104,16 @@ class PipelineDeployment:
         if len(self._pipeline_components_from_jobs().items()) > 0:
             log(f"\n\n{Colors.OKCYAN}Building {len(self._pipeline_to_list_fabrics)} Pipelines {Colors.ENDC}\n")
 
-        pipelines_from_job = self._pipeline_components_from_jobs().items()
+        all_pipelines_from_job = self._pipeline_components_from_jobs().items()
+        pipelines_to_build = {
+            pipeline_id: name for pipeline_id, name in all_pipelines_from_job if not pipeline_id.startswith("gitUri=")
+        }
 
-        if use_threads and len(pipelines_from_job) > 1:
-            return self._build_and_upload_online(pipelines_from_job)
+        if use_threads and len(pipelines_to_build) > 1:
+            return self._build_and_upload_online(pipelines_to_build)
 
         else:
-            return self._build_and_upload_offline(pipelines_from_job)
+            return self._build_and_upload_offline(pipelines_to_build)
 
     def build_and_upload_pipeline(self, pipeline_id, pipeline_name) -> Either:
         log(step_id=pipeline_id, step_status=Status.RUNNING)
