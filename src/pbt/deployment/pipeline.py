@@ -52,13 +52,13 @@ class PipelineDeployment:
 
     def summary(self):
         summary = []
-        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+        for pipeline_id, pipeline_name in self.pipelines_to_build_and_upload():
             summary.append(f"Pipeline {pipeline_id} will be build and uploaded.")
         return summary
 
     def headers(self):
         headers = []
-        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+        for pipeline_id, pipeline_name in self.pipelines_to_build_and_upload():
             headers.append(
                 StepMetadata(pipeline_id, f"Build {pipeline_name} pipeline", Operation.Build, StepType.Pipeline)
             )
@@ -101,19 +101,16 @@ class PipelineDeployment:
     def build_and_upload(self):
         use_threads = is_online_mode()
 
-        if len(self._pipeline_components_from_jobs().items()) > 0:
+        required_pipelines = self.pipelines_to_build_and_upload()
+
+        if len(required_pipelines) > 0:
             log(f"\n\n{Colors.OKCYAN}Building {len(self._pipeline_to_list_fabrics)} Pipelines {Colors.ENDC}\n")
 
-        all_pipelines_from_job = self._pipeline_components_from_jobs().items()
-        pipelines_to_build = {
-            pipeline_id: name for pipeline_id, name in all_pipelines_from_job if not pipeline_id.startswith("gitUri=")
-        }
-
-        if use_threads and len(pipelines_to_build) > 1:
-            return self._build_and_upload_online(pipelines_to_build)
+        if use_threads and len(required_pipelines) > 1:
+            return self._build_and_upload_online(required_pipelines)
 
         else:
-            return self._build_and_upload_offline(pipelines_to_build)
+            return self._build_and_upload_offline(required_pipelines)
 
     def build_and_upload_pipeline(self, pipeline_id, pipeline_name) -> Either:
         log(step_id=pipeline_id, step_status=Status.RUNNING)
@@ -178,7 +175,7 @@ class PipelineDeployment:
         log(f"{Colors.OKBLUE}Testing pipelines{Colors.ENDC}")
 
         responses = {}
-        for pipeline_id, pipeline_name in self._pipeline_components_from_jobs().items():
+        for pipeline_id, pipeline_name in self.pipelines_to_build_and_upload():
             log(f"{Colors.OKGREEN} Testing pipeline `{pipeline_id}` {Colors.ENDC}", step_id=pipeline_id)
             log(step_id=pipeline_id, step_status=Status.RUNNING)
 
@@ -420,6 +417,13 @@ class PipelineDeployment:
             return {**self._pipeline_to_list_fabrics_full_deployment, **self._pipeline_to_list_fabrics_selective_job}
         else:
             return self._pipeline_to_list_fabrics_full_deployment
+
+    def pipelines_to_build_and_upload(self):
+        all_pipelines_from_job = self._pipeline_components_from_jobs().items()
+        filtered_pipelines = {
+            pipeline_id: name for pipeline_id, name in all_pipelines_from_job if not pipeline_id.startswith("gitUri=")
+        }
+        return filtered_pipelines.items()
 
     def _pipeline_components_from_jobs(self):
         pipeline_components = {}
