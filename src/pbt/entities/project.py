@@ -105,7 +105,7 @@ class Project:
         log(f"Found {len(self.jobs)} jobs: {jobs_str}")
         log(f"Found {len(self.pipelines)} pipelines: {pipelines_str}\n  ")
 
-        self.dependant_project = None
+        self.dependent_project = None
 
         if dependant_project_list is not None and len(dependant_project_list) > 0:
             project_paths = dependant_project_list.split(",")
@@ -114,9 +114,9 @@ class Project:
             for path in project_paths:
                 dependant_projects.append(Project(path, ""))
 
-            self.dependant_project = DependentProjectCli(dependant_projects)
+            self.dependent_project = DependentProjectCli(dependant_projects)
         else:
-            self.dependant_project = DependentProjectAPP(project_path, self)
+            self.dependent_project = DependentProjectAPP(project_path, self)
 
     @property
     def name(self) -> str:
@@ -162,7 +162,7 @@ class Project:
         if len(content) > 0:
             return content
         else:
-            return self.dependant_project.load_pipeline_folder(pipeline)
+            return self.dependent_project.load_pipeline_folder(pipeline)
 
     @staticmethod
     def get_pipeline_whl_or_jar(base_path: str):
@@ -181,7 +181,7 @@ class Project:
                 data = _read_file_content(main_file)
                 return data
             except Exception:
-                return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
+                return self.dependent_project.get_py_pipeline_main_file(pipeline_id)
 
     def _uber_main_py_file(self):
         main_file = ""
@@ -205,7 +205,7 @@ class Project:
             pipelines = self.pipelines
             return pipelines.get(pipeline_path, {}).get("name", pipeline_path.split("/")[-1])
         except Exception:
-            return self.dependant_project.get_pipeline_name(pipeline_id)
+            return self.dependent_project.get_pipeline_name(pipeline_id)
 
     @staticmethod
     def _read_directory(base_path: str):
@@ -361,7 +361,7 @@ class Project:
     def is_cross_project_pipeline(self, from_path):
         if from_path in self.pipelines:
             return None, None, None
-        return self.dependant_project.is_cross_project_pipeline(from_path)
+        return self.dependent_project.is_cross_project_pipeline(from_path)
 
     def does_project_contains_dynamic_dataproc_pipeline(self):
         for job in self.jobs.keys():
