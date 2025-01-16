@@ -237,10 +237,6 @@ class JobInfo(BaseModel):
     def pause(self, flag: bool):
         self.is_paused = flag
 
-    def __post_init_post_parse__(self):
-        if self.type == SchedulerType.Databricks:
-            self.is_paused = not self.is_paused
-
     @staticmethod
     def create_job(
         name: str,
@@ -376,7 +372,6 @@ class JobsState(BaseModel):
         # then we create
 
         for job_response in filtered_response:
-            job_response.job_info.toggle_is_paused
             job_info = job_response.job_info
 
             if job_response.operation == OperationType.DELETED:
