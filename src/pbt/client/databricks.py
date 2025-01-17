@@ -1,10 +1,8 @@
 import os
 import tempfile
-
-import requests
-
 from typing import Dict, Optional
 
+import requests
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.dbfs.api import DbfsApi
 from databricks_cli.dbfs.dbfs_path import DbfsPath
@@ -13,7 +11,7 @@ from databricks_cli.sdk import ApiClient
 from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
-from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from ..utility import Either
 from ..utils.exceptions import DuplicateJobNameException
@@ -211,6 +209,23 @@ class PermissionsApi(object):
         )
 
 
+def get_error_message(status_code: int):
+    if status_code == 400:
+        return "Verify the destination path and parameters."
+    elif status_code == 401:
+        return "You are not authorized to upload files to the specified location."
+    elif status_code == 403:
+        return "You don't have permission to upload files to the specified location."
+    elif status_code == 404:
+        return "Destination not found. Verify the destination path."
+    elif status_code == 409:
+        return "File already exists, and overwrite is not enabled."
+    elif status_code == 413:
+        return " The file exceeds the maximum allowed size."
+    elif status_code == 500:
+        return "Internal server error."
+
+
 class DBRequests(object):
     def __init__(self, host, token, headers):
         self.host = host
@@ -228,4 +243,7 @@ class DBRequests(object):
         if response.status_code == 200 or response.status_code == 204:
             return None
         else:
-            raise Exception(f"Failed to upload file to {destination_path} from uri {uri}. Response: {response}")
+            message = get_error_message(response.status_code)
+            raise Exception(
+                f"{message} Failed to upload file to {destination_path} from uri {uri}. Full response: {response}"
+            )
