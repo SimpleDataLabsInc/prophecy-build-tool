@@ -105,7 +105,7 @@ class DatabricksJobs(JobData, ABC):
 
     @property
     def is_paused(self):
-        return self.pbt_job_json.get("enabled", False)
+        return not self.pbt_job_json.get("enabled", False)
 
 
 class DatabricksJobsDeployment:
