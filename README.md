@@ -8,7 +8,7 @@ To learn more about Prophecy visit https://docs.prophecy.io/.
 PySpark pipelines) to integrate them with your own CI / CD (e.g. Github Actions), build system (e.g. Jenkins), and
 orchestration (e.g. Databricks Workflows).
 
-For the latest information on how to use Prophecy-build-tool please visit https://docs.prophecy.io/releases-and-deployment/prophecy-build-tool/.
+For the latest information on how to use Prophecy-build-tool, please visit the Prophecy Build Tool documentation [here](https://docs.prophecy.io/deployment/prophecy-build-tool/).
 
 ## DEVELOPERS
 
@@ -178,10 +178,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up JDK 11
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: '11'
+          java-version: '17'
           distribution: 'adopt'
       - name: Set up Python 3.x
         uses: actions/setup-python@v5

@@ -14,6 +14,16 @@ class TestVersioning(IsolatedRepoTestCase):
                 if line.startswith("version: "):
                     return line.split(":")[1].strip()
 
+    def _fetch_references(self):
+        for reference in [
+            "pytest/test_big_version",
+            "pytest/test_small_version",
+            "pytest/test_bad_version",
+        ]:
+            self.repo.git.fetch("origin", reference)
+            self.repo.git.checkout(reference)
+        self.repo.git.checkout("pbt-reference-do-not-delete")
+
     @pytest.mark.parametrize("bump_type, version_result", [("major", "1.0.0"), ("minor", "0.1.0"), ("patch", "0.0.2")])
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_versioning_bump(self, bump_type, version_result, language):
@@ -89,7 +99,7 @@ class TestVersioning(IsolatedRepoTestCase):
         runner = CliRunner()
         result = runner.invoke(versioning, ["--path", project_path, "--bump", "major"])
         assert result.exit_code == 0
-        result = runner.invoke(versioning, ["--path", project_path, "--set-prerelease", "-SNAPSHOT", "--force"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set-suffix", "-SNAPSHOT", "--force"])
         assert result.exit_code == 0
 
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
@@ -98,7 +108,7 @@ class TestVersioning(IsolatedRepoTestCase):
     def test_versioning_set_prerelease_and_bump_python(self):
         project_path = self.python_project_path
         runner = CliRunner()
-        result = runner.invoke(versioning, ["--path", project_path, "--set-prerelease", "-rc.4", "--force"])
+        result = runner.invoke(versioning, ["--path", project_path, "--set-suffix", "-rc.4", "--force"])
         assert result.exit_code == 0
         result = runner.invoke(versioning, ["--path", project_path, "--bump", "prerelease"])
         assert result.exit_code == 0
@@ -122,3 +132,103 @@ class TestVersioning(IsolatedRepoTestCase):
 
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
         assert new_pbt_version == "999999.0.0"
+
+    def test_versioning_version_check_sync_python(self):
+        self._fetch_references()
+        project_path = self.python_project_path
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, "--set", "1.2.3"])
+        assert result.exit_code == 0
+
+        with open(os.path.join(project_path, "pipelines/gold_sales/code/setup.py"), "r") as fd:
+            content = fd.read()
+
+        content = content.replace("version = '1.2.3'", "version = '999.0.0'")
+
+        with open(os.path.join(project_path, "pipelines/gold_sales/code/setup.py"), "w") as fd:
+            fd.write(content)
+
+        result = runner.invoke(versioning, ["--path", project_path, "--check-sync"])
+        assert result.exit_code == 1
+        assert "Versions are out of sync" in result.output
+
+    def test_versioning_compare_to_target(self):
+        self._fetch_references()
+        project_path = self.python_project_path
+
+        runner = CliRunner()
+        result = runner.invoke(
+            versioning, ["--path", project_path, "--repo-path", self.repo_path, "--compare", "pytest/test_big_version"]
+        )
+        print(result.output)
+        assert result.exit_code == 1
+
+        result = runner.invoke(
+            versioning, ["--path", project_path, "--repo-path", self.repo_path, "--compare", "pytest/test_small_version"]
+        )
+        print(result.output)
+        assert result.exit_code == 0
+
+        result = runner.invoke(
+            versioning, ["--path", project_path, "--repo-path", self.repo_path, "--compare", "pytest/test_bad_version"]
+        )
+        print(result.output)
+        assert result.exit_code == 1
+
+    def test_versioning_bump_target(self):
+        self._fetch_references()
+        project_path = self.python_project_path
+
+        runner = CliRunner()
+        result = runner.invoke(
+            versioning,
+            [
+                "--path",
+                project_path,
+                "--repo-path",
+                self.repo_path,
+                "--compare",
+                "pytest/test_big_version",
+                "--bump",
+                "patch",
+            ],
+        )
+        print(result.output)
+        assert result.exit_code == 0
+        pbt_version = TestVersioning._get_pbt_version(project_path)
+        assert pbt_version == "9999.0.1"
+
+        result = runner.invoke(
+            versioning,
+            [
+                "--path",
+                project_path,
+                "--repo-path",
+                self.repo_path,
+                "--compare",
+                "pytest/test_small_version",
+                "--bump",
+                "patch",
+            ],
+        )
+        print(result.output)
+        assert result.exit_code == 0
+        assert pbt_version == "9999.0.1"
+
+    def test_versioning_make_unique(self):
+        self._fetch_references()
+        project_path = self.python_project_path
+
+        if "pytest/static_branch_name" not in self.repo.branches:
+            self.repo.git.checkout("-b", "pytest/static_branch_name")
+        else:
+            self.repo.git.checkout("pytest/static_branch_name")
+
+        runner = CliRunner()
+        result = runner.invoke(versioning, ["--path", project_path, "--repo-path", self.repo_path, "--make-unique"])
+        print(result.output)
+        assert result.exit_code == 0
+        pbt_version = TestVersioning._get_pbt_version(project_path)
+        assert pbt_version == "0.0.1-dev+sha.062f87eb"
+

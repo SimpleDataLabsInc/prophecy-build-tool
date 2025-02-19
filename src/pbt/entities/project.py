@@ -25,8 +25,8 @@ from ..utils.constants import (
     PROJECT_URL_PLACEHOLDER_REGEX,
 )
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
+from ..utils.versioning import update_all_versions
 from ..utils.project_models import Colors
-
 
 SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
     r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
@@ -107,7 +107,7 @@ class Project:
         log(f"Found {len(self.jobs)} jobs: {jobs_str}")
         log(f"Found {len(self.pipelines)} pipelines: {pipelines_str}\n  ")
 
-        self.dependant_project = None
+        self.dependent_project = None
 
         if dependant_project_list is not None and len(dependant_project_list) > 0:
             project_paths = dependant_project_list.split(",")
@@ -116,9 +116,9 @@ class Project:
             for path in project_paths:
                 dependant_projects.append(Project(path, ""))
 
-            self.dependant_project = DependentProjectCli(dependant_projects)
+            self.dependent_project = DependentProjectCli(dependant_projects)
         else:
-            self.dependant_project = DependentProjectAPP(project_path, self)
+            self.dependent_project = DependentProjectAPP(project_path, self)
 
     @property
     def name(self) -> str:
@@ -164,7 +164,7 @@ class Project:
         if len(content) > 0:
             return content
         else:
-            return self.dependant_project.load_pipeline_folder(pipeline)
+            return self.dependent_project.load_pipeline_folder(pipeline)
 
     @staticmethod
     def get_pipeline_whl_or_jar(base_path: str):
@@ -183,7 +183,7 @@ class Project:
                 data = _read_file_content(main_file)
                 return data
             except Exception:
-                return self.dependant_project.get_py_pipeline_main_file(pipeline_id)
+                return self.dependent_project.get_py_pipeline_main_file(pipeline_id)
 
     def _uber_main_py_file(self):
         main_file = ""
@@ -207,7 +207,7 @@ class Project:
             pipelines = self.pipelines
             return pipelines.get(pipeline_path, {}).get("name", pipeline_path.split("/")[-1])
         except Exception:
-            return self.dependant_project.get_pipeline_name(pipeline_id)
+            return self.dependent_project.get_pipeline_name(pipeline_id)
 
     def get_maven_dependencies_for_python_pipelines(self, pipeline_id=None):
         """
@@ -246,19 +246,20 @@ class Project:
         maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
         return maven_dependencies
 
-    def _read_directory(self, base_path: str):
+    @staticmethod
+    def _read_directory(base_path: str):
         rdc = {}
-        IGNORE_DIRS = ["build", "dist", "__pycache__"]
+        ignore_dirs = ["build", "dist", "__pycache__"]
 
         for dir_path, dir_names, filenames in os.walk(base_path):
-            if os.path.basename(dir_path) in IGNORE_DIRS:
+            if os.path.basename(dir_path) in ignore_dirs:
                 continue
 
             # Add resources to RDC
             if "resources" in dir_names:
                 resource_dir_path = os.path.join(dir_path, "resources")
                 for resource_subdir_path, _, resource_filenames in os.walk(resource_dir_path):
-                    if os.path.basename(resource_subdir_path) in IGNORE_DIRS:
+                    if os.path.basename(resource_subdir_path) in ignore_dirs:
                         continue
 
                     for resource_filename in resource_filenames:
@@ -358,7 +359,8 @@ class Project:
             )
         )
 
-    def _stripPrefix(self, value, prefix):
+    @staticmethod
+    def strip_prefix(value, prefix):
         if value.startswith(prefix):
             return value[len(prefix) :]
         return value
@@ -398,7 +400,7 @@ class Project:
     def is_cross_project_pipeline(self, from_path):
         if from_path in self.pipelines:
             return None, None, None
-        return self.dependant_project.is_cross_project_pipeline(from_path)
+        return self.dependent_project.is_cross_project_pipeline(from_path)
 
     def does_project_contains_dynamic_dataproc_pipeline(self):
         for job in self.jobs.keys():
@@ -434,9 +436,21 @@ class Project:
 
         return False
 
+    def update_version(self, new_version, force=False):
+        update_all_versions(
+            self.project_path,
+            self.project_language,
+            orig_project_version=self.pbt_project_dict["version"],
+            new_version=new_version,
+            force=force,
+        )
+        # update our internal reference in case calls get chained which use this field.
+        self.pbt_project_dict["version"] = new_version
+
 
 class DependentProject(ABC):
-    def is_cross_project_pipeline(self, pipeline_id):
+    @staticmethod
+    def is_cross_project_pipeline(pipeline_id):
         (pid, tag, path) = is_cross_project_pipeline(pipeline_id)
         if pid is not None and tag is not None and path is not None:
             return True

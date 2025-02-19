@@ -1,9 +1,8 @@
 import os
 import tempfile
-import requests
-
 from typing import Dict, Optional
 
+import requests
 from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
 from databricks_cli.dbfs.api import DbfsApi
 from databricks_cli.dbfs.dbfs_path import DbfsPath
@@ -12,16 +11,25 @@ from databricks_cli.sdk import ApiClient
 from databricks_cli.sdk import JobsService
 from databricks_cli.secrets.api import SecretApi
 from requests import HTTPError
-from tenacity import retry_if_exception_type, retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from ..utility import Either
 from ..utils.exceptions import DuplicateJobNameException
 
 
 class DatabricksClient:
-    def __init__(self, host: str = None, token: str = None, user_agent: Optional[str] = None):
+    def __init__(
+        self,
+        host: str = None,
+        auth_type: Optional[str] = None,
+        token: str = None,
+        oauth_client_secret: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ):
         self.host = host
+        self.auth_type = auth_type
         self.token = token
+        self.oauth_client_secret = oauth_client_secret
         self.headers = {"User-Agent": user_agent or "Prophecy"}
 
         verify = True
@@ -44,9 +52,21 @@ class DatabricksClient:
         token = config.get_config().token
         return cls(host, token)
 
+    # deprecated in favor of from_databricks_info
     @classmethod
     def from_host_and_token(cls, host: str, token: str, user_agent: Optional[str]):
-        return cls(host, token, user_agent)
+        return cls(host, None, token, None, user_agent)
+
+    @classmethod
+    def from_databricks_info(
+        cls,
+        host: str,
+        auth_type: Optional[str],
+        token: str,
+        oauth_client_secret: Optional[str],
+        user_agent: Optional[str],
+    ):
+        return cls(host, auth_type, token, oauth_client_secret, user_agent)
 
     def upload_content(self, content: str, path: str):
         with tempfile.NamedTemporaryFile() as temp_file:
@@ -189,6 +209,23 @@ class PermissionsApi(object):
         )
 
 
+def get_error_message(status_code: int):
+    if status_code == 400:
+        return "Verify the destination path and parameters."
+    elif status_code == 401:
+        return "You are not authorized to upload files to the specified location."
+    elif status_code == 403:
+        return "You don't have permission to upload files to the specified location."
+    elif status_code == 404:
+        return "Destination not found. Verify the destination path."
+    elif status_code == 409:
+        return "File already exists, and overwrite is not enabled."
+    elif status_code == 413:
+        return " The file exceeds the maximum allowed size."
+    elif status_code == 500:
+        return "Internal server error."
+
+
 class DBRequests(object):
     def __init__(self, host, token, headers):
         self.host = host
@@ -206,4 +243,7 @@ class DBRequests(object):
         if response.status_code == 200 or response.status_code == 204:
             return None
         else:
-            raise Exception(f"Failed to upload file to {destination_path} from uri {uri}. Response: {response}")
+            message = get_error_message(response.status_code)
+            raise Exception(
+                f"{message} Failed to upload file to {destination_path} from uri {uri}. Full response: {response}"
+            )

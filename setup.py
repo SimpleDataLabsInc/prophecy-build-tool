@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.2.39",
+    version="1.2.50",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
@@ -30,7 +30,7 @@ setuptools.setup(
         "rich>=12.5.1",
         "wheel",
         "build",
-        "google-cloud-secret-manager==2.16.2",
+        "google-cloud-secret-manager~=2.22.0",
         "google-cloud-storage==2.10.0",
         "pydantic~=1.10",
         "pydantic-yaml==1.1.1",

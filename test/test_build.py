@@ -22,6 +22,14 @@ class TestBuild(IsolatedRepoTestCase):
         assert len(list(artifacts)) == n
         return artifacts
 
+    def test_build_v2_binary_check(self, monkeypatch):
+        monkeypatch.setenv("PATH", "")
+        runner = CliRunner()
+        result = runner.invoke(build_v2, ["--path", self.python_project_path])
+        print(result.output)
+        assert result.exit_code == 1
+        assert "ERROR: no `python3` or `python` found" in result.output
+
     @pytest.mark.parametrize("language", ["python", "scala"])
     @pytest.mark.parametrize("command", [build, build_v2])
     def test_build_path_default(self, language, command):

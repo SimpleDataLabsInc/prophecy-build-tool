@@ -105,7 +105,7 @@ class DatabricksJobs(JobData, ABC):
 
     @property
     def is_paused(self):
-        return self.pbt_job_json.get("enabled", False)
+        return not self.pbt_job_json.get("enabled", False)
 
 
 class DatabricksJobsDeployment:
@@ -419,7 +419,7 @@ class DatabricksJobsDeployment:
                     return Either(left=e)
             else:
                 log_success(
-                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id}, no acl found{Colors.ENDC}"
+                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id}{Colors.ENDC}"
                 )
 
             return Either(right=JobInfoAndOperation(job_info, OperationType.REFRESH))
@@ -667,7 +667,10 @@ class DBTComponents:
 
             sql_client = self.databricks_jobs.get_databricks_client(dbt_component["sqlFabricId"])
             git_token = self.fabrics_config.git_token_for_project(dbt_component["projectId"])
-            master_token = f"{sql_client.token};{git_token}"
+            if sql_client.auth_type is not None and sql_client.auth_type == "oauth":
+                master_token = f"{sql_client.oauth_client_secret};{git_token}"
+            else:
+                master_token = f"{sql_client.token};{git_token}"
 
             sql_client.create_secret(dbt_component_model.secret_scope, dbt_component["secretKey"], master_token)
 
