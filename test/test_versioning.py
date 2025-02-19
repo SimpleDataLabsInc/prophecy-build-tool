@@ -165,7 +165,8 @@ class TestVersioning(IsolatedRepoTestCase):
         assert result.exit_code == 1
 
         result = runner.invoke(
-            versioning, ["--path", project_path, "--repo-path", self.repo_path, "--compare", "pytest/test_small_version"]
+            versioning,
+            ["--path", project_path, "--repo-path", self.repo_path, "--compare", "pytest/test_small_version"],
         )
         print(result.output)
         assert result.exit_code == 0
@@ -231,4 +232,3 @@ class TestVersioning(IsolatedRepoTestCase):
         assert result.exit_code == 0
         pbt_version = TestVersioning._get_pbt_version(project_path)
         assert pbt_version == "0.0.1-dev+sha.062f87eb"
-
