@@ -52,3 +52,8 @@ MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS = [
     # https://maven.apache.org/resolver/maven-resolver-impl/synccontextfactory.html
     # NOTE: may want to give a higher time. depending on how long builds block for...
 ]
+
+MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY = [
+    # "-DargLine=\"--add-exports=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.base/sun.util.calendar=ALL-UNNAMED\""
+    "-DargLine=\"--add-exports=java.base/sun.nio.ch=ALL-UNNAMED\""
+    ]

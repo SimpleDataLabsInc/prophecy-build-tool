@@ -23,6 +23,7 @@ from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
 from ..utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+from ..utils.constants import MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY
 
 
 class PipelineDeployment:
@@ -605,18 +606,23 @@ class PackageBuilderAndUploader:
             return f"{result}-1.0-py3-none-any.whl"
 
     def mvn_build(self, ignore_build_errors: bool = False):
-        command = ["mvn", "package"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        command = ["mvn", "package"] \
+            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
         if not self._are_tests_enabled:
             command.extend(["-DskipTests"])
         else:
-            command.extend(["-Dfabric=default"])
+            command.extend([
+                "-Dfabric=default",
+                MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY])
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command, ignore_build_errors)
 
     def mvn_test(self):
-        command = ["mvn", "package", "-Dfabric=default"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        command = ["mvn", "package", "-Dfabric=default"] \
+            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS \
+            + MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command)

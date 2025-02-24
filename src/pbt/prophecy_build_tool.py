@@ -19,7 +19,7 @@ from rich import print
 from .process import Process
 import tempfile
 from .utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
-
+from .utils.constants import MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY
 
 class ProphecyBuildTool:
     def __init__(
@@ -682,7 +682,10 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "clean", "package", "-q", "-DskipTests"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
+                    ["mvn", "clean", "package",
+                     # "-q",
+                     "-DskipTests"]
+                    + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -693,7 +696,11 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
+                    ["mvn", "test",
+                     # "-q",
+                     "-Dfabric=" + self.fabric.strip()]
+                    + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+                    + MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
