@@ -1,11 +1,11 @@
-from click.testing import CliRunner
-
-# note: must change function names so pytest won't try to execute them as tests.
-from src.pbt import test as _test, test_v2 as _test_v2
 import os
 import glob
 import pytest
+
+# note: must change function names so pytest won't try to execute them as tests.
+from src.pbt import test as _test, test_v2 as _test_v2
 from test.isolated_repo_test_case import IsolatedRepoTestCase
+from test import get_command_name
 
 
 class TestTesting(IsolatedRepoTestCase):
@@ -27,28 +27,26 @@ class TestTesting(IsolatedRepoTestCase):
         assert len(list(artifacts)) == n
 
     @pytest.mark.parametrize("language", ["python"])
-    @pytest.mark.parametrize("command", [_test, _test_v2])
+    @pytest.mark.parametrize("command", [_test, _test_v2], ids=get_command_name)
     @pytest.mark.parametrize("driver_library_path", ["./", "./fake.jar,fake2.jar", os.getcwd()])
-    def test_driver_paths(self, language, command, driver_library_path):
+    def test_driver_paths(self, cli_runner, language, command, driver_library_path):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
-        runner = CliRunner()
         with open("./fake.jar", "w") as fd:
             fd.write("fake")
         with open("./fake2.jar", "w") as fd:
             fd.write("fake")
 
-        result = runner.invoke(command, ["--path", project_path, "--driver-library-path", driver_library_path])
+        result = cli_runner.invoke(command, ["--path", project_path, "--driver-library-path", driver_library_path])
         print(result.stdout)
         assert result.exit_code == 0
         assert "fake.jar" in result.output.replace("\n", "")
         assert "fake2.jar" in result.output.replace("\n", "")
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("command", [_test, _test_v2])
-    def test_path_default(self, language, command):
+    @pytest.mark.parametrize("command", [_test, _test_v2], ids=get_command_name)
+    def test_path_default(self, cli_runner, language, command):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
-        runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path])
+        result = cli_runner.invoke(command, ["--path", project_path])
         print(result.stdout)
         assert result.exit_code == 0
         items = [
@@ -63,25 +61,23 @@ class TestTesting(IsolatedRepoTestCase):
                 assert f"Pipeline test succeeded : `pipelines/{i}`" in result.output
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("command", [_test_v2])  # not currently supported in v1
-    def test_test_v2_relative_path(self, language, command):
+    @pytest.mark.parametrize("command", [_test_v2], ids=get_command_name)  # not currently supported in v1
+    def test_test_v2_relative_path(self, cli_runner, language, command):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
-        runner = CliRunner()
-        result = runner.invoke(command, ["--path", os.path.relpath(project_path, os.getcwd())])
+        result = cli_runner.invoke(command, ["--path", os.path.relpath(project_path, os.getcwd())])
         print(result.stdout)
         assert result.exit_code == 0
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("command", [_test])  # TODO --pipelines option not present in v2
-    def test_test_with_pipeline_filter(self, language, command):
+    @pytest.mark.parametrize("command", [_test], ids=get_command_name)  # TODO --pipelines option not present in v2
+    def test_test_with_pipeline_filter(self, cli_runner, language, command):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         pipelines_to_test = [
             i
             for i in os.listdir(os.path.join(project_path, "pipelines"))
             if os.path.isdir(os.path.join(project_path, "pipelines", i))
         ][:2]
-        runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path, "--pipelines", ",".join(pipelines_to_test)])
+        result = cli_runner.invoke(command, ["--path", project_path, "--pipelines", ",".join(pipelines_to_test)])
         print(result.stdout)
         assert result.exit_code == 0
         for p in pipelines_to_test:
@@ -91,26 +87,26 @@ class TestTesting(IsolatedRepoTestCase):
                 assert f"Pipeline test succeeded : `pipelines/{p}`" in result.output
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("command", [_test])  # TODO --pipelines option not present in _test_v2
-    def test_test_with_pipeline_filter_one_notfound_pipeline(self, language, command):
+    @pytest.mark.parametrize("command", [_test], ids=get_command_name)
+    # TODO --pipelines option not present in _test_v2
+    def test_test_with_pipeline_filter_one_notfound_pipeline(self, cli_runner, language, command):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
         pipeline_to_test = [
             i
             for i in os.listdir(os.path.join(project_path, "pipelines"))
             if os.path.isdir(os.path.join(project_path, "pipelines", i))
         ][0]
-        runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path, "--pipelines", f"{pipeline_to_test},notfound"])
+        result = cli_runner.invoke(command, ["--path", project_path, "--pipelines", f"{pipeline_to_test},notfound"])
         print(result.stdout)
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
 
     @pytest.mark.parametrize("language", ["python", "scala"])
-    @pytest.mark.parametrize("command", [_test])  # TODO --pipelines option not present in _test_v2
-    def test_test_with_pipeline_filter_all_notfound_pipelines(self, language, command):
+    @pytest.mark.parametrize("command", [_test], ids=get_command_name)
+    # TODO --pipelines option not present in _test_v2
+    def test_test_with_pipeline_filter_all_notfound_pipelines(self, cli_runner, language, command):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
-        runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path, "--pipelines", "notfound1,notfound2,notfound3"])
+        result = cli_runner.invoke(command, ["--path", project_path, "--pipelines", "notfound1,notfound2,notfound3"])
         print(result.stdout)
         assert result.exit_code == 1
         assert "Filtered pipelines doesn't match with passed filter" in result.output
@@ -118,11 +114,10 @@ class TestTesting(IsolatedRepoTestCase):
     # scala does not currently output coverage reports or junit reports.
     # TODO once it does; consider adding this to the default test as a subtest (no need to test building again)
     @pytest.mark.parametrize("language", ["python"])
-    @pytest.mark.parametrize("command", [_test, _test_v2])
-    def test_coverage_and_test_report_generation(self, language, command):
+    @pytest.mark.parametrize("command", [_test, _test_v2], ids=get_command_name)
+    def test_coverage_and_test_report_generation(self, cli_runner, language, command):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
-        runner = CliRunner()
-        result = runner.invoke(command, ["--path", project_path])
+        result = cli_runner.invoke(command, ["--path", project_path])
         print(result.stdout)
         assert result.exit_code == 0
 
