@@ -606,22 +606,18 @@ class PackageBuilderAndUploader:
             return f"{result}-1.0-py3-none-any.whl"
 
     def mvn_build(self, ignore_build_errors: bool = False):
-        command = ["mvn", "package"] \
-            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        command = ["mvn", "package"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
         if not self._are_tests_enabled:
             command.extend(["-DskipTests"])
         else:
-            command.extend([
-                "-Dfabric=default",
-                MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY])
+            command.extend(["-Dfabric=default"])
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command, ignore_build_errors)
 
     def mvn_test(self):
-        command = ["mvn", "package", "-Dfabric=default"] \
-            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        command = ["mvn", "package", "-Dfabric=default"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command)
@@ -732,11 +728,11 @@ class PackageBuilderAndUploader:
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
 
-        JDK_JAVA_OPTIONS = env.get( "JDK_JAVA_OPTIONS")
+        JDK_JAVA_OPTIONS = env.get("JDK_JAVA_OPTIONS")
 
-        env[ "JDK_JAVA_OPTIONS"] = " ".join(
-            [ JDK_JAVA_OPTIONS ] if JDK_JAVA_OPTIONS else []
-            + JDK_JAVA_OPTIONS_ADD_EXPORTS)
+        env["JDK_JAVA_OPTIONS"] = " ".join(
+            [JDK_JAVA_OPTIONS] if JDK_JAVA_OPTIONS else [] + JDK_JAVA_OPTIONS_ADD_EXPORTS
+        )
 
         if env.get("FABRIC_NAME", None) is None:
             env["FABRIC_NAME"] = "default"  # for python test runs.

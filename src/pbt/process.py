@@ -1,5 +1,6 @@
 import subprocess
 import time
+import os
 
 
 class Process:
@@ -33,7 +34,7 @@ class Process:
                 stderr=process.std_err,
                 shell=process.is_shell,
                 cwd=process.current_working_directory,
-                env=process.env
+                env=process.env,
             )
             return_code, stdout, stderr = (
                 result.returncode,

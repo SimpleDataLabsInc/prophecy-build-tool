@@ -21,6 +21,7 @@ import tempfile
 from .utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
 from .utils.constants import JDK_JAVA_OPTIONS_ADD_EXPORTS
 
+
 class ProphecyBuildTool:
     def __init__(
         self,
@@ -682,8 +683,7 @@ class ProphecyBuildTool:
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "clean", "package", "-q", "-DskipTests"]
-                    + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
+                    ["mvn", "clean", "package", "-q", "-DskipTests"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 )
@@ -693,21 +693,19 @@ class ProphecyBuildTool:
     def test_scala(self, path_pipeline_absolute):
         env = dict(os.environ)
 
-        JDK_JAVA_OPTIONS = env.get( "JDK_JAVA_OPTIONS")
+        JDK_JAVA_OPTIONS = env.get("JDK_JAVA_OPTIONS")
 
-        env[ "JDK_JAVA_OPTIONS"] = " ".join(
-            [ JDK_JAVA_OPTIONS ] if JDK_JAVA_OPTIONS else []
-            + JDK_JAVA_OPTIONS_ADD_EXPORTS)
-
+        env["JDK_JAVA_OPTIONS"] = " ".join(
+            [JDK_JAVA_OPTIONS] if JDK_JAVA_OPTIONS else [] + JDK_JAVA_OPTIONS_ADD_EXPORTS
+        )
 
         return Process.process_sequential(
             [
                 Process(
-                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()]
-                    + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
+                    ["mvn", "test", "-q", "-Dfabric=" + self.fabric.strip()] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS,
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
-                    env= env
+                    env=env,
                 )
             ]
         )
