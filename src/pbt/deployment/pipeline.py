@@ -23,7 +23,7 @@ from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
 from ..utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
-from ..utils.constants import MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY
+from ..utils.constants import JDK_JAVA_OPTIONS_ADD_EXPORTS
 
 
 class PipelineDeployment:
@@ -621,8 +621,7 @@ class PackageBuilderAndUploader:
 
     def mvn_test(self):
         command = ["mvn", "package", "-Dfabric=default"] \
-            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS \
-            + MAVEN_SUREFIRE_TEST_PLUGIN_PROPERTY
+            + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command)
@@ -732,6 +731,12 @@ class PackageBuilderAndUploader:
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
+
+        JDK_JAVA_OPTIONS = env.get( "JDK_JAVA_OPTIONS")
+
+        env[ "JDK_JAVA_OPTIONS"] = " ".join(
+            [ JDK_JAVA_OPTIONS ] if JDK_JAVA_OPTIONS else []
+            + JDK_JAVA_OPTIONS_ADD_EXPORTS)
 
         if env.get("FABRIC_NAME", None) is None:
             env["FABRIC_NAME"] = "default"  # for python test runs.

@@ -11,6 +11,7 @@ class Process:
         std_err=subprocess.PIPE,
         is_shell=False,
         running_message="",
+        env=os.environ,
     ):
         self.process_args = process_args
         self.current_working_directory = current_working_directory
@@ -18,6 +19,7 @@ class Process:
         self.std_err = std_err
         self.is_shell = is_shell
         self.running_message = running_message
+        self.env = env
 
     @staticmethod
     def process_sequential(processes, time_between_each_cmd=1):
@@ -31,6 +33,7 @@ class Process:
                 stderr=process.std_err,
                 shell=process.is_shell,
                 cwd=process.current_working_directory,
+                env=process.env
             )
             return_code, stdout, stderr = (
                 result.returncode,
