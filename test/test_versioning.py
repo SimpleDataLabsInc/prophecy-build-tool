@@ -24,7 +24,7 @@ class TestVersioning(IsolatedRepoTestCase):
             self.repo.git.checkout(reference)
         self.repo.git.checkout("pbt-reference-do-not-delete")
 
-    @pytest.mark.parametrize("bump_type, version_result", [("major", "1.0.0"), ("minor", "0.1.0"), ("patch", "0.0.2")])
+    @pytest.mark.parametrize("bump_type, version_result", [("major", "1.0.0"), ("minor", "0.13.0"), ("patch", "0.12.1")])
     @pytest.mark.parametrize("language", ["python", "scala"])
     def test_versioning_bump(self, bump_type, version_result, language):
         project_path = self.python_project_path if language == "python" else self.scala_project_path
@@ -41,8 +41,8 @@ class TestVersioning(IsolatedRepoTestCase):
     @pytest.mark.parametrize(
         "bump_type, version_result",
         [
-            ("build", "0.0.1+build.1"),
-            ("prerelease", "0.0.1-rc.1"),
+            ("build", "0.12.0+build.1"),
+            ("prerelease", "0.12.0-rc.1"),
         ],
     )
     @pytest.mark.parametrize("language", ["python", "scala"])
@@ -113,7 +113,7 @@ class TestVersioning(IsolatedRepoTestCase):
         result = runner.invoke(versioning, ["--path", project_path, "--bump", "prerelease"])
         assert result.exit_code == 0
         new_pbt_version = TestVersioning._get_pbt_version(project_path)
-        assert new_pbt_version == "0.0.1-rc.5"
+        assert new_pbt_version == "0.12.0-rc.5"
 
     def test_versioning_version_set_below_force(self):
         project_path = self.python_project_path
