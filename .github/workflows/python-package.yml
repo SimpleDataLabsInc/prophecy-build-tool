@@ -39,4 +39,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        python -m pytest -n auto test/test_* -v
+        python -m pytest -n auto test/test_* -v --color=yes
