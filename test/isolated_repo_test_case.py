@@ -5,7 +5,11 @@ import shutil
 import uuid
 from abc import ABC
 
-SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
+# SAMPLE_REPO = "https://github.com/prophecy-samples/HelloProphecy.git"
+# SAMPLE_REF  = "pbt-reference-do-not-delete"
+
+SAMPLE_REPO = "https://github.com/neilbest-db/HelloProphecy.git"
+SAMPLE_REF  = "pbt-upgrade"
 
 
 class IsolatedRepoTestCase(ABC):
@@ -14,7 +18,7 @@ class IsolatedRepoTestCase(ABC):
         new_path = os.path.join("/tmp/", SAMPLE_REPO.split("/")[-1], f"{uuid.uuid4()}")
         repo = Repo.clone_from(repo_url, new_path)
         repo.git.fetch(tags=True)
-        repo.git.checkout("pbt-reference-do-not-delete")
+        repo.git.checkout(SAMPLE_REF)
         return repo, new_path
 
     @pytest.fixture(scope="function", autouse=True)
