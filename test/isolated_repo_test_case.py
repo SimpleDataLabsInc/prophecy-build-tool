@@ -9,7 +9,7 @@ from abc import ABC
 # SAMPLE_REF  = "pbt-reference-do-not-delete"
 
 SAMPLE_REPO = "https://github.com/neilbest-db/HelloProphecy.git"
-SAMPLE_REF  = "pbt-upgrade"
+SAMPLE_REF = "pbt-upgrade"
 
 
 class IsolatedRepoTestCase(ABC):
