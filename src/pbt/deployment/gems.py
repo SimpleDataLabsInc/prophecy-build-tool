@@ -9,6 +9,7 @@ from ..entities.project import Project
 from ..utils.project_config import ProjectConfig
 from ..utils.project_models import StepMetadata, StepType, Operation, Status
 from ..utility import custom_print as log, Either
+from ..utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
 from . import get_python_commands
 
 GEMS = "Gems"
@@ -72,7 +73,7 @@ class PackageBuilder:
             return self.wheel_build()
 
     def mvn_build(self):
-        command = ["mvn", "deploy", "-DskipTests"]
+        command = ["mvn", "deploy", "-DskipTests"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
 
         log(f"Running mvn command {command}", step_id=GEMS)
 

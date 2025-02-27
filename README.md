@@ -10,6 +10,15 @@ orchestration (e.g. Databricks Workflows).
 
 For the latest information on how to use Prophecy-build-tool, please visit the Prophecy Build Tool documentation [here](https://docs.prophecy.io/deployment/prophecy-build-tool/).
 
+## DEVELOPERS
+
+Developers should install all hooks:
+
+```shell
+chmod a+x install_hooks.sh
+./install_hooks.sh
+```
+
 ## Installation
 
 To install PBT, simply run:
@@ -168,14 +177,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'adopt'
       - name: Set up Python 3.x
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
       # Install all python dependencies 
