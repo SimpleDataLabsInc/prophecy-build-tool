@@ -8,7 +8,7 @@ from click.testing import CliRunner
 def pytest_configure():
     # add ivysettings to sparkconfig to allow concurrency on spark processes.
     conftest_directory = os.path.dirname(os.path.abspath(__file__))
-    ivysettings_file = os.path.join(conftest_directory, "ivySettings.xml")
+    ivysettings_file = os.path.join(conftest_directory, "resources", "ivysettings.xml")
     if not os.path.exists(ivysettings_file):
         raise FileNotFoundError(f"missing ivysettings file for parallel processing of tests: {ivysettings_file}")
 

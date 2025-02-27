@@ -1,7 +1,8 @@
 <ivysettings>
-    <!-- Define default cache settings with artifact-lock. this allows parallel pytests to hit .m2 cache -->
-    <caches lockStrategy="artifact-lock-nio" useOrigin="true"/>
-    <!-- </caches> -->
+
+    <!-- Override default cache lock strategy. This allows Spark sessions within
+         parallel pytests to hit ~/.ivy2/cache safely. -->
+    <caches lockStrategy="artifact-lock-nio"/>
 
     <settings defaultResolver="default"/>
     <include url="${ivy.default.settings.dir}/ivysettings-public.xml"/>
