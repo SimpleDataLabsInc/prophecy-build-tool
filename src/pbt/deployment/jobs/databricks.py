@@ -958,7 +958,8 @@ class PipelineConfigurations:
                 f"{Colors.OKGREEN}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
-            if self.project_config.is_volume_supported(fabric_id):
+            fabric = self.project.fabrics[fabric_id]
+            if self.project_config.is_volume_supported(fabric_id) or fabric:
                 config_path_volume = f"{base_path(fabric_id)}/{config_name}.json"
                 client.upload_content(configuration_content, config_path_volume)
                 log(
