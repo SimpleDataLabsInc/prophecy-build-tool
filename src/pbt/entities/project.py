@@ -362,7 +362,7 @@ class Project:
             # path can contain any number of delimiters if it's a volume
             # /Volume/vol1/subfolder1/subfolder2/etc
             # therefore, find the common substring. delimiters will be consistent after that point.
-            return path.split("/prophecy/artifacts/")[1].split('/')[0]
+            return path.split("/prophecy/artifacts/")[1].split("/")[0]
         else:
             return "dev"
 
@@ -372,7 +372,7 @@ class Project:
             # path can contain any number of delimiters if it's a volume
             # /Volume/vol1/subfolder1/subfolder2/etc
             # therefore, find the common substring. delimiters will be consistent after that point.
-            return path.split("/prophecy/artifacts/")[1].split('/')[1]
+            return path.split("/prophecy/artifacts/")[1].split("/")[1]
         else:
             return "execution"
 

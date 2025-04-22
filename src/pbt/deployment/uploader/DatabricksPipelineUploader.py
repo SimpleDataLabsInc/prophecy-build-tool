@@ -35,8 +35,10 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
 
         self.rest_client_factory = RestClientFactory.get_instance(RestClientFactory, project_config.fabric_config)
         self.base_path = self.project_config.get_db_base_path(None)
-        self.is_volume_supported = self.project_config.is_volume_supported(fabric_id) or \
-                                   fabric_id in self.project.fabric_volumes_detected.keys()
+        self.is_volume_supported = (
+            self.project_config.is_volume_supported(fabric_id)
+            or fabric_id in self.project.fabric_volumes_detected.keys()
+        )
         self.upload_path = f"{self.base_path}/{self.to_path}/pipeline/{self.file_name}"
         if self.is_volume_supported:
             if self.project_config.is_volume_supported(fabric_id):
@@ -46,7 +48,9 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
                     f"{self.project_config.get_db_base_path(fabric_id)}/{self.to_path}/pipeline/{self.file_name}"
                 )
             elif fabric_id in self.project.fabric_volumes_detected.keys():
-                self.volume_based_path = f"{self.project.fabric_volumes_detected[fabric_id]}/{self.to_path}/pipeline/{self.file_name}"
+                self.volume_based_path = (
+                    f"{self.project.fabric_volumes_detected[fabric_id]}/{self.to_path}/pipeline/{self.file_name}"
+                )
             else:
                 raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
 
