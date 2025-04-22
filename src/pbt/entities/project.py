@@ -335,7 +335,10 @@ class Project:
                 fabric_uid = content["fabricID"]
                 fabric_path = self._find_path_job_id(job_id)
                 if fabric_path.starts_with("/Volumes") or fabric_path.starts_with("dbfs:/Volumes"):
-                    fabrics_using_volumes[fabric_uid] = fabric_path
+                    # path can contain any number of delimiters if it's a volume
+                    # /Volume/vol1/subfolder1/subfolder2/etc
+                    # therefore, find the common substring and get the base path up to that point
+                    fabrics_using_volumes[fabric_uid] = fabric_path.split("/prophecy/artifacts/")[0]
         return fabrics_using_volumes
 
     def _find_path_job_id(self, job_id):
