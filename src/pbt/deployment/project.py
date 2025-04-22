@@ -197,7 +197,7 @@ class ProjectDeployment:
         self._deploy_emr_pipeline_config()
         self._deploy_dataproc_pipeline_config()
 
-        if not self.project_config.skip_builds:
+        if not self.project_config.skip_pipeline_deploy:
             self._deploy_pipelines()
         else:
             log("\nSkipping pipeline deployment as skip_builds is set to true.\n")

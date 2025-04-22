@@ -496,18 +496,29 @@ class PackageBuilderAndUploader:
 
         # trying to build and deploy
         try:
-            self._initialize_temp_folder()
-
-            log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
-
-            if self._project_language == SCALA_LANGUAGE:
-                self.mvn_build()
+            if not is_online_mode() and self._project_config.skip_builds:
+                log(
+                    "Artifact File already exist or --skip-builds set, ignoring pipeline build",
+                    step_id=self._pipeline_id,
+                    indent=2,
+                )
             else:
-                self.wheel_build()
+                self._initialize_temp_folder()
+                log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
+
+                if self._project_language == SCALA_LANGUAGE:
+                    self.mvn_build()
+                else:
+                    self.wheel_build()
+                log(
+                    f"{Colors.OKGREEN}Pipeline package built successfully{Colors.ENDC}\n",
+                    step_id=self._pipeline_id,
+                    indent=2,
+                )
 
             path = Project.get_pipeline_whl_or_jar(self._base_path)
             log(
-                f"{Colors.OKGREEN}Pipeline package built successfully, with path {path}{Colors.ENDC}\n",
+                f"{Colors.OKBLUE}Pipeline package path: {path}{Colors.ENDC}\n",
                 step_id=self._pipeline_id,
                 indent=2,
             )

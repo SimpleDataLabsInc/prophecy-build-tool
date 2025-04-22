@@ -40,6 +40,7 @@ class PBTCli(object):
         fabric_ids: str = "",
         job_ids: str = "",
         skip_builds: bool = False,
+        skip_pipeline_deploy: bool = False,
         dependant_project_paths: str = "",
         migrate: bool = False,
         artifactory: str = "",
@@ -48,7 +49,15 @@ class PBTCli(object):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
         project_config = ProjectConfig.from_conf_folder(
-            project, conf_folder, fabric_ids, job_ids, skip_builds, migrate, artifactory, skip_artifactory_upload
+            project,
+            conf_folder,
+            fabric_ids,
+            job_ids,
+            skip_builds,
+            skip_pipeline_deploy,
+            migrate,
+            artifactory,
+            skip_artifactory_upload,
         )
         return cls(project, project_config)
 
