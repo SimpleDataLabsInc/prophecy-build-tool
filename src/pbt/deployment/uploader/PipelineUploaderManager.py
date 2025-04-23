@@ -31,7 +31,8 @@ class PipelineUploadManager(PipelineUploader, ABC):
     def upload_pipeline(self, from_path: str):
         try:
             if from_path is None:
-                raise Exception(f"Pipeline build failed {self.pipeline_id}")
+                raise Exception(f"Pipeline upload failed {self.pipeline_id}. "
+                                f"run again without --skip-builds to build pipelines")
 
             file_name_with_extension = os.path.basename(from_path)
 

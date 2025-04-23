@@ -490,15 +490,11 @@ class PackageBuilderAndUploader:
         if pipeline_from_nexus is not None and pipeline_from_nexus.is_right:
             return Either(right=(self._pipeline_id, pipeline_from_nexus.right))
 
-        if not is_online_mode() and self._project_config.skip_builds:
-            log("Artifact File already exist, ignoring pipeline build", step_id=self._pipeline_id, indent=2)
-            return Either(right=True)
-
         # trying to build and deploy
         try:
             if not is_online_mode() and self._project_config.skip_builds:
                 log(
-                    "Artifact File already exist or --skip-builds set, ignoring pipeline build",
+                    "Artifact File already exists or --skip-builds set, ignoring pipeline build",
                     step_id=self._pipeline_id,
                     indent=2,
                 )

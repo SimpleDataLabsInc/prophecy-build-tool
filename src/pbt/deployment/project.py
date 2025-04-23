@@ -200,7 +200,7 @@ class ProjectDeployment:
         if not self.project_config.skip_pipeline_deploy:
             self._deploy_pipelines()
         else:
-            log("\nSkipping pipeline deployment as skip_builds is set to true.\n")
+            log("\nSkipping pipeline deployment as --skip-pipeline-deploy is set to true.\n")
 
         databricks_responses = self._deploy_databricks_jobs()
         airflow_responses = self._deploy_airflow_jobs()
