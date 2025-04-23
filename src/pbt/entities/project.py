@@ -334,8 +334,7 @@ class Project:
             if content.get("fabricUID", None) is not None:
                 fabric_uid = str(content["fabricUID"])
                 fabric_path = self._find_path_job_id(job_id)
-                if fabric_path and (fabric_path.startswith("/Volumes") or \
-                        fabric_path.startswith("dbfs:/Volumes")):
+                if fabric_path and (fabric_path.startswith("/Volumes") or fabric_path.startswith("dbfs:/Volumes")):
                     # path can contain any number of delimiters if it's a volume
                     # /Volume/vol1/subfolder1/subfolder2/etc
                     # therefore, find the common substring and get the base path up to that point

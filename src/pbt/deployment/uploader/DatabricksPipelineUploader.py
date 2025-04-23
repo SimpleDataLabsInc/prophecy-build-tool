@@ -49,9 +49,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
                 )
             elif fabric_id in self.project.fabric_volumes_detected.keys():
                 volume_opt = self.project.fabric_volumes_detected[fabric_id]
-                self.volume_based_path = (
-                    f"{self.project_config.system_config.get_dbfs_base_path(volume_opt)}/{self.to_path}/pipeline/{self.file_name}"
-                )
+                self.volume_based_path = f"{self.project_config.system_config.get_dbfs_base_path(volume_opt)}/{self.to_path}/pipeline/{self.file_name}"
             else:
                 raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
 
