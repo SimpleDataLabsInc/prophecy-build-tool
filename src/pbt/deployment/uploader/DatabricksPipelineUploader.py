@@ -42,14 +42,15 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
         self.upload_path = f"{self.base_path}/{self.to_path}/pipeline/{self.file_name}"
         if self.is_volume_supported:
             if self.project_config.is_volume_supported(fabric_id):
-                # NOTE: if both project config (fabrics.yml) and job definitions contain volume paths then by having
+                # NOTE: if both project config (fabrics.yml) and job definitions contain volume paths, then by having
                 # this case first, we prioritize the volume path defined in the fabrics.yml.
                 self.volume_based_path = (
                     f"{self.project_config.get_db_base_path(fabric_id)}/{self.to_path}/pipeline/{self.file_name}"
                 )
             elif fabric_id in self.project.fabric_volumes_detected.keys():
+                volume_opt = self.project.fabric_volumes_detected[fabric_id]
                 self.volume_based_path = (
-                    f"{self.project.fabric_volumes_detected[fabric_id]}/{self.to_path}/pipeline/{self.file_name}"
+                    f"{self.project_config.system_config.get_dbfs_base_path(volume_opt)}/{self.to_path}/pipeline/{self.file_name}"
                 )
             else:
                 raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
