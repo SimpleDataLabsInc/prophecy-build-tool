@@ -939,9 +939,15 @@ class PipelineConfigurations:
 
     def _upload_configuration(self, fabric_id, pipeline_id, config_name, configuration_content):
         def base_path(fab_id: Optional[str]):
-            path = self.project_config.get_db_base_path(fab_id)
+            if self.project_config.is_volume_supported(fabric_id):
+                _base_path = self.project_config.get_db_base_path(fab_id)
+            elif fab_id in self.project.fabric_volumes_detected.keys():
+                _base_path = self.project.fabric_volumes_detected[fabric_id]
+            else:
+                raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
+
             pipeline_path = (
-                f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
+                f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
             )
             return pipeline_path
 
@@ -958,7 +964,11 @@ class PipelineConfigurations:
                 f"{Colors.OKGREEN}Uploaded pipeline configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
-            if self.project_config.is_volume_supported(fabric_id):
+
+            if (
+                self.project_config.is_volume_supported(fabric_id)
+                or fabric_id in self.project.fabric_volumes_detected.keys()
+            ):
                 config_path_volume = f"{base_path(fabric_id)}/{config_name}.json"
                 client.upload_content(configuration_content, config_path_volume)
                 log(

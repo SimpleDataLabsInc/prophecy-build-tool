@@ -120,6 +120,8 @@ class Project:
         else:
             self.dependent_project = DependentProjectAPP(project_path, self)
 
+        self.fabric_volumes_detected = self._detect_volume_usage_per_fabric()
+
     @property
     def name(self) -> str:
         return self.pbt_project_dict.get("name")
@@ -365,31 +367,54 @@ class Project:
             return value[len(prefix) :]
         return value
 
-    def _find_path(self):
+    def _detect_volume_usage_per_fabric(self):
+        fabrics_using_volumes = {}
         for job_id, content in self.jobs.items():
-            db_jobs = self.load_databricks_job(job_id)
-            if db_jobs is not None:
-                json_content = json.loads(db_jobs)
-                for component in json_content["components"]:
-                    for c_name, c_content in component.items():
-                        path = c_content["path"]
+            if content.get("fabricUID", None) is not None:
+                fabric_uid = str(content["fabricUID"])
+                fabric_path = self._find_path_job_id(job_id)
+                if fabric_path and (fabric_path.startswith("/Volumes") or fabric_path.startswith("dbfs:/Volumes")):
+                    # path can contain any number of delimiters if it's a volume
+                    # /Volume/vol1/subfolder1/subfolder2/etc
+                    # therefore, find the common substring and get the base path up to that point
+                    fabrics_using_volumes[fabric_uid] = fabric_path.split("/prophecy/artifacts/")[0]
+        return fabrics_using_volumes
 
-                        if path.startswith("dbfs:/FileStore/prophecy/artifacts/"):
-                            return path
+    def _find_path_job_id(self, job_id):
+        db_jobs = self.load_databricks_job(job_id)
+        if db_jobs is not None:
+            json_content = json.loads(db_jobs)
+            for component in json_content["components"]:
+                for c_name, c_content in component.items():
+                    path = c_content["path"]
+                    return path
+        return None
 
+    def _find_path(self):
+        # it's just returning first found.
+        for job_id in self.jobs.keys():
+            path = self._find_path_job_id(job_id)
+            if path:
+                return path
         return None
 
     def find_customer_name(self) -> str:
         path = self._find_path()
         if path is not None:
-            return path.split("/")[4]
+            # path can contain any number of delimiters if it's a volume
+            # /Volume/vol1/subfolder1/subfolder2/etc
+            # therefore, find the common substring. delimiters will be consistent after that point.
+            return path.split("/prophecy/artifacts/")[1].split("/")[0]
         else:
             return "dev"
 
     def find_control_plane_name(self):
         path = self._find_path()
         if path is not None:
-            return path.split("/")[5]
+            # path can contain any number of delimiters if it's a volume
+            # /Volume/vol1/subfolder1/subfolder2/etc
+            # therefore, find the common substring. delimiters will be consistent after that point.
+            return path.split("/prophecy/artifacts/")[1].split("/")[1]
         else:
             return "execution"
 
