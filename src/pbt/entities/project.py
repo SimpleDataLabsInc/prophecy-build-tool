@@ -429,7 +429,7 @@ class Project:
             orig_project_version=self.pbt_project_dict["version"],
             new_version=new_version,
             force=force,
-            pbt_only=pbt_only
+            pbt_only=pbt_only,
         )
         # update our internal reference in case calls get chained which use this field.
         self.pbt_project_dict["version"] = new_version

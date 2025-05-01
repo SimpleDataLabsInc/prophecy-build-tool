@@ -1,6 +1,7 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+
 import sys
 from typing import Optional
 
@@ -380,13 +381,14 @@ def test(path, driver_library_path, pipelines):
 @click.option(
     "--pbt-only",
     help="apply version operation to pbt_project.yml file only. applicable in combination with: "
-         "--compare, --make-unique, --bump, --set, --set-suffix",
+    "--compare, --make-unique, --bump, --set, --set-suffix",
     default=False,
     is_flag=True,
     required=False,
 )
-def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique,
-               pbt_only):
+def versioning(
+    path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique, pbt_only
+):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
