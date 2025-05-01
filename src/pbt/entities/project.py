@@ -422,13 +422,14 @@ class Project:
 
         return False
 
-    def update_version(self, new_version, force=False):
+    def update_version(self, new_version, force=False, pbt_only=False):
         update_all_versions(
             self.project_path,
             self.project_language,
             orig_project_version=self.pbt_project_dict["version"],
             new_version=new_version,
             force=force,
+            pbt_only=pbt_only
         )
         # update our internal reference in case calls get chained which use this field.
         self.pbt_project_dict["version"] = new_version
