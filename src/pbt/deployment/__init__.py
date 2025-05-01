@@ -25,7 +25,7 @@ class EntityIdToFabricId:
 
 
 def invert_entity_to_fabric_mapping(
-    entity_id_dict: Dict[str, List[EntityIdToFabricId]]
+    entity_id_dict: Dict[str, List[EntityIdToFabricId]],
 ) -> Dict[str, List[EntityIdToFabricId]]:
     result = {}
 

@@ -1,6 +1,7 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+
 import sys
 from typing import Optional
 
