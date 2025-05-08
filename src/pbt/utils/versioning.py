@@ -2,7 +2,7 @@ import os
 import re
 import yaml
 from packaging import version as packaging_version
-import semver
+from semver.version import Version
 import glob
 from ..utility import custom_print as log
 import xml.etree.ElementTree as ET
@@ -41,7 +41,7 @@ def version_check_sync(project_path, project_language, pbt_project_version):
                 raise ValueError("bad project language: ", project_language)
 
             try:
-                if semver.parse_version_info(pbt_project_version) != semver.parse_version_info(file_version):
+                if Version.parse(pbt_project_version) != Version.parse(file_version):
                     log(f"Versions are out of sync: {pbt_project_version} != {file_version}")
                     exit(1)
             except ValueError as e:
@@ -57,7 +57,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
     # check this version against base branch if not "force". error if it is not greater
     if not force:
         orig_version = orig_project_version
-        if semver.parse_version_info(new_version) <= semver.parse_version_info(orig_version):
+        if Version.parse(new_version) <= Version.parse(orig_version):
             log(f"new version {new_version} is not later than {orig_version}")
             raise ValueError(f"new version {new_version} is not later than {orig_version}")
 
@@ -124,7 +124,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
 
 def get_bumped_version(original_version, bump_type, project_language):
     try:
-        v = semver.parse_version_info(original_version)
+        v = Version.parse(original_version)
     except ValueError:
         log(f"Error bumping: Unable to parse version {original_version}. " f"Must Use Semantic Versioning")
         exit(1)

@@ -117,7 +117,7 @@ class PBTCli(object):
         if not semver.Version.is_valid(self.project.project.pbt_project_dict["version"]):
             print("ERROR: current version is not in semVer syntax. cannot proceed.")
             sys.exit(1)
-        current_version = semver.parse_version_info(self.project.project.pbt_project_dict["version"])
+        current_version = semver.Version.parse(self.project.project.pbt_project_dict["version"])
         new_version_str = f"{current_version.major}.{current_version.minor}.{current_version.patch}{suffix}"
         if not semver.Version.is_valid(new_version_str) and not force:
             print("ERROR: suffix provided is not valid semVer syntax. You can use --force to ignore this.")
@@ -154,7 +154,7 @@ class PBTCli(object):
         current_pbt_version = self.project.project.pbt_project_dict["version"]
         branch_pbt_version = self.version_get_target_branch_version(repo_path, target_branch)
         try:
-            if semver.parse_version_info(current_pbt_version) <= semver.parse_version_info(branch_pbt_version):
+            if semver.Version.parse(current_pbt_version) <= semver.Version.parse(branch_pbt_version):
                 log(f"Current version is not higher than target version: {current_pbt_version} <= {branch_pbt_version}")
                 return False
         except ValueError as e:

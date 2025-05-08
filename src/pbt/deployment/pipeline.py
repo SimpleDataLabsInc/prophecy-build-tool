@@ -5,9 +5,11 @@ import subprocess
 import sys
 import tempfile
 import threading
-import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
+import xml.etree.ElementTree as ET
+import pyspark
+import ast
 
 from . import JobData, get_python_commands
 from .uploader.PipelineUploaderManager import PipelineUploadManager
@@ -20,6 +22,8 @@ from ..utils.constants import PYTHON_LANGUAGE, SCALA_LANGUAGE
 from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
+from ..utils.constants import MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+from ..utils.constants import JDK_JAVA_OPTIONS_ADD_EXPORTS
 
 
 class PipelineDeployment:
@@ -245,38 +249,8 @@ class PipelineDeployment:
                 ET.indent(project, space="    ", level=0)
                 return ET.tostring(project, encoding="utf-8", method="xml")
 
-            # gather project level dependencies:
-            project_level_dependencies = self.project.pbt_project_dict.get("dependencies", [])
-            project_level_maven_dependencies = [d for d in project_level_dependencies if d["type"] == "coordinates"]
-
-            # the plibs maven does not have a normal coordinate so we have to make one:
-            spark_version = os.environ["SPARK_VERSION"] if "SPARK_VERSION" in os.environ else "{{REPLACE_ME}}"
-            plibs_maven_dep = [d for d in project_level_dependencies if d["type"] == "plibMaven"]
-            if len(plibs_maven_dep) != 1:
-                log(
-                    f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
-                    f"prophecy-libs information. please update your prophecy-libs in the Prophecy UI{Colors.ENDC}"
-                )
-                return
-            plibs_maven_dep = plibs_maven_dep[0]
-            plibs_maven_dep["type"] = "coordinates"
-            plibs_maven_dep["package"] = "prophecy-libs_2.12"
-            plibs_maven_dep["version"] = spark_version + "-" + plibs_maven_dep["version"]
-            plibs_maven_dep["coordinates"] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
-            project_level_maven_dependencies.append(plibs_maven_dep)
-
             for pipeline_id in self.project.pipelines:
-                rdc = self.project.load_pipeline_folder(pipeline_id)
-
-                # gather pipeline level dependencies per directory and combine with project
-                # level deps:
-                workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
-                pipeline_level_dependencies = workflow["metainfo"]["externalDependencies"]
-                pipeline_level_maven_dependencies = [
-                    d for d in pipeline_level_dependencies if d["type"] == "coordinates"
-                ]
-                maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
-
+                maven_dependencies = self.project.get_maven_dependencies_for_python_pipelines(pipeline_id=pipeline_id)
                 # include all information in pom.xml because there may be specific repos
                 # or exclusions information:
                 pom_xml = _generate_pom_from_dicts(maven_dependencies)
@@ -639,24 +613,85 @@ class PackageBuilderAndUploader:
             return f"{result}-1.0-py3-none-any.whl"
 
     def mvn_build(self, ignore_build_errors: bool = False):
-        mvn = "mvn"
-        command = (
-            [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package", "-Dfabric=default"]
-        )
+        command = ["mvn", "package"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
+        if not self._are_tests_enabled:
+            command.extend(["-DskipTests"])
+        else:
+            command.extend(["-Dfabric=default"])
 
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command, ignore_build_errors)
 
     def mvn_test(self):
-        mvn = "mvn"
-        command = [mvn, "package", "-Dfabric=default"]
+        command = ["mvn", "package", "-Dfabric=default"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS
         log(f"Running mvn command {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command)
 
+    def get_python_dependencies(self):
+        log(f"{Colors.OKBLUE}Getting python dependencies for {self._pipeline_name} {Colors.ENDC}")
+
+        def extract_install_requires_from_setup(setup_py_path):
+            with open(setup_py_path, "r") as file:
+                setup_code = file.read()
+
+            # Parse the setup.py code into an AST
+            tree = ast.parse(setup_code)
+            install_requires = []
+
+            # Walk through all nodes in the AST
+            for node in ast.walk(tree):
+                # Look for a function call to setup()
+                if isinstance(node, ast.Call) and hasattr(node.func, "id") and node.func.id == "setup":
+                    # Traverse the keyword arguments of the setup() call
+                    for keyword in node.keywords:
+                        if keyword.arg == "install_requires" and isinstance(keyword.value, ast.List):
+                            install_requires += [elt.s for elt in keyword.value.elts if isinstance(elt, ast.Str)]
+                        elif keyword.arg == "extras_require" and isinstance(keyword.value, ast.Dict):
+                            for key, value in zip(keyword.value.keys, keyword.value.values):
+                                if isinstance(key, ast.Str) and key.s == "test" and isinstance(value, ast.List):
+                                    install_requires += [elt.s for elt in value.elts if isinstance(elt, ast.Str)]
+            return install_requires
+
+        requirements = extract_install_requires_from_setup(os.path.join(self._base_path, "setup.py"))
+
+        # call pip
+        try:
+            log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements
+            )
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred while trying to install requirements: {e}")
+
+    def get_maven_dependencies_python(self):
+        if "SPARK_JARS_CONFIG" not in os.environ or len(os.environ["SPARK_JARS_CONFIG"]) != 0:
+            log(
+                f"{Colors.OKBLUE}Skipping installing maven dependencies: using {os.environ['SPARK_JARS_CONFIG']}{Colors.ENDC}"
+            )
+            return
+
+        # gather project level dependencies:
+        maven_deps = self._project.get_maven_dependencies_for_python_pipelines(self._pipeline_id)
+        if "{{REPLACE_ME}}" in "".join([str(d) for d in maven_deps]):
+            # if spark version not defined then use whatever pyspark version is installed.
+            plibs_pyspark_version = ".".join(pyspark.__version__.split(".")[:2] + ["0"])
+            maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", plibs_pyspark_version) for d in maven_deps]
+
+        log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
+        for d in maven_deps:
+            try:
+                subprocess.check_call(["mvn", "dependency:get", f"-Dartifact={d}"] + MAVEN_SYNC_CONTEXT_FACTORY_OPTIONS)
+            except subprocess.CalledProcessError as e:
+                print(f"An error occurred while trying to install maven requirements: {e}")
+
     def wheel_test(self):
         COVERAGERC_CONTENT = "[run]\n" "omit=test/**,build/**,dist/**,setup.py\n"
+
+        log(f"\n\n{Colors.OKBLUE}Gathering Dependencies{Colors.ENDC}\n")
+        self.get_python_dependencies()
+        self.get_maven_dependencies_python()
 
         coveragerc_path = os.path.join(f"{self._base_path}", ".coveragerc")
         if not os.path.exists(coveragerc_path):
@@ -672,6 +707,7 @@ class PackageBuilderAndUploader:
             "--cov=.",
             "--cov-report=xml",
             "--junitxml=report.xml",
+            "--html=report.html",
             f"{self._base_path}{separator}test{separator}TestSuite.py",
         ]
         log(f"Running python test {test_command}", step_id=self._pipeline_id, indent=2)
@@ -698,6 +734,12 @@ class PackageBuilderAndUploader:
 
         # Set the MAVEN_OPTS variable
         env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
+
+        JDK_JAVA_OPTIONS = env.get("JDK_JAVA_OPTIONS")
+
+        env["JDK_JAVA_OPTIONS"] = " ".join(
+            [JDK_JAVA_OPTIONS] if JDK_JAVA_OPTIONS else [] + JDK_JAVA_OPTIONS_ADD_EXPORTS
+        )
 
         if env.get("FABRIC_NAME", None) is None:
             env["FABRIC_NAME"] = "default"  # for python test runs.

@@ -3,6 +3,7 @@ import os
 import re
 from abc import ABC
 from typing import Optional, List
+import copy
 
 import yaml
 
@@ -25,6 +26,7 @@ from ..utils.constants import (
 )
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 from ..utils.versioning import update_all_versions
+from ..utils.project_models import Colors
 
 SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
     r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
@@ -208,6 +210,43 @@ class Project:
             return pipelines.get(pipeline_path, {}).get("name", pipeline_path.split("/")[-1])
         except Exception:
             return self.dependent_project.get_pipeline_name(pipeline_id)
+
+    def get_maven_dependencies_for_python_pipelines(self, pipeline_id=None):
+        """
+        leave pipeline id blank to get dependencies for all pipelines.
+        """
+        # gather project level dependencies:
+        project_level_dependencies = self.pbt_project_dict.get("dependencies", [])
+        project_level_maven_dependencies = [d for d in project_level_dependencies if d["type"] == "coordinates"]
+
+        # the plibs maven does not have a normal coordinate so we have to make one:
+        spark_version = os.environ["SPARK_VERSION"] if "SPARK_VERSION" in os.environ else "{{REPLACE_ME}}"
+        plibs_maven_deps = [d for d in project_level_dependencies if d["name"] == "plibMaven"]
+        if len(plibs_maven_deps) != 1:
+            log(
+                f"{Colors.WARNING}Skipping creating POM for maven dependencies, pbt_project.yml is missing "
+                f"prophecy-libs information. please update your prophecy-libs in the Prophecy UI{Colors.ENDC}"
+            )
+            return None
+        plibs_maven_dep = copy.deepcopy(plibs_maven_deps[0])
+        plibs_maven_dep["type"] = "coordinates"
+        plibs_maven_dep["package"] = "prophecy-libs_2.12"
+        plibs_maven_dep["version"] = spark_version + "-" + plibs_maven_dep["version"]
+        plibs_maven_dep["coordinates"] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
+        project_level_maven_dependencies.append(plibs_maven_dep)
+
+        pipeline_level_maven_dependencies = []
+        pipelines_to_process = [pipeline_id] if pipeline_id else self.pipelines
+        for pipeline_id in pipelines_to_process:
+            rdc = self.load_pipeline_folder(pipeline_id)
+
+            # gather pipeline level dependencies per directory and combine with project
+            # level deps:
+            workflow = json.loads(rdc.get(".prophecy/workflow.latest.json", None))
+            pipeline_level_dependencies = workflow["metainfo"]["externalDependencies"]
+            pipeline_level_maven_dependencies += [d for d in pipeline_level_dependencies if d["type"] == "coordinates"]
+        maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
+        return maven_dependencies
 
     @staticmethod
     def _read_directory(base_path: str):
