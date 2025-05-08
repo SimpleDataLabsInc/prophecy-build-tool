@@ -215,6 +215,13 @@ def deploy(
     default="",
 )
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
+@click.option(
+    "--skip-pipeline-deploy",
+    default=False,
+    is_flag=True,
+    help="Flag to skip deploying Pipelines (only deploys job definitions)",
+    required=False,
+)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
 @click.option(
@@ -240,6 +247,7 @@ def deploy_v2(
     fabric_ids: str,
     job_ids: str,
     skip_builds: bool,
+    skip_pipeline_deploy: bool,
     dependent_projects_path: str,
     migrate: bool,
     artifactory: str,
@@ -254,6 +262,7 @@ def deploy_v2(
         fabric_ids,
         job_ids,
         skip_builds,
+        skip_pipeline_deploy,
         dependent_projects_path,
         migrate,
         artifactory,
