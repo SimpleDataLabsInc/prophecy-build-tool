@@ -1,6 +1,7 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+
 import sys
 from typing import Optional
 
@@ -427,9 +428,6 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
             else:
                 # when bump is not given, then just return 0 or 1 to compare versions
                 sys.exit(1)
-        else:
-            # always if our version is already higher, make sure we are sync'd.
-            pbt.version_check_sync()
     elif make_unique:
         pbt.version_make_unique(repo_path, force=True)
     else:
