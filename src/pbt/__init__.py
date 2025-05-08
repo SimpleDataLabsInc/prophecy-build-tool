@@ -1,6 +1,7 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+
 import sys
 from typing import Optional
 
@@ -386,7 +387,17 @@ def test(path, driver_library_path, pipelines):
     is_flag=True,
     required=False,
 )
-def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique):
+@click.option(
+    "--pbt-only",
+    help="apply version operation to pbt_project.yml file only. applicable in combination with: "
+    "--compare, --make-unique, --bump, --set, --set-suffix",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def versioning(
+    path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique, pbt_only
+):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
@@ -413,13 +424,13 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
             )
 
     if set:
-        pbt.version_set(set, force)
+        pbt.version_set(set, force, pbt_only)
     elif bump and not compare_to_target:
-        pbt.version_bump(bump, force)
+        pbt.version_bump(bump, force, pbt_only)
     elif sync:
-        pbt.version_set(None, force)
+        pbt.version_set(None, force, pbt_only)
     elif set_suffix:
-        pbt.version_set_suffix(set_suffix, force)
+        pbt.version_set_suffix(set_suffix, force, pbt_only)
     elif check_sync:
         pbt.version_check_sync()
     elif compare_to_target:
@@ -432,15 +443,12 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
                     bump,
                     pbt.project.project.pbt_project_dict["language"],
                 )
-                pbt.version_set(new_version, force=True)
+                pbt.version_set(new_version, force=True, pbt_only=pbt_only)
             else:
                 # when bump is not given, then just return 0 or 1 to compare versions
                 sys.exit(1)
-        else:
-            # always if our version is already higher, make sure we are sync'd.
-            pbt.version_check_sync()
     elif make_unique:
-        pbt.version_make_unique(repo_path, force=True)
+        pbt.version_make_unique(repo_path, force=True, pbt_only=pbt_only)
     else:
         raise click.UsageError(
             "must give ONE of: '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', "

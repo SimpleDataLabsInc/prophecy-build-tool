@@ -96,24 +96,24 @@ class PBTCli(object):
     def validate(self, treat_warnings_as_errors: bool):
         self.project.validate(treat_warnings_as_errors)
 
-    def version_bump(self, bump_type, force):
+    def version_bump(self, bump_type, force, pbt_only):
         new_version = get_bumped_version(
             self.project.project.pbt_project_dict["version"],
             bump_type,
             self.project.project.pbt_project_dict["language"],
         )
         log(f"Bumping {bump_type}. New version: {new_version}")
-        self.project.project.update_version(new_version=new_version, force=force)
+        self.project.project.update_version(new_version=new_version, force=force, pbt_only=pbt_only)
         log("Success.")
 
-    def version_set(self, version, force):
+    def version_set(self, version, force, pbt_only):
         if version is None:
             # sync option will send None, so take existing version.
             version = self.project.project.pbt_project_dict["version"]
             force = True
-        self.project.project.update_version(new_version=version, force=force)
+        self.project.project.update_version(new_version=version, force=force, pbt_only=pbt_only)
 
-    def version_set_suffix(self, suffix, force):
+    def version_set_suffix(self, suffix, force, pbt_only):
         if not semver.Version.is_valid(self.project.project.pbt_project_dict["version"]):
             print("ERROR: current version is not in semVer syntax. cannot proceed.")
             sys.exit(1)
@@ -122,7 +122,7 @@ class PBTCli(object):
         if not semver.Version.is_valid(new_version_str) and not force:
             print("ERROR: suffix provided is not valid semVer syntax. You can use --force to ignore this.")
             sys.exit(1)
-        self.version_set(new_version_str, force)
+        self.version_set(new_version_str, force, pbt_only)
 
     def version_check_sync(self):
         version_check_sync(
@@ -131,14 +131,14 @@ class PBTCli(object):
             self.project.project.pbt_project_dict["version"],
         )
 
-    def version_make_unique(self, repo_path, force):
+    def version_make_unique(self, repo_path, force, pbt_only):
         repo = git.Repo(repo_path)
         branch_name = repo.active_branch.name
         branch_hash = hashlib.sha256(branch_name.encode()).hexdigest()[:8]
         if self.project.project.project_language == SCALA_LANGUAGE:
-            self.version_set_suffix(f"-SNAPSHOT+sha.{branch_hash}", force)
+            self.version_set_suffix(f"-SNAPSHOT+sha.{branch_hash}", force, pbt_only)
         else:
-            self.version_set_suffix(f"-dev+sha.{branch_hash}", force)
+            self.version_set_suffix(f"-dev+sha.{branch_hash}", force, pbt_only)
 
     def version_get_target_branch_version(self, repo_path, target_branch):
         repo = git.Repo(repo_path)

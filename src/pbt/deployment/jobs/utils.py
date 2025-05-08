@@ -43,7 +43,7 @@ def modify_databricks_json_for_private_artifactory(data, artifactory=None):
                             {
                                 "pypi": {
                                     "package": f"{package_name}=={package_version}",
-                                    "repo": f"{artifactory.rstrip('/')}/simple"  # adding as pip uses simple api
+                                    "repo": f"{artifactory.rstrip('/')}/simple",  # adding as pip uses simple api
                                     # for downloading packages
                                 }
                             }

@@ -53,7 +53,7 @@ def version_check_sync(project_path, project_language, pbt_project_version):
                 exit(1)
 
 
-def update_all_versions(project_path, project_language, orig_project_version, new_version, force):
+def update_all_versions(project_path, project_language, orig_project_version, new_version, force, pbt_only):
     # check this version against base branch if not "force". error if it is not greater
     if not force:
         orig_version = orig_project_version
@@ -96,29 +96,30 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
     pbt_project_file = os.path.join(project_path, "pbt_project.yml")
     _replace_in_files(r"^version: .*$", f"version: {new_version}", [pbt_project_file])
 
-    # replace version in language specific files:
-    if project_language == "python":
-        matching_regex = r"^\s*version\s*=\s*.*$"
-        replacement_string = f"    version = '{new_version}',"
-        filename_to_find = "setup.py"
-    elif project_language == "scala":
-        matching_regex = r"^\s*<version>.*</version>"
-        replacement_string = f"    <version>{new_version}</version>"
-        filename_to_find = "pom.xml"
-    elif project_language == "sql":
-        matching_regex = r"^version: .*$"
-        replacement_string = f'version: "{new_version}"'
-        filename_to_find = "dbt_project.yml"
-    else:
-        raise ValueError("bad project language: ", project_language)
+    if not pbt_only:
+        # replace version in language specific files:
+        if project_language == "python":
+            matching_regex = r"^\s*version\s*=\s*.*$"
+            replacement_string = f"    version = '{new_version}',"
+            filename_to_find = "setup.py"
+        elif project_language == "scala":
+            matching_regex = r"^\s*<version>.*</version>"
+            replacement_string = f"    <version>{new_version}</version>"
+            filename_to_find = "pom.xml"
+        elif project_language == "sql":
+            matching_regex = r"^version: .*$"
+            replacement_string = f'version: "{new_version}"'
+            filename_to_find = "dbt_project.yml"
+        else:
+            raise ValueError("bad project language: ", project_language)
 
-    files_to_fix = glob.glob(os.path.join(project_path, "**", filename_to_find), recursive=True)
-    _replace_in_files(matching_regex, replacement_string, files_to_fix)
+        files_to_fix = glob.glob(os.path.join(project_path, "**", filename_to_find), recursive=True)
+        _replace_in_files(matching_regex, replacement_string, files_to_fix)
 
-    # Update in databricks-jobs.json files
-    log("Updating versions in Databricks job (databricks-job.json) files")
-    files_to_fix = glob.glob(os.path.join(project_path, "**", "databricks-job.json"), recursive=True)
-    _update_whl_version_in_databricks_json(files_to_fix, new_version)
+        # Update in databricks-jobs.json files
+        log("Updating versions in Databricks job (databricks-job.json) files")
+        files_to_fix = glob.glob(os.path.join(project_path, "**", "databricks-job.json"), recursive=True)
+        _update_whl_version_in_databricks_json(files_to_fix, new_version)
 
 
 def get_bumped_version(original_version, bump_type, project_language):
