@@ -106,32 +106,67 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
 
     def upload_pipeline(self, path: str) -> Either:  # 'path' param is from PipelineUploader, unused here
         client = self.rest_client_factory.databricks_client(self.fabric_id)
-        first_hard_error: Optional[HTTPError] = None  # Changed for Python 3.8 compatibility
 
-        # Attempt 1: Standard Upload Path
-        is_hard_error, error_obj = self._attempt_single_upload(client, self.file_path, self.upload_path, "path")
-        if is_hard_error and first_hard_error is None:
-            first_hard_error = error_obj
+        # --- Attempt 1: Standard Upload Path ---
+        hard_error_path1 = False
+        error_obj_path1: Optional[HTTPError] = None
 
-        # Attempt 2: Volume-Based Upload Path (if applicable and path was determined)
-        # This will run regardless of the outcome of the first attempt.
+        is_hard, err_obj = self._attempt_single_upload(client, self.file_path, self.upload_path, "path")
+        if is_hard:
+            hard_error_path1 = True
+            error_obj_path1 = err_obj
+
+        # --- Attempt 2: Volume-Based Upload Path (if applicable) ---
+        hard_error_path2 = False
+        error_obj_path2: Optional[HTTPError] = None
+        volume_upload_performed = False
+
+        # Check if volume upload should be attempted and is configured
         if self.is_volume_supported and hasattr(self, "volume_based_path"):
-            is_hard_error_volume, error_obj_volume = self._attempt_single_upload(
+            volume_upload_performed = True
+            is_hard_vol, err_obj_vol = self._attempt_single_upload(
                 client, self.file_path, self.volume_based_path, "volume based path"
             )
-            if is_hard_error_volume and first_hard_error is None:
-                first_hard_error = error_obj_volume
-        elif self.is_volume_supported and not hasattr(self, "volume_based_path"):
-            # This case handles where is_volume_supported was true initially,
-            # but volume_based_path couldn't be determined in __init__.
-            # The log for this scenario is already in __init__.
-            pass
+            if is_hard_vol:
+                hard_error_path2 = True
+                error_obj_path2 = err_obj_vol
 
-        if first_hard_error:
-            return Either(left=first_hard_error)
+        # --- Decision Logic ---
+        if volume_upload_performed:
+            # Both standard and volume uploads were relevant and attempted
+            if hard_error_path1 and hard_error_path2:
+                log(
+                    f"{Colors.FAIL}Both standard and volume uploads failed with hard errors. Failing operation.{Colors.ENDC}",
+                    step_id=self.pipeline_id,
+                    indent=2,
+                )
+                # Return the error from the standard path if both fail.
+                return Either(left=error_obj_path1)
+            else:
+                # At least one of the (standard or volume) uploads did not have a hard error
+                log(
+                    f"Upload process continuing: Standard upload hard error: {hard_error_path1}, Volume upload hard error: {hard_error_path2}. At least one was not a hard error.",
+                    step_id=self.pipeline_id,
+                    indent=2,
+                )
+                return Either(right=True)
         else:
-            # If no hard error occurred in any attempt, it's considered an overall success.
-            return Either(right=True)
+            # Only standard upload was relevant for determining overall failure
+            # (either volume was not supported, or not applicable/configured properly)
+            if hard_error_path1:
+                log(
+                    f"{Colors.FAIL}Standard upload failed with a hard error (volume upload not applicable/attempted). Failing operation.{Colors.ENDC}",
+                    step_id=self.pipeline_id,
+                    indent=2,
+                )
+                return Either(left=error_obj_path1)
+            else:
+                log(
+                    f"Upload process successful: Standard upload hard error: {hard_error_path1} (volume upload not applicable/attempted).",
+                    step_id=self.pipeline_id,
+                    indent=2,
+                )
+                return Either(right=True)
 
     def exists(self) -> bool:
         try:
