@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Tuple, Optional  # Added for Python 3.8 compatibility
 
 from requests import HTTPError
 
@@ -64,7 +65,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
 
     def _attempt_single_upload(
         self, client, local_path: str, remote_path: str, path_description: str
-    ) -> tuple[bool, HTTPError]:
+    ) -> Tuple[bool, Optional[HTTPError]]:  # Changed for Python 3.8 compatibility and correctness (can return None)
         try:
             client.upload_src_path(local_path, remote_path)
             log(
@@ -105,7 +106,7 @@ class DatabricksPipelineUploader(PipelineUploader, ABC):
 
     def upload_pipeline(self, path: str) -> Either:  # 'path' param is from PipelineUploader, unused here
         client = self.rest_client_factory.databricks_client(self.fabric_id)
-        first_hard_error: HTTPError = None
+        first_hard_error: Optional[HTTPError] = None  # Changed for Python 3.8 compatibility
 
         # Attempt 1: Standard Upload Path
         is_hard_error, error_obj = self._attempt_single_upload(client, self.file_path, self.upload_path, "path")
