@@ -73,7 +73,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
             new_content = pattern.sub(replacement_string, content, count=count)
             with open(file, "w") as fd:
                 fd.write(new_content)
-                log(f"[UPDATE]{replacement_string} updated in {file}")
+                log(f"[UPDATE] {replacement_string} updated in {file}")
 
     def _update_whl_version_in_databricks_json(file_paths, new_version):
         """
@@ -83,14 +83,22 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
             file_paths (list): List of JSON file paths to update.
             new_version (str): The new version to set in the .whl paths.
         """
-        # Regex pattern to find the .whl paths with version
-        whl_version_pattern = r"-(\d+\.\d+)-py3-none-any\.whl"
+        if project_language == "python":
+            # Regex pattern to find the .whl paths with version
+            whl_version_pattern = r"-([^-]+)-py3-none-any\.whl"
 
-        # Replacement pattern with the new version
-        replacement_string = f"-{new_version}-py3-none-any.whl"
+            # Replacement pattern with the new version
+            replacement_string = f"-{new_version}-py3-none-any.whl"
 
-        # Call the existing _replace_in_files method
-        _replace_in_files(whl_version_pattern, replacement_string, file_paths, count=0)  # replace all occurences
+            # Call the existing _replace_in_files method
+            _replace_in_files(whl_version_pattern, replacement_string, file_paths, count=0)  # replace all occurences
+        elif project_language == "scala":
+            pass
+            # there is no version in this artifact name. but do we need to replace it in the path? or is it already being replaced?
+            #       "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/raw_bronze.jar",
+        elif project_language == "sql":
+            pass
+            # just deploys dbt_script.py under latest.... not sure whether to change this behavior.
 
     # PBT project
     pbt_project_file = os.path.join(project_path, "pbt_project.yml")

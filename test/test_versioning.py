@@ -305,7 +305,7 @@ class VersioningTestCase(unittest.TestCase):
             print(result.output)
             assert result.exit_code == 0
             pbt_version = VersioningTestCase._get_pbt_version(project_path)
-            assert pbt_version == "0.0.1-dev+sha.062f87eb"
+            assert pbt_version == "0.0.1-dev0+sha.062f87eb"
         finally:
             self.reset_changed_files("test/resources/")
             self.repo.git.checkout(self.orig_repo_head)
