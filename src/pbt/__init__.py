@@ -381,7 +381,7 @@ def test(path, driver_library_path, pipelines):
     " deprioritize this version from being chosen over other versions (recommended so that it does not "
     " accidentally get chosen over a real release. "
     " \nformat: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
-    " \npython example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
+    " \npython example: 3.3.0 -> 3.3.0-dev0+sha.j0239ruf0ew"
     " \nscala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
     default=False,
     is_flag=True,
