@@ -85,7 +85,7 @@ class PipelineDeployment:
         for index, (pipeline_id, pipeline_name) in enumerate(pipeline_jobs, start=1):
             try:
                 log(
-                    f"{Colors.OKBLUE}\nBuilding pipeline {pipeline_id} [{index}/{len(pipeline_jobs)}]{Colors.ENDC}\n\n",
+                    f"{Colors.OKBLUE}\nWorking on pipeline {pipeline_id} [{index}/{len(pipeline_jobs)}]{Colors.ENDC}\n\n",
                     indent=1,
                 )
                 response = self.build_and_upload_pipeline(pipeline_id, pipeline_name)
