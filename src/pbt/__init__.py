@@ -160,6 +160,13 @@ def validate_v2(path, treat_warnings_as_errors):
     default="",
 )
 @click.option("--skip-builds", is_flag=True, default=False, help="Flag to skip building Pipelines")
+
+@click.option(
+    "--use-existing-cluster",
+    default=None,
+    help="Cluster ID to use as existing_cluster_id in Databricks jobs instead of job_clusters",
+    required=False,
+)
 def deploy(
     path,
     dependent_projects_path,
@@ -169,9 +176,10 @@ def deploy(
     fabric_ids,
     job_ids,
     skip_builds,
+    use_existing_cluster
 ):
     pbt = ProphecyBuildTool(path, dependent_projects_path, release_version, project_id, prophecy_url)
-    pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids)
+    pbt.deploy(fabric_ids=fabric_ids, skip_builds=skip_builds, job_ids=job_ids, use_existing_cluster=use_existing_cluster)
 
 
 @cli.command()
@@ -259,7 +267,7 @@ def deploy_v2(
     migrate: bool,
     artifactory: str,
     skip_artifactory_upload: bool,
-    use_existing_cluster: bool,
+    use_existing_cluster: Optional[str] = False
 ):
     pbt = PBTCli.from_conf_folder(
         path,

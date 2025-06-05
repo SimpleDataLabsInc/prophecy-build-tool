@@ -19,7 +19,7 @@ class PBTCli(object):
     """Command line interface for PBT."""
 
     def __init__(self, project: Project, project_config: ProjectConfig):
-        self.project = ProjectDeployment(project, project_config)
+        self.project = ProjectDeployment(project, project_config, use_existing_project=project_config.use_existing_project)
 
     def headers(self):
         """Print headers."""
@@ -45,7 +45,7 @@ class PBTCli(object):
         migrate: bool = False,
         artifactory: str = "",
         skip_artifactory_upload: bool = False,
-        use_existing_project: bool = False
+        use_existing_cluster: Optional[str] = None
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
@@ -60,7 +60,7 @@ class PBTCli(object):
             artifactory,
             skip_artifactory_upload,
         )
-        return cls(project, project_config, use_existing_project=use_existing_project)
+        return cls(project, project_config, use_existing_cluster=use_existing_cluster)
 
     def build(self, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
         self.project.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)

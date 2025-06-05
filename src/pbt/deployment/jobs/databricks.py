@@ -26,8 +26,8 @@ def get_fabric_label(name: str, id: str):
         return name
     else:
         return id
-    
-def patch_job_json_for_existing_cluster(job_json: dict):
+
+def patch_job_json_for_existing_cluster(job_json: dict, cluster_id: Optional[str] = None):
     """
     Modifica el JSON del job para:
     - Quitar 'job_cluster_key' de las tasks.
@@ -44,7 +44,9 @@ def patch_job_json_for_existing_cluster(job_json: dict):
             for task in req["tasks"]:
                 if "job_cluster_key" in task:
                     del task["job_cluster_key"]
-                task["existing_cluster_id"] = "$cluster_id"
+                task["existing_cluster_id"] = cluster_id
+    
+    
 
 
 # todo add a new abstract class for DatabricksJobs and AirflowJobs
@@ -133,8 +135,9 @@ class DatabricksJobsDeployment:
     _DELETE_JOBS_STEP_ID = "delete-db-jobs"
     _PAUSE_JOBS_STEP_ID = "pause-db-jobs"
 
-    def __init__(self, project: Project, project_config: ProjectConfig):
+    def __init__(self, project: Project, project_config: ProjectConfig, use_existing_cluster: Optional[str] = False):
         self.project = project
+        self.use_existing_cluster = use_existing_cluster
 
         self.project_config = project_config
         self.deployment_state = project_config.jobs_state
@@ -325,7 +328,7 @@ class DatabricksJobsDeployment:
     def _deploy_add_job(self, job_id, job_data, step_id):
         job_data = self._update_databricks_json_for_artifactory(job_data)
         if  self.use_existing_cluster:
-            self._update_databricks_json_for_artifactory(job_data.databricks_job_json) is None:
+            patch_job_json_for_existing_cluster(job_data.databricks_job_json, cluster_id=self.use_existing_cluster)
         fabric_id = job_data.fabric_id
         fabric_config = self.project_config.fabric_config.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
@@ -426,7 +429,7 @@ class DatabricksJobsDeployment:
             client = self.get_databricks_client(fabric_id)
             job_data = self.valid_databricks_jobs.get(job_id)
             if self.use_existing_cluster:
-                patch_job_json_for_existing_cluster(job_data.databricks_json)
+                patch_job_json_for_existing_cluster(job_data.databricks_job_json, cluster_id=self.use_existing_cluster)
             client.reset_job(job_info.external_job_id, job_data.databricks_json)
 
             if job_data.acl:
