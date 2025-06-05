@@ -29,12 +29,15 @@ class ProphecyBuildTool:
         project_id: str = "",
         prophecy_url: str = "",
         ignore_parse_errors: bool = False,
+        use_existing_cluster: str = None
+        
     ):
         if not path_root:
             self._error("Path of project not passed as argument using --path.")
         self.operating_system = sys.platform
         self.path_root = path_root
         self.path_project = os.path.join(self.path_root, "pbt_project.yml")
+        self.use_existing_cluster = use_existing_cluster
 
         self._verify_project()
         self._parse_project(ignore_parse_errors)
@@ -250,7 +253,7 @@ class ProphecyBuildTool:
                 print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
 
-    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
+    def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None, use_existing_cluster= None):
         # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
         # deploy), fabric_ids filter builds all pipelines by default and then deploy after filtering
         if job_ids and fabric_ids:
