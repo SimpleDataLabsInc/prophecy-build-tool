@@ -26,6 +26,25 @@ def get_fabric_label(name: str, id: str):
         return name
     else:
         return id
+    
+def patch_job_json_for_existing_cluster(job_json: dict):
+    """
+    Modifica el JSON del job para:
+    - Quitar 'job_cluster_key' de las tasks.
+    - Agregar 'existing_cluster_id': '$cluster_id' en cada task.
+    - Quitar la sección 'job_clusters' si existe.
+    """
+    if "request" in job_json:
+        req = job_json["request"]
+        # Eliminar job_clusters si existe
+        if "job_clusters" in req:
+            del req["job_clusters"]
+        # Modificar tasks
+        if "tasks" in req:
+            for task in req["tasks"]:
+                if "job_cluster_key" in task:
+                    del task["job_cluster_key"]
+                task["existing_cluster_id"] = "$cluster_id"
 
 
 # todo add a new abstract class for DatabricksJobs and AirflowJobs
@@ -305,6 +324,8 @@ class DatabricksJobsDeployment:
 
     def _deploy_add_job(self, job_id, job_data, step_id):
         job_data = self._update_databricks_json_for_artifactory(job_data)
+        if  self.use_existing_cluster:
+            self._update_databricks_json_for_artifactory(job_data.databricks_job_json) is None:
         fabric_id = job_data.fabric_id
         fabric_config = self.project_config.fabric_config.get_fabric(fabric_id)
         fabric_name = fabric_config.name if fabric_config is not None else None
@@ -404,6 +425,8 @@ class DatabricksJobsDeployment:
         try:
             client = self.get_databricks_client(fabric_id)
             job_data = self.valid_databricks_jobs.get(job_id)
+            if self.use_existing_cluster:
+                patch_job_json_for_existing_cluster(job_data.databricks_json)
             client.reset_job(job_info.external_job_id, job_data.databricks_json)
 
             if job_data.acl:
