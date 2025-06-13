@@ -2,7 +2,7 @@ click>=8.1.3
 databricks_cli>=0.17.7
 PyYAML>=6.0
 rich>=12.5.1
-setuptools==75.0.0 # version >= 75.9.0 has a breaking change which forces the package name to lower case. Asana link : https://app.asana.com/0/1201492708519695/1209769302433884/1209821884183359/f
+setuptools>=78.1.1
 pytest
 wheel==0.41.0
 pytest-html

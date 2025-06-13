@@ -679,7 +679,14 @@ class PackageBuilderAndUploader:
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
-        command = [self._python_cmd, "setup.py", "bdist_wheel"]
+        case_preserved_whl_build = (
+            "import sys, runpy, setuptools._normalization as norm;"
+            "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
+            "sys.argv=['setup.py','bdist_wheel'];"
+            "runpy.run_path('setup.py', run_name='__main__')"
+        )
+
+        command = [self._python_cmd, "-c", case_preserved_whl_build]
 
         log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
 
