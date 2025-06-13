@@ -1,6 +1,7 @@
 """
 DATABRICKS_HOST, DATABRICKS_TOKEN
 """
+
 import sys
 from typing import Optional
 
@@ -214,6 +215,13 @@ def deploy(
     default="",
 )
 @click.option("--skip-builds", default=False, is_flag=True, help="Flag to skip building Pipelines", required=False)
+@click.option(
+    "--skip-pipeline-deploy",
+    default=False,
+    is_flag=True,
+    help="Flag to skip deploying Pipelines (only deploys job definitions)",
+    required=False,
+)
 @click.option("--dependent-projects-path", default="", help="Dependent projects path", required=False)
 @click.option("--migrate", default=False, is_flag=True, help="Migrate v1 to v2 based project", required=False)
 @click.option(
@@ -239,6 +247,7 @@ def deploy_v2(
     fabric_ids: str,
     job_ids: str,
     skip_builds: bool,
+    skip_pipeline_deploy: bool,
     dependent_projects_path: str,
     migrate: bool,
     artifactory: str,
@@ -253,6 +262,7 @@ def deploy_v2(
         fabric_ids,
         job_ids,
         skip_builds,
+        skip_pipeline_deploy,
         dependent_projects_path,
         migrate,
         artifactory,
@@ -371,13 +381,23 @@ def test(path, driver_library_path, pipelines):
     " deprioritize this version from being chosen over other versions (recommended so that it does not "
     " accidentally get chosen over a real release. "
     " \nformat: MAJOR.MINOR.PATCH-PRERELEASE+BUILDMETADATA"
-    " \npython example: 3.3.0 -> 3.3.0-dev+sha.j0239ruf0ew"
+    " \npython example: 3.3.0 -> 3.3.0-dev0+sha.j0239ruf0ew"
     " \nscala example: 3.3.0 -> 3.3.0-SNAPSHOT+sha.j0239ruf0ew",
     default=False,
     is_flag=True,
     required=False,
 )
-def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique):
+@click.option(
+    "--pbt-only",
+    help="apply version operation to pbt_project.yml file only. applicable in combination with: "
+    "--compare, --make-unique, --bump, --set, --set-suffix",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def versioning(
+    path, repo_path, bump, set, force, sync, set_suffix, check_sync, compare_to_target, make_unique, pbt_only
+):
     pbt = PBTCli.from_conf_folder(path)
     if not repo_path:
         repo_path = path
@@ -404,13 +424,13 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
             )
 
     if set:
-        pbt.version_set(set, force)
+        pbt.version_set(set, force, pbt_only)
     elif bump and not compare_to_target:
-        pbt.version_bump(bump, force)
+        pbt.version_bump(bump, force, pbt_only)
     elif sync:
-        pbt.version_set(None, force)
+        pbt.version_set(None, force, pbt_only)
     elif set_suffix:
-        pbt.version_set_suffix(set_suffix, force)
+        pbt.version_set_suffix(set_suffix, force, pbt_only)
     elif check_sync:
         pbt.version_check_sync()
     elif compare_to_target:
@@ -423,15 +443,12 @@ def versioning(path, repo_path, bump, set, force, sync, set_suffix, check_sync, 
                     bump,
                     pbt.project.project.pbt_project_dict["language"],
                 )
-                pbt.version_set(new_version, force=True)
+                pbt.version_set(new_version, force=True, pbt_only=pbt_only)
             else:
                 # when bump is not given, then just return 0 or 1 to compare versions
                 sys.exit(1)
-        else:
-            # always if our version is already higher, make sure we are sync'd.
-            pbt.version_check_sync()
     elif make_unique:
-        pbt.version_make_unique(repo_path, force=True)
+        pbt.version_make_unique(repo_path, force=True, pbt_only=pbt_only)
     else:
         raise click.UsageError(
             "must give ONE of: '--set', '--bump', '--sync', '--check-sync', '--set-prerelease', "

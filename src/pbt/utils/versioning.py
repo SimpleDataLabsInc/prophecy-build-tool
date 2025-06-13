@@ -53,7 +53,7 @@ def version_check_sync(project_path, project_language, pbt_project_version):
                 exit(1)
 
 
-def update_all_versions(project_path, project_language, orig_project_version, new_version, force):
+def update_all_versions(project_path, project_language, orig_project_version, new_version, force, pbt_only):
     # check this version against base branch if not "force". error if it is not greater
     if not force:
         orig_version = orig_project_version
@@ -73,7 +73,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
             new_content = pattern.sub(replacement_string, content, count=count)
             with open(file, "w") as fd:
                 fd.write(new_content)
-                log(f"[UPDATE]{replacement_string} updated in {file}")
+                log(f"[UPDATE] {replacement_string} updated in {file}")
 
     def _update_whl_version_in_databricks_json(file_paths, new_version):
         """
@@ -83,42 +83,51 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
             file_paths (list): List of JSON file paths to update.
             new_version (str): The new version to set in the .whl paths.
         """
-        # Regex pattern to find the .whl paths with version
-        whl_version_pattern = r"-(\d+\.\d+)-py3-none-any\.whl"
+        if project_language == "python":
+            # Regex pattern to find the .whl paths with version
+            whl_version_pattern = r"-([^-]+)-py3-none-any\.whl"
 
-        # Replacement pattern with the new version
-        replacement_string = f"-{new_version}-py3-none-any.whl"
+            # Replacement pattern with the new version
+            replacement_string = f"-{new_version}-py3-none-any.whl"
 
-        # Call the existing _replace_in_files method
-        _replace_in_files(whl_version_pattern, replacement_string, file_paths, count=0)  # replace all occurences
+            # Call the existing _replace_in_files method
+            _replace_in_files(whl_version_pattern, replacement_string, file_paths, count=0)  # replace all occurences
+        elif project_language == "scala":
+            pass
+            # there is no version in this artifact name. but do we need to replace it in the path? or is it already being replaced?
+            #       "path" : "dbfs:/FileStore/prophecy/artifacts/saas/app/__PROJECT_ID_PLACEHOLDER__/__PROJECT_RELEASE_VERSION_PLACEHOLDER__/pipeline/raw_bronze.jar",
+        elif project_language == "sql":
+            pass
+            # just deploys dbt_script.py under latest.... not sure whether to change this behavior.
 
     # PBT project
     pbt_project_file = os.path.join(project_path, "pbt_project.yml")
     _replace_in_files(r"^version: .*$", f"version: {new_version}", [pbt_project_file])
 
-    # replace version in language specific files:
-    if project_language == "python":
-        matching_regex = r"^\s*version\s*=\s*.*$"
-        replacement_string = f"    version = '{new_version}',"
-        filename_to_find = "setup.py"
-    elif project_language == "scala":
-        matching_regex = r"^\s*<version>.*</version>"
-        replacement_string = f"    <version>{new_version}</version>"
-        filename_to_find = "pom.xml"
-    elif project_language == "sql":
-        matching_regex = r"^version: .*$"
-        replacement_string = f'version: "{new_version}"'
-        filename_to_find = "dbt_project.yml"
-    else:
-        raise ValueError("bad project language: ", project_language)
+    if not pbt_only:
+        # replace version in language specific files:
+        if project_language == "python":
+            matching_regex = r"^\s*version\s*=\s*.*$"
+            replacement_string = f"    version = '{new_version}',"
+            filename_to_find = "setup.py"
+        elif project_language == "scala":
+            matching_regex = r"^\s*<version>.*</version>"
+            replacement_string = f"    <version>{new_version}</version>"
+            filename_to_find = "pom.xml"
+        elif project_language == "sql":
+            matching_regex = r"^version: .*$"
+            replacement_string = f'version: "{new_version}"'
+            filename_to_find = "dbt_project.yml"
+        else:
+            raise ValueError("bad project language: ", project_language)
 
-    files_to_fix = glob.glob(os.path.join(project_path, "**", filename_to_find), recursive=True)
-    _replace_in_files(matching_regex, replacement_string, files_to_fix)
+        files_to_fix = glob.glob(os.path.join(project_path, "**", filename_to_find), recursive=True)
+        _replace_in_files(matching_regex, replacement_string, files_to_fix)
 
-    # Update in databricks-jobs.json files
-    log("Updating versions in Databricks job (databricks-job.json) files")
-    files_to_fix = glob.glob(os.path.join(project_path, "**", "databricks-job.json"), recursive=True)
-    _update_whl_version_in_databricks_json(files_to_fix, new_version)
+        # Update in databricks-jobs.json files
+        log("Updating versions in Databricks job (databricks-job.json) files")
+        files_to_fix = glob.glob(os.path.join(project_path, "**", "databricks-job.json"), recursive=True)
+        _update_whl_version_in_databricks_json(files_to_fix, new_version)
 
 
 def get_bumped_version(original_version, bump_type, project_language):

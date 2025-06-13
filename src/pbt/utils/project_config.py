@@ -529,6 +529,7 @@ class ProjectConfig:
         config_override: ConfigsOverride,
         based_on_file: bool = True,
         skip_builds: bool = False,
+        skip_pipeline_deploy: bool = False,
         migrate: bool = False,
         artifactory: str = "",
         skip_artifactory_upload: bool = False,
@@ -539,6 +540,7 @@ class ProjectConfig:
         self.configs_override = config_override
         self.based_on_file = based_on_file
         self.skip_builds = skip_builds
+        self.skip_pipeline_deploy = skip_pipeline_deploy
         self.migrate = migrate
         self.artifactory = artifactory
         self.skip_artifactory_upload = skip_artifactory_upload
@@ -578,6 +580,7 @@ class ProjectConfig:
         fabric_ids: str,
         job_ids: str,
         skip_build: bool,
+        skip_pipeline_deploy: bool,
         conf_folder: str,
         migrate: bool,
         artifactory: str,
@@ -654,6 +657,7 @@ class ProjectConfig:
                 configs,
                 based_on_file=is_based_on_file,
                 skip_builds=skip_build,
+                skip_pipeline_deploy=skip_pipeline_deploy,
                 migrate=migrate,
                 artifactory=artifactory,
                 skip_artifactory_upload=skip_artifactory_upload,
@@ -668,6 +672,7 @@ class ProjectConfig:
         fabric_ids: str,
         job_ids: str,
         skip_builds: bool,
+        skip_pipeline_deploy: bool,
         migrate: bool,
         artifactory: str,
         skip_artifactory_upload: bool,
@@ -686,6 +691,7 @@ class ProjectConfig:
             fabric_ids,
             job_ids,
             skip_builds,
+            skip_pipeline_deploy,
             conf_folder,
             migrate,
             artifactory,
