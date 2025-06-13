@@ -654,6 +654,13 @@ class ProphecyBuildTool:
             ]
         )
 
+        case_preserved_whl_build = (
+            "import sys, runpy, setuptools._normalization as norm;"
+            "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
+            "sys.argv=['setup.py','bdist_wheel'];"
+            "runpy.run_path('setup.py', run_name='__main__')"
+        )
+
         return Process.process_sequential(
             [
                 # Extract the install_requires and extra_requires and install them
@@ -670,7 +677,7 @@ class ProphecyBuildTool:
                 ),
                 # Generate wheel
                 Process(
-                    [self.python_cmd, "setup.py", "bdist_wheel"],
+                    [self.python_cmd, "-c", case_preserved_whl_build],
                     path_pipeline_absolute,
                     is_shell=(self.operating_system == "win32"),
                 ),
