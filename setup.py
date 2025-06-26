@@ -39,7 +39,7 @@ setuptools.setup(
         "gitpython",
         "semver",
         "twine",
-        "jaraco.functools<=4.1.0"
+        "jaraco.functools<=4.1.0",
     ],
     extras_require={
         "test": [

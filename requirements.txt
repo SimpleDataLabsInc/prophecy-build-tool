@@ -4,10 +4,10 @@ PyYAML>=6.0
 rich>=12.5.1
 setuptools>=75.3.2,<81
 pytest
-wheel==0.41.0
+wheel~=0.41.3
 pytest-html
 pytest-click
-black==23.3.0
+black~=24.10
 pycodestyle==2.10.0
 google-cloud-storage==2.10.0
 pydantic~=1.10
