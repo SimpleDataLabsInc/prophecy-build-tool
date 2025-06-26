@@ -51,7 +51,7 @@ setuptools.setup(
             "parameterized",
         ]
     },
-    python_requires=">=3.9,<=3.13",
+    python_requires=">=3.9,<3.14",
     entry_points="""
         [console_scripts]
         pbt=pbt:main
