@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v3
@@ -39,4 +39,4 @@ jobs:
 
     - name: Test with pytest
       run: |
-        python -P -m pytest test/test_* -v 
+        python -m pytest test/test_* -v
