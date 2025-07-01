@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.2.57",
+    version="1.2.58",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
@@ -38,6 +38,7 @@ setuptools.setup(
         "tenacity==8.2.3",
         "gitpython",
         "semver",
+        "setuptools>=75.3.2",
         "twine",
         "jaraco.functools<=4.1.0"
     ],
