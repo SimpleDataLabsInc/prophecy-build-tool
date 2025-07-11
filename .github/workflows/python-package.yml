@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v3
@@ -27,16 +27,19 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+    - name: Build package
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install ".[test]"
+        pip install build
+        python -m build
+    - name: Install package
+      run: |
+        pip install "./dist/$(ls ./dist/ | grep whl)[test]"
     - name: Lint with Black
       run: |
+        pip install black~=24.10
         # stop the build if there are Python syntax errors or undefined names
         black --check src/ test/
-
     - name: Test with pytest
       run: |
-        python -m pytest test/test_* -v 
+        python -m pytest test/test_* -v

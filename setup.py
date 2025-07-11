@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as _in:
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version="1.2.56",
+    version="1.3.0",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
@@ -26,9 +26,9 @@ setuptools.setup(
     install_requires=[
         "requests>=2.28.0",
         "PyYAML>=6.0",
-        "databricks-cli>=0.17.7",
+        "databricks-cli>=0.17.7,<=0.18.0",
         "rich>=12.5.1",
-        "wheel",
+        "wheel~=0.41.3",
         "build",
         "google-cloud-secret-manager~=2.22.0",
         "google-cloud-storage==2.10.0",
@@ -38,7 +38,9 @@ setuptools.setup(
         "tenacity==8.2.3",
         "gitpython",
         "semver",
-        "twine"
+        "twine",
+        "jaraco.functools<=4.1.0",
+        "setuptools>=75.3.2,<81",
     ],
     extras_require={
         "test": [
@@ -50,7 +52,7 @@ setuptools.setup(
             "parameterized",
         ]
     },
-    python_requires=">=3.7",
+    python_requires=">=3.9,<3.13",
     entry_points="""
         [console_scripts]
         pbt=pbt:main
