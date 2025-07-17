@@ -937,19 +937,20 @@ class PipelineConfigurations:
 
         return await_futures_and_update_states(futures, self._STEP_ID)
 
-    def _upload_configuration(self, fabric_id, pipeline_id, config_name, configuration_content):
-        def base_path(fab_id: Optional[str]):
-            if self.project_config.is_volume_supported(fabric_id):
-                _base_path = self.project_config.get_db_base_path(fab_id)
-            elif fab_id in self.project.fabric_volumes_detected.keys():
-                _base_path = self.project.fabric_volumes_detected[fabric_id]
-            else:
-                raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
+    def _base_path(self, fab_id: Optional[str], pipeline_id):
+        if fab_id is None or self.project_config.is_volume_supported(fab_id):
+            _base_path = self.project_config.get_db_base_path(fab_id)
+        elif fab_id in self.project.fabric_volumes_detected.keys():
+            _base_path = self.project.fabric_volumes_detected[fab_id]
+        else:
+            raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
 
-            pipeline_path = (
-                f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
-            )
-            return pipeline_path
+        pipeline_path = (
+            f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
+        )
+        return pipeline_path
+
+    def _upload_configuration(self, fabric_id, pipeline_id, config_name, configuration_content):
 
         try:
             # we are creating path and then uploading the content
@@ -957,7 +958,7 @@ class PipelineConfigurations:
             # in case volumes is set or not.
             # after some versions most likely databricks will deprecate the dbfs one.
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
-            base_p = base_path(None)  # old dbfs path first.
+            base_p = self._base_path(None, pipeline_id)  # old dbfs path first.
             configuration_path = f"{base_p}/{config_name}.json"
             client.upload_content(configuration_content, configuration_path)
             log(
@@ -969,7 +970,7 @@ class PipelineConfigurations:
                 self.project_config.is_volume_supported(fabric_id)
                 or fabric_id in self.project.fabric_volumes_detected.keys()
             ):
-                config_path_volume = f"{base_path(fabric_id)}/{config_name}.json"
+                config_path_volume = f"{self._base_path(fabric_id, pipeline_id)}/{config_name}.json"
                 client.upload_content(configuration_content, config_path_volume)
                 log(
                     f"{Colors.OKGREEN}Uploaded pipeline configuration on path {config_path_volume} with volume support{Colors.ENDC}",
