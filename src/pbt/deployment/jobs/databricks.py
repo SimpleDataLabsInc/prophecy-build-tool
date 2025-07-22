@@ -945,6 +945,8 @@ class PipelineConfigurations:
         else:
             raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
 
+        # Strip trailing slash to avoid double slashes in path construction
+        _base_path = _base_path.rstrip('/')
         pipeline_path = (
             f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
         )
@@ -959,6 +961,8 @@ class PipelineConfigurations:
             # after some versions most likely databricks will deprecate the dbfs one.
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
             base_p = self._base_path(None, pipeline_id)  # old dbfs path first.
+            # Ensure no double slashes in path construction
+            base_p = base_p.rstrip('/')
             configuration_path = f"{base_p}/{config_name}.json"
             client.upload_content(configuration_content, configuration_path)
             log(
@@ -970,7 +974,8 @@ class PipelineConfigurations:
                 self.project_config.is_volume_supported(fabric_id)
                 or fabric_id in self.project.fabric_volumes_detected.keys()
             ):
-                config_path_volume = f"{self._base_path(fabric_id, pipeline_id)}/{config_name}.json"
+                volume_base = self._base_path(fabric_id, pipeline_id).rstrip('/')
+                config_path_volume = f"{volume_base}/{config_name}.json"
                 client.upload_content(configuration_content, config_path_volume)
                 log(
                     f"{Colors.OKGREEN}Uploaded pipeline configuration on path {config_path_volume} with volume support{Colors.ENDC}",
@@ -981,6 +986,115 @@ class PipelineConfigurations:
         except Exception as e:
             log(
                 f"{Colors.FAIL}Failed to upload pipeline configuration for path {config_name}{Colors.ENDC}",
+                exception=e,
+                step_id=self._STEP_ID,
+            )
+            return Either(left=e)
+
+
+class ProjectConfigurations:
+    _STEP_ID = "project_configurations"
+
+    def __init__(self, project: Project, databricks_jobs: DatabricksJobsDeployment, project_config: ProjectConfig):
+        self.databricks_jobs = databricks_jobs
+        self.project_configurations = project.project_configurations
+        self.project_config = project_config
+        self.project = project
+
+    def summary(self) -> List[str]:
+        summary = []
+        for config_name in self.project_configurations.keys():
+            summary.append(f"Uploading project configuration {config_name}")
+
+        return summary
+
+    def headers(self) -> List[StepMetadata]:
+        if len(self.project_configurations) > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID,
+                    f"Upload {len(self.project_configurations)} project configurations",
+                    Operation.Upload,
+                    StepType.PipelineConfiguration,
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        futures = []
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.project_configurations.items()) > 0:
+                count = len(self.project_configurations)
+                log(f"\n\n{Colors.OKBLUE} Uploading {count} project configurations {Colors.ENDC}\n\n")
+
+            def execute_job(_fabric_id, config_name, config_content):
+                futures.append(
+                    executor.submit(
+                        lambda f_id=str(
+                            _fabric_id
+                        ), conf_name=config_name, conf_content=config_content: self._upload_configuration(
+                            f_id, conf_name, conf_content
+                        )
+                    )
+                )
+
+            for configuration_name, configuration_content in self.project_configurations.items():
+                for fabric_id in self.project_config.fabric_config.db_fabrics():
+                    execute_job(fabric_id, configuration_name, configuration_content)
+
+        return await_futures_and_update_states(futures, self._STEP_ID)
+
+    def _base_path(self, fab_id: Optional[str]):
+        if fab_id is None or self.project_config.is_volume_supported(fab_id):
+            _base_path = self.project_config.get_db_base_path(fab_id)
+        elif fab_id in self.project.fabric_volumes_detected.keys():
+            _base_path = self.project.fabric_volumes_detected[fab_id]
+        else:
+            raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
+
+        # Strip trailing slash to avoid double slashes in path construction
+        _base_path = _base_path.rstrip('/')
+        project_path = (
+            f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations"
+        )
+        return project_path
+
+    def _upload_configuration(self, fabric_id, config_name, configuration_content):
+
+        try:
+            # we are creating path and then uploading the content
+            # we need to upload for the scenerios
+            # in case volumes is set or not.
+            # after some versions most likely databricks will deprecate the dbfs one.
+            client = self.databricks_jobs.get_databricks_client(str(fabric_id))
+            base_p = self._base_path(None)  # old dbfs path first.
+            # Ensure no double slashes in path construction
+            base_p = base_p.rstrip('/')
+            configuration_path = f"{base_p}/{config_name}.json"
+            client.upload_content(configuration_content, configuration_path)
+            log(
+                f"{Colors.OKGREEN}Uploaded project configuration on path {configuration_path}{Colors.ENDC}",
+                step_id=self._STEP_ID,
+            )
+
+            if (
+                self.project_config.is_volume_supported(fabric_id)
+                or fabric_id in self.project.fabric_volumes_detected.keys()
+            ):
+                volume_base = self._base_path(fabric_id).rstrip('/')
+                config_path_volume = f"{volume_base}/{config_name}.json"
+                client.upload_content(configuration_content, config_path_volume)
+                log(
+                    f"{Colors.OKGREEN}Uploaded project configuration on path {config_path_volume} with volume support{Colors.ENDC}",
+                    step_id=self._STEP_ID,
+                )
+            return Either(right=True)
+
+        except Exception as e:
+            log(
+                f"{Colors.FAIL}Failed to upload project configuration for path {config_name}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )

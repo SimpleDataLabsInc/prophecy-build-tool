@@ -22,6 +22,7 @@ PIPELINES = "pipelines"
 GEM_CONTAINER = "gemContainer"
 GEMS = "gems"
 PIPELINE_CONFIGURATIONS = "pipelineConfigurations"
+PROJECT_CONFIGURATIONS = "projectConfigurations"
 BASE_PIPELINE = "basePipeline"
 CONFIGURATIONS = "configurations"
 

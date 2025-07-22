@@ -13,6 +13,7 @@ from ..utils.constants import (
     JOBS,
     PIPELINES,
     PIPELINE_CONFIGURATIONS,
+    PROJECT_CONFIGURATIONS,
     CONFIGURATIONS,
     JSON_EXTENSION,
     BASE_PIPELINE,
@@ -87,6 +88,7 @@ class Project:
 
         self._extract_project_info()
         self.pipeline_configurations = self._load_pipeline_configurations()
+        self.project_configurations = self._load_project_configurations()
 
         log(f"Project name {self.pbt_project_dict.get('name', '')}")
         pipelines_str = ", ".join(
@@ -288,6 +290,29 @@ class Project:
             pipeline_configurations[pipeline_config_object[BASE_PIPELINE]] = configurations
 
         return pipeline_configurations
+
+    def _load_project_configurations(self):
+        project_configurations = {}
+
+        project_conf = dict(self.pbt_project_dict.get(PROJECT_CONFIGURATIONS, []))
+
+        for project_config_path, project_config_object in project_conf.items():
+            configurations = {}
+
+            for configurations_key in project_config_object[CONFIGURATIONS]:
+                config_name = project_config_object[CONFIGURATIONS][configurations_key]["name"]
+                file_path = os.path.join(self.project_path, configurations_key + JSON_EXTENSION)
+
+                config = _read_file_content(file_path)
+
+                # in case of empty config file, we will skip it
+                if config is not None:
+                    configurations[config_name] = config
+
+            # For project configs, we don't need pipeline-specific mapping like BASE_PIPELINE
+            project_configurations.update(configurations)
+
+        return project_configurations
 
     def _replace_placeholders(self, path: str, content: str) -> str:
         if path.endswith(".json") or path.endswith(".scala") or path.endswith(".py"):
