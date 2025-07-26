@@ -292,26 +292,61 @@ class Project:
         return pipeline_configurations
 
     def _load_project_configurations(self):
+        log(f"KTDEBUG: Starting to load project configurations for project: {self.project_id}")
         project_configurations = {}
 
         project_conf = dict(self.pbt_project_dict.get(PROJECT_CONFIGURATIONS, []))
+        log(f"KTDEBUG: Found {len(project_conf)} project configuration entries in pbt.json")
+
+        if not project_conf:
+            log(f"KTDEBUG: No project configurations found in pbt.json for project: {self.project_id}")
+            return project_configurations
 
         for project_config_path, project_config_object in project_conf.items():
+            log(f"KTDEBUG: Processing project config path: {project_config_path}")
+            log(f"KTDEBUG: Project config object keys: {list(project_config_object.keys()) if isinstance(project_config_object, dict) else 'Not a dict'}")
             configurations = {}
 
-            for configurations_key in project_config_object[CONFIGURATIONS]:
-                config_name = project_config_object[CONFIGURATIONS][configurations_key]["name"]
-                file_path = os.path.join(self.project_path, configurations_key + JSON_EXTENSION)
+            # Check if CONFIGURATIONS key exists before accessing it
+            if CONFIGURATIONS in project_config_object:
+                config_count = len(project_config_object[CONFIGURATIONS])
+                log(f"KTDEBUG: Found {config_count} configurations for path: {project_config_path}")
+                
+                for configurations_key in project_config_object[CONFIGURATIONS]:
+                    log(f"KTDEBUG: Processing configuration key: {configurations_key}")
+                    
+                    if "name" not in project_config_object[CONFIGURATIONS][configurations_key]:
+                        log(f"KTDEBUG: WARNING - 'name' field missing in configuration: {configurations_key}")
+                        continue
+                        
+                    config_name = project_config_object[CONFIGURATIONS][configurations_key]["name"]
+                    log(f"KTDEBUG: Configuration name: {config_name}")
+                    
+                    file_path = os.path.join(self.project_path, configurations_key + JSON_EXTENSION)
+                    log(f"KTDEBUG: Reading config file from: {file_path}")
 
-                config = _read_file_content(file_path)
+                    config = _read_file_content(file_path)
 
-                # in case of empty config file, we will skip it
-                if config is not None:
-                    configurations[config_name] = config
+                    # in case of empty config file, we will skip it
+                    if config is not None:
+                        log(f"KTDEBUG: Successfully read config file: {file_path}, content length: {len(config)} chars")
+                        configurations[config_name] = config
+                    else:
+                        log(f"KTDEBUG: WARNING - Config file is empty or couldn't be read: {file_path}")
+            else:
+                # Log warning for debugging
+                log(f"KTDEBUG: WARNING - No 'configurations' key found in project config object for path: {project_config_path}")
+                log(f"KTDEBUG: Available keys in project_config_object: {list(project_config_object.keys()) if isinstance(project_config_object, dict) else 'Not a dict'}")
 
             # For project configs, we don't need pipeline-specific mapping like BASE_PIPELINE
-            project_configurations.update(configurations)
+            if configurations:
+                log(f"KTDEBUG: Adding {len(configurations)} configurations from path: {project_config_path}")
+                project_configurations.update(configurations)
+            else:
+                log(f"KTDEBUG: No valid configurations found for path: {project_config_path}")
 
+        log(f"KTDEBUG: Completed loading project configurations. Total configurations loaded: {len(project_configurations)}")
+        log(f"KTDEBUG: Configuration names: {list(project_configurations.keys())}")
         return project_configurations
 
     def _replace_placeholders(self, path: str, content: str) -> str:

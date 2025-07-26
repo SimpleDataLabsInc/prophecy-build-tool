@@ -115,6 +115,7 @@ class DatabricksJobsDeployment:
     _PAUSE_JOBS_STEP_ID = "pause-db-jobs"
 
     def __init__(self, project: Project, project_config: ProjectConfig):
+        log(f"KTDEBUG: DatabricksJobsDeployment initialized for project: {project.project_id}")
         self.project = project
 
         self.project_config = project_config
@@ -128,7 +129,9 @@ class DatabricksJobsDeployment:
         )
 
         (self._db_jobs, self._skipping_jobs) = self._initialize_db_jobs()
+        log(f"KTDEBUG: Initialized {len(self._db_jobs)} databricks jobs, skipping {len(self._skipping_jobs)} jobs")
         self.valid_databricks_jobs, self._databricks_jobs_without_code = self._initialize_valid_databricks_jobs()
+        log(f"KTDEBUG: Found {len(self.valid_databricks_jobs)} valid databricks jobs, {len(self._databricks_jobs_without_code)} jobs without code")
 
     def summary(self):
         summary = []
@@ -187,6 +190,7 @@ class DatabricksJobsDeployment:
         return responses
 
     def get_databricks_client(self, fabric_id):
+        log(f"KTDEBUG: Getting databricks client for fabric_id: {fabric_id}")
         return self._rest_client_factory.databricks_client(fabric_id)
 
     @property
@@ -208,6 +212,7 @@ class DatabricksJobsDeployment:
         return responses
 
     def _initialize_db_jobs(self):
+        log(f"KTDEBUG: Initializing databricks jobs from {len(self.project.jobs)} project jobs")
         jobs = {}
         skipping_jobs = {}
         for job_id, pbt_job_json in self.project.jobs.items():
@@ -1000,6 +1005,9 @@ class ProjectConfigurations:
         self.project_configurations = project.project_configurations
         self.project_config = project_config
         self.project = project
+        log(f"KTDEBUG: ProjectConfigurations initialized for project: {project.project_id}")
+        log(f"KTDEBUG: Number of project configurations: {len(self.project_configurations)}")
+        log(f"KTDEBUG: Configuration names: {list(self.project_configurations.keys())}")
 
     def summary(self) -> List[str]:
         summary = []
@@ -1023,6 +1031,7 @@ class ProjectConfigurations:
 
     def deploy(self):
         futures = []
+        log(f"KTDEBUG: Starting project configurations deployment")
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             if len(self.project_configurations.items()) > 0:
@@ -1030,6 +1039,7 @@ class ProjectConfigurations:
                 log(f"\n\n{Colors.OKBLUE} Uploading {count} project configurations {Colors.ENDC}\n\n")
 
             def execute_job(_fabric_id, config_name, config_content):
+                log(f"KTDEBUG: Scheduling upload for config: {config_name}, fabric: {_fabric_id}")
                 futures.append(
                     executor.submit(
                         lambda f_id=str(
@@ -1040,18 +1050,27 @@ class ProjectConfigurations:
                     )
                 )
 
+            db_fabrics = list(self.project_config.fabric_config.db_fabrics())
+            log(f"KTDEBUG: Deploying to fabrics: {db_fabrics}")
+            
             for configuration_name, configuration_content in self.project_configurations.items():
-                for fabric_id in self.project_config.fabric_config.db_fabrics():
+                log(f"KTDEBUG: Processing configuration: {configuration_name}, content length: {len(configuration_content)}")
+                for fabric_id in db_fabrics:
                     execute_job(fabric_id, configuration_name, configuration_content)
 
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _base_path(self, fab_id: Optional[str]):
+        log(f"KTDEBUG: Computing base path for fabric_id: {fab_id}")
+        
         if fab_id is None or self.project_config.is_volume_supported(fab_id):
             _base_path = self.project_config.get_db_base_path(fab_id)
+            log(f"KTDEBUG: Using db_base_path: {_base_path}")
         elif fab_id in self.project.fabric_volumes_detected.keys():
             _base_path = self.project.fabric_volumes_detected[fab_id]
+            log(f"KTDEBUG: Using fabric_volumes_detected path: {_base_path}")
         else:
+            log(f"KTDEBUG: ERROR - No volume found for fabric_id: {fab_id}")
             raise NotImplementedError("volume must either be defined in jobs or in project config (fabrics.yml)")
 
         # Strip trailing slash to avoid double slashes in path construction
@@ -1059,9 +1078,12 @@ class ProjectConfigurations:
         project_path = (
             f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations"
         )
+        log(f"KTDEBUG: Final project path: {project_path}")
         return project_path
 
     def _upload_configuration(self, fabric_id, config_name, configuration_content):
+        log(f"KTDEBUG: Starting upload of project configuration: {config_name} for fabric: {fabric_id}")
+        log(f"KTDEBUG: Configuration content length: {len(configuration_content)}")
 
         try:
             # we are creating path and then uploading the content
@@ -1073,23 +1095,32 @@ class ProjectConfigurations:
             # Ensure no double slashes in path construction
             base_p = base_p.rstrip('/')
             configuration_path = f"{base_p}/{config_name}.json"
+            log(f"KTDEBUG: Uploading to DBFS path: {configuration_path}")
+            
             client.upload_content(configuration_content, configuration_path)
             log(
                 f"{Colors.OKGREEN}Uploaded project configuration on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
-            if (
-                self.project_config.is_volume_supported(fabric_id)
-                or fabric_id in self.project.fabric_volumes_detected.keys()
-            ):
+            is_volume_supported = self.project_config.is_volume_supported(fabric_id)
+            has_fabric_volume = fabric_id in self.project.fabric_volumes_detected.keys()
+            log(f"KTDEBUG: Volume support check - is_volume_supported: {is_volume_supported}, has_fabric_volume: {has_fabric_volume}")
+            
+            if is_volume_supported or has_fabric_volume:
                 volume_base = self._base_path(fabric_id).rstrip('/')
                 config_path_volume = f"{volume_base}/{config_name}.json"
+                log(f"KTDEBUG: Uploading to Volume path: {config_path_volume}")
+                
                 client.upload_content(configuration_content, config_path_volume)
                 log(
                     f"{Colors.OKGREEN}Uploaded project configuration on path {config_path_volume} with volume support{Colors.ENDC}",
                     step_id=self._STEP_ID,
                 )
+            else:
+                log(f"KTDEBUG: Skipping volume upload - no volume support for fabric: {fabric_id}")
+                
+            log(f"KTDEBUG: Successfully completed upload of {config_name} for fabric {fabric_id}")
             return Either(right=True)
 
         except Exception as e:
