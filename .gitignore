@@ -136,7 +136,3 @@ dmypy.json
 #Mac's DS_Store  file
 *.DS_Store
 fake*.jar
-
-CLAUDE.md
-ongoingconvo.md
-temp.git.diff
