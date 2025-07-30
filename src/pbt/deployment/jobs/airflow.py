@@ -1105,11 +1105,11 @@ class EMRProjectConfigurations:
 
         except Exception as e:
             log(
-                f"{Colors.FAIL}Failed to upload project configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
+                f"{Colors.WARNING}Failed to upload project configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
-            return Either(left=e)
+            return Either(right=True)
 
 
 class DataprocProjectConfigurations:
@@ -1199,11 +1199,11 @@ class DataprocProjectConfigurations:
 
         except Exception as e:
             log(
-                f"{Colors.FAIL}Failed to upload project configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
+                f"{Colors.WARNING}Failed to upload project configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
-            return Either(left=e)
+            return Either(right=True)
 
 
 class SparkSubmitProjectConfigurations:
@@ -1307,8 +1307,8 @@ class SparkSubmitProjectConfigurations:
 
         except Exception as e:
             log(
-                f"{Colors.FAIL}Failed to upload project configuration for path {upload_directory} for fabric {fabric_info.id}{Colors.ENDC}",
+                f"{Colors.WARNING}Failed to upload project configuration for path {upload_directory} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
-            return Either(left=e)
+            return Either(right=True)

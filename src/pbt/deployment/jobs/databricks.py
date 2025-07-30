@@ -1109,8 +1109,8 @@ class ProjectConfigurations:
 
         except Exception as e:
             log(
-                f"{Colors.FAIL}Failed to upload project configuration for path {config_name}{Colors.ENDC}",
+                f"{Colors.WARNING}Failed to upload project configuration for path {config_name}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
-            return Either(left=e)
+            return Either(right=True)
