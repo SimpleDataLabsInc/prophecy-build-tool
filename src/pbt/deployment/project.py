@@ -9,8 +9,11 @@ from ..deployment.jobs.airflow import (
     AirflowGitSecrets,
     AirflowJobDeployment,
     DataprocPipelineConfigurations,
+    DataprocProjectConfigurations,
     EMRPipelineConfigurations,
+    EMRProjectConfigurations,
     SparkSubmitPipelineConfigurations,
+    SparkSubmitProjectConfigurations,
 )
 from ..deployment.jobs.databricks import (
     DBTComponents,
@@ -48,6 +51,14 @@ class ProjectDeployment:
             project, self._airflow_jobs, project_config
         )
 
+        self._emr_project_configurations = EMRProjectConfigurations(project, self._airflow_jobs, project_config)
+        self._dataproc_project_configurations = DataprocProjectConfigurations(
+            project, self._airflow_jobs, project_config
+        )
+        self._spark_submit_project_configurations = SparkSubmitProjectConfigurations(
+            project, self._airflow_jobs, project_config
+        )
+
         self._dbt_component = DBTComponents(project, self._databricks_jobs, project_config)
         self._airflow_git_secrets = AirflowGitSecrets(project, self._airflow_jobs, project_config)
 
@@ -67,6 +78,9 @@ class ProjectDeployment:
             + self._spark_submit_pipeline_configurations.summary()
             + self._emr_pipeline_configurations.summary()
             + self._dataproc_pipeline_configurations.summary()
+            + self._emr_project_configurations.summary()
+            + self._dataproc_project_configurations.summary()
+            + self._spark_submit_project_configurations.summary()
             + self._pipelines.summary()
             + self._databricks_jobs.summary()
             + self._airflow_jobs.summary()
@@ -88,6 +102,9 @@ class ProjectDeployment:
             self._spark_submit_pipeline_configurations.headers(),
             self._emr_pipeline_configurations.headers(),
             self._dataproc_pipeline_configurations.headers(),
+            self._emr_project_configurations.headers(),
+            self._dataproc_project_configurations.headers(),
+            self._spark_submit_project_configurations.headers(),
             self._pipelines.headers(),
             self._databricks_jobs.headers(),
             self._airflow_jobs.headers(),
@@ -179,6 +196,30 @@ class ProjectDeployment:
         ):
             raise Exception("Spark Submit pipeline config deployment failed.")
 
+    def _deploy_emr_project_config(self):
+        emr_project_config_responses = self._emr_project_configurations.deploy()
+
+        if emr_project_config_responses is not None and any(
+            response.is_left for response in emr_project_config_responses
+        ):
+            raise Exception("EMR project config deployment failed.")
+
+    def _deploy_dataproc_project_config(self):
+        dataproc_project_config_responses = self._dataproc_project_configurations.deploy()
+
+        if dataproc_project_config_responses is not None and any(
+            response.is_left for response in dataproc_project_config_responses
+        ):
+            raise Exception("Dataproc project config deployment failed.")
+
+    def _deploy_spark_submit_project_config(self):
+        spark_submit_project_config_responses = self._spark_submit_project_configurations.deploy()
+
+        if spark_submit_project_config_responses is not None and any(
+            response.is_left for response in spark_submit_project_config_responses
+        ):
+            raise Exception("Spark Submit project config deployment failed.")
+
     def _deploy_pipelines(self):
         pipeline_responses = self._pipelines.deploy()
 
@@ -207,6 +248,9 @@ class ProjectDeployment:
         self._deploy_spark_submit_pipeline_config()
         self._deploy_emr_pipeline_config()
         self._deploy_dataproc_pipeline_config()
+        self._deploy_emr_project_config()
+        self._deploy_dataproc_project_config()
+        self._deploy_spark_submit_project_config()
 
         if not self.project_config.skip_pipeline_deploy:
             self._deploy_pipelines()
