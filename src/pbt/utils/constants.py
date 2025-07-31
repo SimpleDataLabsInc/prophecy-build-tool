@@ -22,8 +22,11 @@ PIPELINES = "pipelines"
 GEM_CONTAINER = "gemContainer"
 GEMS = "gems"
 PIPELINE_CONFIGURATIONS = "pipelineConfigurations"
+PROJECT_CONFIGURATIONS = "projectConfigurations"
 BASE_PIPELINE = "basePipeline"
 CONFIGURATIONS = "configurations"
+PROJECT_CONFIGURATIONS_CONFIGS_PATH = "projectConfigurations/config/code/configs"
+
 
 JSON_EXTENSION = ".json"
 

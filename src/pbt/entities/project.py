@@ -13,6 +13,7 @@ from ..utils.constants import (
     JOBS,
     PIPELINES,
     PIPELINE_CONFIGURATIONS,
+    PROJECT_CONFIGURATIONS,
     CONFIGURATIONS,
     JSON_EXTENSION,
     BASE_PIPELINE,
@@ -22,6 +23,7 @@ from ..utils.constants import (
     GEMS,
     GEM_CONTAINER,
     PROJECT_URL_PLACEHOLDER_REGEX,
+    PROJECT_CONFIGURATIONS_CONFIGS_PATH,
 )
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 from ..utils.versioning import update_all_versions
@@ -87,6 +89,8 @@ class Project:
 
         self._extract_project_info()
         self.pipeline_configurations = self._load_pipeline_configurations()
+        self.subscribed_project_configurations = self._load_subscribed_project_configurations()
+        self.project_configurations = self._load_project_configurations()
 
         log(f"Project name {self.pbt_project_dict.get('name', '')}")
         pipelines_str = ", ".join(
@@ -288,6 +292,53 @@ class Project:
             pipeline_configurations[pipeline_config_object[BASE_PIPELINE]] = configurations
 
         return pipeline_configurations
+
+    def _load_project_configurations(self):
+        # project_path -> projectConfigurations/config/code/configs -> all json files as a dict of fileName (no extension): parsed JSON content
+        config_dir = os.path.join(self.project_path, PROJECT_CONFIGURATIONS_CONFIGS_PATH)
+        config_dict = {}
+        if os.path.exists(config_dir) and os.path.isdir(config_dir):
+            for file_name in os.listdir(config_dir):
+                if file_name.endswith(JSON_EXTENSION):
+                    file_path = os.path.join(config_dir, file_name)
+                    content = _read_file_content(file_path)
+                    if content is not None:
+                        try:
+                            key = os.path.splitext(file_name)[0]
+                            config_dict[key] = content
+                        except Exception:
+                            log(f"Failed to parse JSON for {file_name}", step_id="Summary")
+        return config_dict
+
+    def _load_subscribed_project_configurations(self):
+        project_configurations = {}
+
+        project_conf = dict(self.pbt_project_dict.get(PROJECT_CONFIGURATIONS, []))
+
+        if not project_conf:
+            return project_configurations
+
+        for project_config_path, project_config_object in project_conf.items():
+            configurations = {}
+
+            # Check if CONFIGURATIONS key exists before accessing it
+            if CONFIGURATIONS in project_config_object:
+                for configurations_key in project_config_object[CONFIGURATIONS]:
+                    if "name" not in project_config_object[CONFIGURATIONS][configurations_key]:
+                        continue
+
+                    config_name = project_config_object[CONFIGURATIONS][configurations_key]["name"]
+                    file_path = os.path.join(self.project_path, configurations_key + JSON_EXTENSION)
+
+                    config = _read_file_content(file_path)
+
+                    if config is not None:
+                        configurations[config_name] = config
+
+            if configurations:
+                project_configurations.update(configurations)
+
+        return project_configurations
 
     def _replace_placeholders(self, path: str, content: str) -> str:
         if path.endswith(".json") or path.endswith(".scala") or path.endswith(".py"):
