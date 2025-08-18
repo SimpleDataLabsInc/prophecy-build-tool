@@ -1254,8 +1254,8 @@ class SparkSubmitProjectConfigurations:
                 log(f"\n\n{Colors.OKBLUE} Uploading spark-submit project configurations {Colors.ENDC}\n\n")
 
             def execute_job(
-                        fabric_info, configuration_relative_directory, configuration_file_path, configuration_file_name
-                ):
+                    fabric_info, configuration_relative_directory, configuration_file_path, configuration_file_name
+            ):
                 futures.append(
                     executor.submit(
                         lambda f_info=fabric_info: self._upload_configuration(
@@ -1263,7 +1263,7 @@ class SparkSubmitProjectConfigurations:
                         )
                     )
                 )
-            
+
             path = self.project_config.system_config.get_hdfs_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
             configuration_relative_directory = project_path
@@ -1279,12 +1279,13 @@ class SparkSubmitProjectConfigurations:
             for fabric_info in self._spark_submit_fabrics():
                 if fabric_info.airflow_oss is not None:
                     execute_job(fabric_info, configuration_relative_directory, output_zip_file_path,
-                                               "configurations.zip")
-            
+                                "configurations.zip")
+
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(
-        self, fabric_info: FabricInfo, configuration_relative_directory, configurations_zip_file_path, configurations_zip_file_name
+            self, fabric_info: FabricInfo, configuration_relative_directory, configurations_zip_file_path,
+            configurations_zip_file_name
     ):
         upload_directory = f"{fabric_info.airflow_oss.location}/{configuration_relative_directory}"
         try:
