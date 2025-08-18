@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import secrets
 import re
 import zipfile
 from abc import ABC
@@ -796,7 +797,7 @@ class EMRPipelineConfigurations:
                 )
 
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_path = f"{pipeline_path}/{configuration_name}.jsn"
+                    configuration_path = f"{pipeline_path}/{configuration_name}.json"
 
                     for fabric_info in self._fabric_config.emr_fabrics():
                         if fabric_info.emr is not None:
@@ -887,7 +888,7 @@ class DataprocPipelineConfigurations:
                     f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
                 )
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_path = f"{pipeline_path}/{configuration_name}.jsn"
+                    configuration_path = f"{pipeline_path}/{configuration_name}.json"
 
                     for fabric_info in self._fabric_config.dataproc_fabrics():
                         if fabric_info.dataproc is not None:
@@ -904,7 +905,7 @@ class DataprocPipelineConfigurations:
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
 
             log(
-                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_path}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_path}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -980,7 +981,7 @@ class SparkSubmitPipelineConfigurations:
                     f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
                 )
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_file_name = f"{configuration_name}.jsn"
+                    configuration_file_name = f"{configuration_name}.json"
                     configuration_relative_directory = pipeline_path
 
                     for fabric_info in self._spark_submit_fabrics():
@@ -1003,7 +1004,7 @@ class SparkSubmitPipelineConfigurations:
             client.put_object(upload_directory, configuration_file_name, configuration_content)
 
             log(
-                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_directory}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_directory}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -1077,12 +1078,12 @@ class EMRProjectConfigurations:
             path = self.project_config.system_config.get_s3_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
             for configuration_name, configuration_content in self.subscribed_project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.emr_fabrics():
                     if fabric_info.emr is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
             for configuration_name, configuration_content in self.project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.emr_fabrics():
                     if fabric_info.emr is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
@@ -1171,12 +1172,12 @@ class DataprocProjectConfigurations:
             path = self.project_config.system_config.get_s3_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
             for configuration_name, configuration_content in self.subscribed_project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.dataproc_fabrics():
                     if fabric_info.dataproc is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
             for configuration_name, configuration_content in self.project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.dataproc_fabrics():
                     if fabric_info.dataproc is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
@@ -1191,7 +1192,7 @@ class DataprocProjectConfigurations:
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
 
             log(
-                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_path}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_path}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -1273,7 +1274,8 @@ class SparkSubmitProjectConfigurations:
                 for configuration_name, configuration_content in self.project_configurations.items()
             }
 
-            output_zip_file_path = f"{configuration_relative_directory}/configurations.zip"
+            suffix = secrets.token_hex(4)
+            output_zip_file_path = f"/tmp/configurations_{suffix}.zip"
             zip_folder(configs, output_zip_file_path)
 
             for fabric_info in self._spark_submit_fabrics():
@@ -1293,7 +1295,7 @@ class SparkSubmitProjectConfigurations:
             client.put_object_from_file(upload_directory, configurations_zip_file_name, configurations_zip_file_path)
 
             log(
-                f"{Colors.OKGREEN}Uploaded project configurations zip on path {upload_directory}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded project configurations zip on path {upload_directory}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
