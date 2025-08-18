@@ -1016,3 +1016,299 @@ class SparkSubmitPipelineConfigurations:
                 step_id=self._STEP_ID,
             )
             return Either(left=e)
+
+
+class EMRProjectConfigurations:
+    _STEP_ID = "EMR_project_configurations"
+
+    def __init__(self, project: Project, airflow_jobs: AirflowJobDeployment, project_config: ProjectConfig):
+        self.airflow_jobs = airflow_jobs
+        self.subscribed_project_configurations = project.subscribed_project_configurations
+        self.project_configurations = project.project_configurations
+        self.project_config = project_config
+        self.project = project
+        self._jobs_state = project_config.jobs_state
+        self._fabric_config = project_config.fabric_config
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+
+    def _emr_fabrics(self):
+        return self._fabric_config.emr_fabrics()
+
+    def summary(self) -> List[str]:
+        summary = []
+        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0) and len(
+            self._emr_fabrics()
+        ) > 0:
+            for config_name in self.subscribed_project_configurations.keys():
+                summary.append(f"Uploading project emr-configuration {config_name}")
+            for config_name in self.project_configurations.keys():
+                summary.append(f"Uploading project emr-configuration {config_name}")
+        return summary
+
+    def headers(self) -> List[StepMetadata]:
+        total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        if total_configs > 0 and len(self._emr_fabrics()) > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID,
+                    f"Upload {total_configs} project emr-configurations",
+                    Operation.Upload,
+                    StepType.PipelineConfiguration,
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        futures = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.headers()) > 0:
+                log(f"\n\n{Colors.OKBLUE}Uploading EMR project configurations {Colors.ENDC}\n\n")
+
+            def execute_job(_fabric_info, _config_content, _config_path):
+                futures.append(
+                    executor.submit(
+                        lambda f_info=_fabric_info, conf_content=_config_content, conf_path=_config_path: self._upload_configuration(
+                            f_info, conf_content, conf_path
+                        )
+                    )
+                )
+
+            path = self.project_config.system_config.get_s3_base_path()
+            project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
+            for configuration_name, configuration_content in self.subscribed_project_configurations.items():
+                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                for fabric_info in self._fabric_config.emr_fabrics():
+                    if fabric_info.emr is not None:
+                        execute_job(fabric_info, configuration_content, configuration_path)
+            for configuration_name, configuration_content in self.project_configurations.items():
+                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                for fabric_info in self._fabric_config.emr_fabrics():
+                    if fabric_info.emr is not None:
+                        execute_job(fabric_info, configuration_content, configuration_path)
+        return await_futures_and_update_states(futures, self._STEP_ID)
+
+    def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
+        upload_path = f"{fabric_info.emr.bare_path_prefix()}/{configuration_path}"
+        emr_info = fabric_info.emr
+
+        try:
+            client = self._rest_client_factory.s3_client(str(fabric_info.id))
+            client.upload_content(emr_info.bare_bucket(), upload_path, configuration_content)
+
+            log(
+                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_path} on fabric {fabric_info.id}{Colors.ENDC}",
+                step_id=self._STEP_ID,
+            )
+
+            return Either(right=True)
+
+        except Exception as e:
+            log(
+                f"{Colors.WARNING}Failed to upload project configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
+                exception=e,
+                step_id=self._STEP_ID,
+            )
+            return Either(right=True)
+
+
+class DataprocProjectConfigurations:
+    _STEP_ID = "DATAPROC_project_configurations"
+
+    def __init__(self, project: Project, airflow_jobs: AirflowJobDeployment, project_config: ProjectConfig):
+        self.airflow_jobs = airflow_jobs
+        self.subscribed_project_configurations = project.subscribed_project_configurations
+        self.project_configurations = project.project_configurations
+        self.project = project
+        self.project_config = project_config
+        self._deployment_state = project_config.jobs_state
+        self._fabric_config = project_config.fabric_config
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+
+    def _dataproc_fabrics(self):
+        return self._fabric_config.dataproc_fabrics()
+
+    def summary(self) -> List[str]:
+        summary = []
+        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0) and len(
+            self._dataproc_fabrics()
+        ) > 0:
+            for config_name in self.subscribed_project_configurations.keys():
+                summary.append(f"Uploading project dataproc-configuration {config_name}")
+            for config_name in self.project_configurations.keys():
+                summary.append(f"Uploading project dataproc-configuration {config_name}")
+        return summary
+
+    def headers(self) -> List[StepMetadata]:
+        total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        if total_configs > 0 and len(self._dataproc_fabrics()) > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID,
+                    f"Upload {total_configs} project dataproc-configurations",
+                    Operation.Upload,
+                    StepType.PipelineConfiguration,
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        futures = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.headers()) > 0:
+                log(f"\n\n{Colors.OKBLUE} Uploading dataproc project configurations {Colors.ENDC}\n\n")
+
+            def execute_job(fabric_info, configuration_content, configuration_path):
+                futures.append(
+                    executor.submit(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=configuration_path: self._upload_configuration(
+                            f_info, conf_content, conf_path
+                        )
+                    )
+                )
+
+            path = self.project_config.system_config.get_s3_base_path()
+            project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
+            for configuration_name, configuration_content in self.subscribed_project_configurations.items():
+                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                for fabric_info in self._fabric_config.dataproc_fabrics():
+                    if fabric_info.dataproc is not None:
+                        execute_job(fabric_info, configuration_content, configuration_path)
+            for configuration_name, configuration_content in self.project_configurations.items():
+                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                for fabric_info in self._fabric_config.dataproc_fabrics():
+                    if fabric_info.dataproc is not None:
+                        execute_job(fabric_info, configuration_content, configuration_path)
+        return await_futures_and_update_states(futures, self._STEP_ID)
+
+    def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
+        upload_path = f"{fabric_info.dataproc.bare_path_prefix()}/{configuration_path}"
+        dataproc_info = fabric_info.dataproc
+
+        try:
+            client = self._rest_client_factory.dataproc_client(str(fabric_info.id))
+            client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
+
+            log(
+                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_path}{Colors.ENDC}",
+                step_id=self._STEP_ID,
+            )
+
+            return Either(right=True)
+
+        except Exception as e:
+            log(
+                f"{Colors.WARNING}Failed to upload project configuration for path {upload_path} for fabric {fabric_info.id}{Colors.ENDC}",
+                exception=e,
+                step_id=self._STEP_ID,
+            )
+            return Either(right=True)
+
+
+class SparkSubmitProjectConfigurations:
+    _STEP_ID = "SPARK_SUBMIT_project_configurations"
+
+    def __init__(self, project: Project, airflow_jobs: AirflowJobDeployment, project_config: ProjectConfig):
+        self.airflow_jobs = airflow_jobs
+        self.subscribed_project_configurations = project.subscribed_project_configurations
+        self.project_configurations = project.project_configurations
+        self.project = project
+        self.project_config = project_config
+        self._deployment_state = project_config.jobs_state
+        self._fabric_config = project_config.fabric_config
+        self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+
+    def _spark_submit_fabrics(self):
+        return self._fabric_config.airflow_open_source_fabrics()
+
+    def summary(self) -> List[str]:
+        summary = []
+        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0) and len(
+            self._spark_submit_fabrics()
+        ) > 0:
+            for config_name in self.subscribed_project_configurations.keys():
+                summary.append(f"Uploading project spark-submit-configuration {config_name}")
+            for config_name in self.project_configurations.keys():
+                summary.append(f"Uploading project spark-submit-configuration {config_name}")
+        return summary
+
+    def headers(self) -> List[StepMetadata]:
+        total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        if total_configs > 0 and len(self._spark_submit_fabrics()) > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID,
+                    f"Upload {total_configs} project spark-submit-configurations",
+                    Operation.Upload,
+                    StepType.PipelineConfiguration,
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        futures = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            if len(self.headers()) > 0:
+                log(f"\n\n{Colors.OKBLUE} Uploading spark-submit project configurations {Colors.ENDC}\n\n")
+
+            def execute_job(
+                fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
+            ):
+                futures.append(
+                    executor.submit(
+                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
+                            f_info, configuration_relative_directory, configuration_file_name, configuration_content
+                        )
+                    )
+                )
+
+            path = self.project_config.system_config.get_hdfs_base_path()
+            project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
+            for configuration_name, configuration_content in self.subscribed_project_configurations.items():
+                configuration_file_name = f"{configuration_name}.jsn"
+                configuration_relative_directory = project_path
+                for fabric_info in self._spark_submit_fabrics():
+                    if fabric_info.airflow_oss is not None:
+                        execute_job(
+                            fabric_info,
+                            configuration_relative_directory,
+                            configuration_file_name,
+                            configuration_content,
+                        )
+            for configuration_name, configuration_content in self.project_configurations.items():
+                configuration_file_name = f"{configuration_name}.jsn"
+                configuration_relative_directory = project_path
+                for fabric_info in self._spark_submit_fabrics():
+                    if fabric_info.airflow_oss is not None:
+                        execute_job(
+                            fabric_info,
+                            configuration_relative_directory,
+                            configuration_file_name,
+                            configuration_content,
+                        )
+        return await_futures_and_update_states(futures, self._STEP_ID)
+
+    def _upload_configuration(
+        self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name, configuration_content
+    ):
+        upload_directory = f"{fabric_info.airflow_oss.location}/{configuration_relative_directory}"
+        try:
+            client = self._rest_client_factory.open_source_hdfs_client(str(fabric_info.id))
+            client.put_object(upload_directory, configuration_file_name, configuration_content)
+
+            log(
+                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_directory}{Colors.ENDC}",
+                step_id=self._STEP_ID,
+            )
+
+            return Either(right=True)
+
+        except Exception as e:
+            log(
+                f"{Colors.WARNING}Failed to upload project configuration for path {upload_directory} for fabric {fabric_info.id}{Colors.ENDC}",
+                exception=e,
+                step_id=self._STEP_ID,
+            )
+            return Either(right=True)
