@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import os
+import secrets
 import re
 import zipfile
 from abc import ABC
@@ -796,7 +797,7 @@ class EMRPipelineConfigurations:
                 )
 
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_path = f"{pipeline_path}/{configuration_name}.jsn"
+                    configuration_path = f"{pipeline_path}/{configuration_name}.json"
 
                     for fabric_info in self._fabric_config.emr_fabrics():
                         if fabric_info.emr is not None:
@@ -887,7 +888,7 @@ class DataprocPipelineConfigurations:
                     f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
                 )
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_path = f"{pipeline_path}/{configuration_name}.jsn"
+                    configuration_path = f"{pipeline_path}/{configuration_name}.json"
 
                     for fabric_info in self._fabric_config.dataproc_fabrics():
                         if fabric_info.dataproc is not None:
@@ -904,7 +905,7 @@ class DataprocPipelineConfigurations:
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
 
             log(
-                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_path}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_path}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -980,7 +981,7 @@ class SparkSubmitPipelineConfigurations:
                     f"{path}/{self.project.project_id}/{self.project.release_version}/configurations/{pipeline_id}"
                 )
                 for configuration_name, configuration_content in configurations.items():
-                    configuration_file_name = f"{configuration_name}.jsn"
+                    configuration_file_name = f"{configuration_name}.json"
                     configuration_relative_directory = pipeline_path
 
                     for fabric_info in self._spark_submit_fabrics():
@@ -1003,7 +1004,7 @@ class SparkSubmitPipelineConfigurations:
             client.put_object(upload_directory, configuration_file_name, configuration_content)
 
             log(
-                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_directory}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded pipeline configuration on path {upload_directory}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -1077,12 +1078,12 @@ class EMRProjectConfigurations:
             path = self.project_config.system_config.get_s3_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
             for configuration_name, configuration_content in self.subscribed_project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.emr_fabrics():
                     if fabric_info.emr is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
             for configuration_name, configuration_content in self.project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.emr_fabrics():
                     if fabric_info.emr is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
@@ -1171,12 +1172,12 @@ class DataprocProjectConfigurations:
             path = self.project_config.system_config.get_s3_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
             for configuration_name, configuration_content in self.subscribed_project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.dataproc_fabrics():
                     if fabric_info.dataproc is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
             for configuration_name, configuration_content in self.project_configurations.items():
-                configuration_path = f"{project_path}/{configuration_name}.jsn"
+                configuration_path = f"{project_path}/{configuration_name}.json"
                 for fabric_info in self._fabric_config.dataproc_fabrics():
                     if fabric_info.dataproc is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
@@ -1191,7 +1192,7 @@ class DataprocProjectConfigurations:
             client.put_object(dataproc_info.bare_bucket(), upload_path, configuration_content)
 
             log(
-                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_path}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_path}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -1254,52 +1255,51 @@ class SparkSubmitProjectConfigurations:
                 log(f"\n\n{Colors.OKBLUE} Uploading spark-submit project configurations {Colors.ENDC}\n\n")
 
             def execute_job(
-                fabric_info, configuration_relative_directory, configuration_file_name, configuration_content
+                fabric_info, configuration_relative_directory, configuration_file_path, configuration_file_name
             ):
                 futures.append(
                     executor.submit(
-                        lambda f_info=fabric_info, conf_content=configuration_content, conf_path=f"{configuration_relative_directory}/{configuration_file_name}": self._upload_configuration(
-                            f_info, configuration_relative_directory, configuration_file_name, configuration_content
+                        lambda f_info=fabric_info: self._upload_configuration(
+                            f_info, configuration_relative_directory, configuration_file_path, configuration_file_name
                         )
                     )
                 )
 
             path = self.project_config.system_config.get_hdfs_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
-            for configuration_name, configuration_content in self.subscribed_project_configurations.items():
-                configuration_file_name = f"{configuration_name}.jsn"
-                configuration_relative_directory = project_path
-                for fabric_info in self._spark_submit_fabrics():
-                    if fabric_info.airflow_oss is not None:
-                        execute_job(
-                            fabric_info,
-                            configuration_relative_directory,
-                            configuration_file_name,
-                            configuration_content,
-                        )
-            for configuration_name, configuration_content in self.project_configurations.items():
-                configuration_file_name = f"{configuration_name}.jsn"
-                configuration_relative_directory = project_path
-                for fabric_info in self._spark_submit_fabrics():
-                    if fabric_info.airflow_oss is not None:
-                        execute_job(
-                            fabric_info,
-                            configuration_relative_directory,
-                            configuration_file_name,
-                            configuration_content,
-                        )
+            configuration_relative_directory = project_path
+
+            configs = {
+                f"{configuration_name}.json": configuration_content
+                for configuration_name, configuration_content in self.project_configurations.items()
+            }
+
+            suffix = secrets.token_hex(4)
+            output_zip_file_path = f"/tmp/configurations_{suffix}.zip"
+            zip_folder(configs, output_zip_file_path)
+
+            for fabric_info in self._spark_submit_fabrics():
+                if fabric_info.airflow_oss is not None:
+                    execute_job(
+                        fabric_info, configuration_relative_directory, output_zip_file_path, "configurations.zip"
+                    )
+
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(
-        self, fabric_info: FabricInfo, configuration_relative_directory, configuration_file_name, configuration_content
+        self,
+        fabric_info: FabricInfo,
+        configuration_relative_directory,
+        configurations_zip_file_path,
+        configurations_zip_file_name,
     ):
         upload_directory = f"{fabric_info.airflow_oss.location}/{configuration_relative_directory}"
         try:
             client = self._rest_client_factory.open_source_hdfs_client(str(fabric_info.id))
-            client.put_object(upload_directory, configuration_file_name, configuration_content)
+            client.put_object_from_file(upload_directory, configurations_zip_file_name, configurations_zip_file_path)
 
             log(
-                f"{Colors.OKGREEN}Uploaded project configuration on path {upload_directory}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded project configurations zip on path {upload_directory}{Colors.ENDC} for fabric {fabric_info.id}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -1307,7 +1307,7 @@ class SparkSubmitProjectConfigurations:
 
         except Exception as e:
             log(
-                f"{Colors.WARNING}Failed to upload project configuration for path {upload_directory} for fabric {fabric_info.id}{Colors.ENDC}",
+                f"{Colors.WARNING}Failed to upload project configuration zip for path {upload_directory} for fabric {fabric_info.id}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
