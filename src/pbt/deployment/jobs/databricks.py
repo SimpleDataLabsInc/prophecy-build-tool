@@ -89,7 +89,7 @@ class DatabricksJobs(JobData, ABC):
 
     @property
     def acl(self):
-        return self.databricks_job_json.get("request", {}).get("accessControlList", None)
+        return self.databricks_job_json.get("request", {}).get("access_control_list", None)
 
     @property
     def get_secret_scope(self):
@@ -408,10 +408,13 @@ class DatabricksJobsDeployment:
 
             if job_data.acl:
                 log_success(
-                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id} patching job acl{Colors.ENDC}"
+                    f"{Colors.OKGREEN}Refreshed job {job_id} with external job id {job_info.external_job_id}, patching job ACL{Colors.ENDC}"
                 )
                 try:
-                    client.patch_job_acl(job_info.external_job_id, job_data.acl)
+                    client.patch_job_acl(job_info.external_job_id, {"access_control_list": job_data.acl})
+                    log_success(
+                        f"{Colors.OKGREEN}Successfully patched job ACL for external job id {job_info.external_job_id} {Colors.ENDC}"
+                    )
                 except Exception as e:
                     log_error(
                         f"{Colors.FAIL}Error patching job acl for job {job_id} in fabric {fabric_label}{Colors.ENDC}", e
