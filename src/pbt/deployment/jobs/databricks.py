@@ -1169,7 +1169,7 @@ class ProjectConfigurations:
 
                 client.upload_content(configuration_content, config_path_volume)
                 log(
-                    f"{Colors.OKGREEN}KTDEBUG - Uploaded project configuration{project_info} on path {config_path_volume} with volume support{Colors.ENDC}",
+                    f"{Colors.OKGREEN}Uploaded project configuration{project_info} on path {config_path_volume} with volume support{Colors.ENDC}",
                     step_id=self._STEP_ID,
                 )
             return Either(right=True)
