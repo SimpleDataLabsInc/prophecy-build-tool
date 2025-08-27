@@ -1041,8 +1041,8 @@ class EMRProjectConfigurations:
         dependency_configs = {}
         # Get all dependency project IDs from jobs
         dependency_project_ids = set()
-        
-        for job_id in self.project.jobs.keys():    
+
+        for job_id in self.project.jobs.keys():
             # Try to load job folder content
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
@@ -1050,7 +1050,7 @@ class EMRProjectConfigurations:
                 # Use shared utility to extract dependency project IDs
                 found_ids = extract_dependency_project_ids(prophecy_json)
                 dependency_project_ids.update(found_ids)
-                    
+
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
             dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
@@ -1081,9 +1081,11 @@ class EMRProjectConfigurations:
 
     def summary(self) -> List[str]:
         summary = []
-        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0 or len(self.dependency_project_configurations) > 0) and len(
-            self._emr_fabrics()
-        ) > 0:
+        if (
+            len(self.subscribed_project_configurations) > 0
+            or len(self.project_configurations) > 0
+            or len(self.dependency_project_configurations) > 0
+        ) and len(self._emr_fabrics()) > 0:
             for config_name in self.subscribed_project_configurations.keys():
                 summary.append(f"Uploading project emr-configuration {config_name}")
             for config_name in self.project_configurations.keys():
@@ -1191,8 +1193,8 @@ class DataprocProjectConfigurations:
         dependency_configs = {}
         # Get all dependency project IDs from jobs
         dependency_project_ids = set()
-        
-        for job_id in self.project.jobs.keys():    
+
+        for job_id in self.project.jobs.keys():
             # Try to load job folder content
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
@@ -1200,7 +1202,7 @@ class DataprocProjectConfigurations:
                 # Use shared utility to extract dependency project IDs
                 found_ids = extract_dependency_project_ids(prophecy_json)
                 dependency_project_ids.update(found_ids)
-                    
+
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
             dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
@@ -1231,9 +1233,11 @@ class DataprocProjectConfigurations:
 
     def summary(self) -> List[str]:
         summary = []
-        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0 or len(self.dependency_project_configurations) > 0) and len(
-            self._dataproc_fabrics()
-        ) > 0:
+        if (
+            len(self.subscribed_project_configurations) > 0
+            or len(self.project_configurations) > 0
+            or len(self.dependency_project_configurations) > 0
+        ) and len(self._dataproc_fabrics()) > 0:
             for config_name in self.subscribed_project_configurations.keys():
                 summary.append(f"Uploading project dataproc-configuration {config_name}")
             for config_name in self.project_configurations.keys():
@@ -1341,8 +1345,8 @@ class SparkSubmitProjectConfigurations:
         dependency_configs = {}
         # Get all dependency project IDs from jobs
         dependency_project_ids = set()
-        
-        for job_id in self.project.jobs.keys():    
+
+        for job_id in self.project.jobs.keys():
             # Try to load job folder content
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
@@ -1350,7 +1354,7 @@ class SparkSubmitProjectConfigurations:
                 # Use shared utility to extract dependency project IDs
                 found_ids = extract_dependency_project_ids(prophecy_json)
                 dependency_project_ids.update(found_ids)
-                    
+
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
             dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
@@ -1381,16 +1385,20 @@ class SparkSubmitProjectConfigurations:
 
     def summary(self) -> List[str]:
         summary = []
-        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0 or len(self.dependency_project_configurations) > 0) and len(
-            self._spark_submit_fabrics()
-        ) > 0:
+        if (
+            len(self.subscribed_project_configurations) > 0
+            or len(self.project_configurations) > 0
+            or len(self.dependency_project_configurations) > 0
+        ) and len(self._spark_submit_fabrics()) > 0:
             for config_name in self.subscribed_project_configurations.keys():
                 summary.append(f"Uploading project spark-submit-configuration {config_name}")
             for config_name in self.project_configurations.keys():
                 summary.append(f"Uploading project spark-submit-configuration {config_name}")
             for project_id, configs in self.dependency_project_configurations.items():
                 for config_name in configs.keys():
-                    summary.append(f"Uploading dependency project {project_id} spark-submit-configuration {config_name}")
+                    summary.append(
+                        f"Uploading dependency project {project_id} spark-submit-configuration {config_name}"
+                    )
         return summary
 
     def headers(self) -> List[StepMetadata]:
@@ -1429,7 +1437,7 @@ class SparkSubmitProjectConfigurations:
 
             path = self.project_config.system_config.get_hdfs_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
-            
+
             configuration_relative_directory = project_path
             configs = {
                 f"{configuration_name}.json": configuration_content
@@ -1444,7 +1452,6 @@ class SparkSubmitProjectConfigurations:
                         fabric_info, configuration_relative_directory, output_zip_file_path, "configurations.zip"
                     )
 
-            
             for configuration_name, configuration_content in self.subscribed_project_configurations.items():
                 configuration_file_name = f"{configuration_name}.jsn"
                 configuration_relative_directory = project_path

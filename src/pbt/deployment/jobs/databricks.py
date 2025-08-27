@@ -1011,8 +1011,8 @@ class ProjectConfigurations:
         dependency_configs = {}
         # Get all dependency project IDs from jobs
         dependency_project_ids = set()
-        
-        for job_id in self.project.jobs.keys():    
+
+        for job_id in self.project.jobs.keys():
             # Try to load job folder content
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
@@ -1020,7 +1020,7 @@ class ProjectConfigurations:
                 # Use shared utility to extract dependency project IDs
                 found_ids = extract_dependency_project_ids(prophecy_json)
                 dependency_project_ids.update(found_ids)
-                    
+
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
             dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
@@ -1053,7 +1053,7 @@ class ProjectConfigurations:
 
         for config_name in self.project_configurations.keys():
             summary.append(f"Uploading project configuration {config_name}")
-        
+
         for project_id, configs in self.dependency_project_configurations.items():
             for config_name in configs.keys():
                 summary.append(f"Uploading dependency project {project_id} configuration {config_name}")
@@ -1065,7 +1065,7 @@ class ProjectConfigurations:
         # Add dependency project configurations to the total
         for configs in self.dependency_project_configurations.values():
             _total_configs += len(configs)
-        
+
         if _total_configs:
             return [
                 StepMetadata(
@@ -1093,7 +1093,9 @@ class ProjectConfigurations:
             # Log dependency project configurations
             total_dep_configs = sum(len(configs) for configs in self.dependency_project_configurations.values())
             if total_dep_configs > 0:
-                log(f"\n\n{Colors.OKBLUE} Uploading {total_dep_configs} dependency project configurations {Colors.ENDC}\n\n")
+                log(
+                    f"\n\n{Colors.OKBLUE} Uploading {total_dep_configs} dependency project configurations {Colors.ENDC}\n\n"
+                )
 
             def execute_job(_fabric_id, config_name, config_content, project_id=None):
                 futures.append(
@@ -1115,7 +1117,7 @@ class ProjectConfigurations:
             for configuration_name, configuration_content in self.project_configurations.items():
                 for fabric_id in db_fabrics:
                     execute_job(fabric_id, configuration_name, configuration_content)
-            
+
             # Upload dependency project configurations
             for project_id, configurations in self.dependency_project_configurations.items():
                 for configuration_name, configuration_content in configurations.items():
