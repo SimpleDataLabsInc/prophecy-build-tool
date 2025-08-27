@@ -2,12 +2,12 @@ import json
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
-import os, re
+import os
 from requests import HTTPError
-from .utils import modify_databricks_json_for_private_artifactory
+from .utils import modify_databricks_json_for_private_artifactory, extract_dependency_project_ids
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
-from ...entities.project import Project, is_cross_project_pipeline
+from ...entities.project import Project
 from ...utility import custom_print as log, Either, is_online_mode
 from ...utils.constants import COMPONENTS_LITERAL
 from ...utils.exceptions import InvalidFabricException
@@ -1017,14 +1017,9 @@ class ProjectConfigurations:
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
                 prophecy_json = json.loads(rdc["prophecy-job.json"])
-                
-                # Search for gitUri anywhere in the JSON
-                json_str = json.dumps(prophecy_json)
-                if "gitUri" in json_str:
-                    # Extract all project IDs from gitUri references
-                    project_matches = re.findall(r'projectSubscriptionProjectId=(\d+)', json_str)
-                    for proj_id in project_matches:
-                        dependency_project_ids.add(proj_id)
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
                     
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:

@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from .databricks import get_fabric_label
+from .utils import extract_dependency_project_ids
 from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import EntityIdToFabricId, JobData, JobInfoAndOperation, OperationType
@@ -1046,14 +1047,9 @@ class EMRProjectConfigurations:
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
                 prophecy_json = json.loads(rdc["prophecy-job.json"])
-                
-                # Search for gitUri anywhere in the JSON
-                json_str = json.dumps(prophecy_json)
-                if "gitUri" in json_str:
-                    # Extract all project IDs from gitUri references
-                    project_matches = re.findall(r'projectSubscriptionProjectId=(\d+)', json_str)
-                    for proj_id in project_matches:
-                        dependency_project_ids.add(proj_id)
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
                     
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
@@ -1201,14 +1197,9 @@ class DataprocProjectConfigurations:
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
                 prophecy_json = json.loads(rdc["prophecy-job.json"])
-                
-                # Search for gitUri anywhere in the JSON
-                json_str = json.dumps(prophecy_json)
-                if "gitUri" in json_str:
-                    # Extract all project IDs from gitUri references
-                    project_matches = re.findall(r'projectSubscriptionProjectId=(\d+)', json_str)
-                    for proj_id in project_matches:
-                        dependency_project_ids.add(proj_id)
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
                     
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
@@ -1356,14 +1347,9 @@ class SparkSubmitProjectConfigurations:
             rdc = self.project.load_airflow_folder_with_placeholder(job_id)
             if rdc and "prophecy-job.json" in rdc:
                 prophecy_json = json.loads(rdc["prophecy-job.json"])
-                
-                # Search for gitUri anywhere in the JSON
-                json_str = json.dumps(prophecy_json)
-                if "gitUri" in json_str:
-                    # Extract all project IDs from gitUri references
-                    project_matches = re.findall(r'projectSubscriptionProjectId=(\d+)', json_str)
-                    for proj_id in project_matches:
-                        dependency_project_ids.add(proj_id)
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
                     
         # Load configurations from each dependency project
         for project_id in dependency_project_ids:
