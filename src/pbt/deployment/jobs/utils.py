@@ -1,4 +1,43 @@
 import re
+from typing import Set
+from ...entities.project import is_cross_project_pipeline
+
+
+def extract_dependency_project_ids(obj: dict, dependency_project_ids: Set[str] = None) -> Set[str]:
+    """
+    Recursively search for pipelineId keys in prophecy-job.json and extract project IDs.
+
+    Args:
+        obj: Parsed prophecy-job.json as a dictionary or any nested structure
+        dependency_project_ids: Set to accumulate found project IDs (created if None)
+
+    Returns:
+        Set of dependency project IDs found in the JSON
+    """
+    if dependency_project_ids is None:
+        dependency_project_ids = set()
+
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key == "pipelineId":
+                # Handle both string and dict formats for pipelineId
+                pipeline_id = value
+                if isinstance(pipeline_id, dict) and pipeline_id.get("type") == "literal":
+                    pipeline_id = pipeline_id.get("value")
+
+                if isinstance(pipeline_id, str):
+                    result = is_cross_project_pipeline(pipeline_id)
+                    if result[0] is not None:  # project_id found
+                        project_id, _, _ = result
+                        dependency_project_ids.add(project_id)
+            else:
+                # Continue recursive search
+                extract_dependency_project_ids(value, dependency_project_ids)
+    elif isinstance(obj, list):
+        for item in obj:
+            extract_dependency_project_ids(item, dependency_project_ids)
+
+    return dependency_project_ids
 
 
 def _extract_package_name_and_version(whl_path):

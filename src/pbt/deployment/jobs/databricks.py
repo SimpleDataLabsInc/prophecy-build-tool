@@ -2,10 +2,9 @@ import json
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
-
+import os
 from requests import HTTPError
-
-from .utils import modify_databricks_json_for_private_artifactory
+from .utils import modify_databricks_json_for_private_artifactory, extract_dependency_project_ids
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import JobInfoAndOperation, OperationType, JobData, EntityIdToFabricId
 from ...entities.project import Project
@@ -1004,6 +1003,48 @@ class ProjectConfigurations:
         self.project_configurations = project.project_configurations
         self.project_config = project_config
         self.project = project
+        # Load dependency project configurations
+        self.dependency_project_configurations = self._load_dependency_project_configurations()
+
+    def _load_dependency_project_configurations(self):
+        """Load configurations from dependency projects referenced in jobs"""
+        dependency_configs = {}
+        # Get all dependency project IDs from jobs
+        dependency_project_ids = set()
+
+        for job_id in self.project.jobs.keys():
+            # Try to load job folder content
+            rdc = self.project.load_airflow_folder_with_placeholder(job_id)
+            if rdc and "prophecy-job.json" in rdc:
+                prophecy_json = json.loads(rdc["prophecy-job.json"])
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
+
+        # Load configurations from each dependency project
+        for project_id in dependency_project_ids:
+            dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
+            config_path = os.path.join(dependency_path, "projectConfigurations/config/code/configs")
+
+            if os.path.exists(config_path):
+                log(f"Config path exists for dependency project {project_id}: {config_path}", step_id=self._STEP_ID)
+
+                configurations = {}
+                for file_name in os.listdir(config_path):
+                    if file_name.endswith(".json"):
+                        file_path = os.path.join(config_path, file_name)
+                        with open(file_path, "r") as file:
+                            content = file.read()
+                            config_name = file_name[:-5]  # Remove .json extension
+                            configurations[config_name] = content
+
+                if configurations:
+                    dependency_configs[project_id] = configurations
+                    # Log the configurations that will be uploaded to Summary
+                    for config_name in configurations.keys():
+                        log(f"Uploading dependency project {project_id} configuration {config_name}", "Summary")
+
+        return dependency_configs
 
     def summary(self) -> List[str]:
         summary = []
@@ -1013,10 +1054,18 @@ class ProjectConfigurations:
         for config_name in self.project_configurations.keys():
             summary.append(f"Uploading project configuration {config_name}")
 
+        for project_id, configs in self.dependency_project_configurations.items():
+            for config_name in configs.keys():
+                summary.append(f"Uploading dependency project {project_id} configuration {config_name}")
+
         return summary
 
     def headers(self) -> List[StepMetadata]:
         _total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        # Add dependency project configurations to the total
+        for configs in self.dependency_project_configurations.values():
+            _total_configs += len(configs)
+
         if _total_configs:
             return [
                 StepMetadata(
@@ -1041,13 +1090,20 @@ class ProjectConfigurations:
                 count = len(self.project_configurations)
                 log(f"\n\n{Colors.OKBLUE} Uploading {count} project configurations {Colors.ENDC}\n\n")
 
-            def execute_job(_fabric_id, config_name, config_content):
+            # Log dependency project configurations
+            total_dep_configs = sum(len(configs) for configs in self.dependency_project_configurations.values())
+            if total_dep_configs > 0:
+                log(
+                    f"\n\n{Colors.OKBLUE} Uploading {total_dep_configs} dependency project configurations {Colors.ENDC}\n\n"
+                )
+
+            def execute_job(_fabric_id, config_name, config_content, project_id=None):
                 futures.append(
                     executor.submit(
                         lambda f_id=str(
                             _fabric_id
-                        ), conf_name=config_name, conf_content=config_content: self._upload_configuration(
-                            f_id, conf_name, conf_content
+                        ), conf_name=config_name, conf_content=config_content, proj_id=project_id: self._upload_configuration(
+                            f_id, conf_name, conf_content, proj_id
                         )
                     )
                 )
@@ -1062,9 +1118,15 @@ class ProjectConfigurations:
                 for fabric_id in db_fabrics:
                     execute_job(fabric_id, configuration_name, configuration_content)
 
+            # Upload dependency project configurations
+            for project_id, configurations in self.dependency_project_configurations.items():
+                for configuration_name, configuration_content in configurations.items():
+                    for fabric_id in db_fabrics:
+                        execute_job(fabric_id, configuration_name, configuration_content, project_id)
+
         return await_futures_and_update_states(futures, self._STEP_ID)
 
-    def _base_path(self, fab_id: Optional[str]):
+    def _base_path(self, fab_id: Optional[str], project_id: Optional[str] = None):
         if fab_id is None or self.project_config.is_volume_supported(fab_id):
             _base_path = self.project_config.get_db_base_path(fab_id)
         elif fab_id in self.project.fabric_volumes_detected.keys():
@@ -1074,10 +1136,12 @@ class ProjectConfigurations:
 
         # Strip trailing slash to avoid double slashes in path construction
         _base_path = _base_path.rstrip("/")
-        project_path = f"{_base_path}/{self.project.project_id}/{self.project.release_version}/configurations"
+        # Use dependency project ID if provided, otherwise use main project ID
+        actual_project_id = project_id if project_id else self.project.project_id
+        project_path = f"{_base_path}/{actual_project_id}/{self.project.release_version}/configurations"
         return project_path
 
-    def _upload_configuration(self, fabric_id, config_name, configuration_content):
+    def _upload_configuration(self, fabric_id, config_name, configuration_content, project_id=None):
 
         try:
             # we are creating path and then uploading the content
@@ -1085,14 +1149,16 @@ class ProjectConfigurations:
             # in case volumes is set or not.
             # after some versions most likely databricks will deprecate the dbfs one.
             client = self.databricks_jobs.get_databricks_client(str(fabric_id))
-            base_p = self._base_path(None)  # old dbfs path first.
+            base_p = self._base_path(None, project_id)  # old dbfs path first.
             # Ensure no double slashes in path construction
             base_p = base_p.rstrip("/")
             configuration_path = f"{base_p}/{config_name}.json"
 
             client.upload_content(configuration_content, configuration_path)
+            # Include project ID in log message if it's a dependency project
+            project_info = f" (dependency project {project_id})" if project_id else ""
             log(
-                f"{Colors.OKGREEN}Uploaded project configuration on path {configuration_path}{Colors.ENDC}",
+                f"{Colors.OKGREEN}Uploaded project configuration{project_info} on path {configuration_path}{Colors.ENDC}",
                 step_id=self._STEP_ID,
             )
 
@@ -1100,19 +1166,20 @@ class ProjectConfigurations:
             has_fabric_volume = fabric_id in self.project.fabric_volumes_detected.keys()
 
             if is_volume_supported or has_fabric_volume:
-                volume_base = self._base_path(fabric_id).rstrip("/")
+                volume_base = self._base_path(fabric_id, project_id).rstrip("/")
                 config_path_volume = f"{volume_base}/{config_name}.json"
 
                 client.upload_content(configuration_content, config_path_volume)
                 log(
-                    f"{Colors.OKGREEN}Uploaded project configuration on path {config_path_volume} with volume support{Colors.ENDC}",
+                    f"{Colors.OKGREEN}Uploaded project configuration{project_info} on path {config_path_volume} with volume support{Colors.ENDC}",
                     step_id=self._STEP_ID,
                 )
             return Either(right=True)
 
         except Exception as e:
+            project_info = f" (dependency project {project_id})" if project_id else ""
             log(
-                f"{Colors.WARNING}Failed to upload project configuration for path {config_name}{Colors.ENDC}",
+                f"{Colors.WARNING}Failed to upload project configuration{project_info} for path {config_name}{Colors.ENDC}",
                 exception=e,
                 step_id=self._STEP_ID,
             )
