@@ -18,6 +18,7 @@ from ..deployment.jobs.airflow import (
 from ..deployment.jobs.databricks import (
     DBTComponents,
     DatabricksJobsDeployment,
+    NotebookComponents,
     PipelineConfigurations,
     ProjectConfigurations,
     ScriptComponents,
@@ -40,6 +41,7 @@ class ProjectDeployment:
         self._airflow_jobs = AirflowJobDeployment(project, project_config)
 
         self._script_component = ScriptComponents(project, self._databricks_jobs, project_config)
+        self._notebook_component = NotebookComponents(project, self._databricks_jobs, project_config)
         self._pipeline_configurations = PipelineConfigurations(project, self._databricks_jobs, project_config)
         self._project_configurations = ProjectConfigurations(project, self._databricks_jobs, project_config)
         self._spark_submit_pipeline_configurations = SparkSubmitPipelineConfigurations(
@@ -71,6 +73,7 @@ class ProjectDeployment:
         summary = (
             self._gems.summary()
             + self._script_component.summary()
+            + self._notebook_component.summary()
             + self._dbt_component.summary()
             + self._airflow_git_secrets.summary()
             + self._project_configurations.summary()
@@ -95,6 +98,7 @@ class ProjectDeployment:
             summary_header,
             self._gems.headers(),
             self._script_component.headers(),
+            self._notebook_component.headers(),
             self._dbt_component.headers(),
             self._airflow_git_secrets.headers(),
             self._project_configurations.headers(),
@@ -145,6 +149,12 @@ class ProjectDeployment:
 
         if script_responses is not None and any(response.is_left for response in script_responses):
             raise Exception("Script deployment failed.")
+
+    def _deploy_notebooks(self):
+        notebook_responses = self._notebook_component.deploy()
+
+        if notebook_responses is not None and any(response.is_left for response in notebook_responses):
+            raise Exception("Notebook deployment failed.")
 
     def _deploy_dbt_components(self):
         dbt_responses = self._dbt_component.deploy()
@@ -241,6 +251,7 @@ class ProjectDeployment:
             self._deploy_gems()
 
         self._deploy_scripts()
+        self._deploy_notebooks()
         self._deploy_dbt_components()
         self._deploy_airflow_git_secrets()
         self._deploy_project_configs()

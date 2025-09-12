@@ -12,12 +12,13 @@ from ...utility import custom_print as log, Either, is_online_mode
 from ...utils.constants import COMPONENTS_LITERAL
 from ...utils.exceptions import InvalidFabricException
 from ...utils.project_config import JobInfo, ProjectConfig, await_futures_and_update_states
-from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, StepMetadata, Operation, StepType, Colors
+from ...utils.project_models import DbtComponentsModel, ScriptComponentsModel, NotebookComponentsModel, StepMetadata, Operation, StepType, Colors, Status
 
 SCRIPT_COMPONENT = "ScriptComponent"
 COMPONENTS = "components"
 FABRIC_ID = "fabric_id"
 DBT_COMPONENT = "DBTComponent"
+NOTEBOOK_COMPONENT = "NotebookComponent"
 
 
 def get_fabric_label(name: str, id: str):
@@ -881,6 +882,85 @@ class ScriptComponents:
             job_id_to_script_components[jobs_id] = ScriptComponentsModel(fabric_id, script_component_list)
 
         return job_id_to_script_components
+
+
+class NotebookComponents:
+    _STEP_ID = "notebook_components"
+
+    def __init__(self, project: Project, databricks_jobs: DatabricksJobsDeployment, project_config: ProjectConfig):
+        self.databricks_jobs = databricks_jobs
+        self.project = project
+        self.notebook_jobs = self._notebook_components_from_jobs()
+        self.fabric_config = project_config.fabric_config
+        self.deployment_state = project_config.jobs_state
+
+    def summary(self) -> List[str]:
+        notebook_summary = []
+
+        for job_id, notebook_job_list in self.notebook_jobs.items():
+            for notebook_job in notebook_job_list.notebooks:
+                notebook_summary.append(f"Processing notebook {notebook_job['nodeName']} for job {job_id}")
+
+        return notebook_summary
+
+    def headers(self) -> List[StepMetadata]:
+        all_notebooks = sum(len(v.notebooks) for v in self.notebook_jobs.values())
+
+        if all_notebooks > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID, f"Process {all_notebooks} notebook components", Operation.Upload, StepType.Notebook
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        if len(self.headers()) > 0:
+            log(f"\n\n{Colors.OKBLUE}Processing notebook components from job{Colors.ENDC}\n\n")
+            log(step_status=Status.RUNNING, step_id=self._STEP_ID)
+
+            try:
+                for job_id, notebook_components in self.notebook_jobs.items():
+                    for notebook in notebook_components.notebooks:
+                        node_name = notebook.get("nodeName")
+                        path = notebook.get("path", "")
+                        fabric_config = self.fabric_config.get_fabric(notebook_components.fabric_id)
+                        fabric_name = fabric_config.name if fabric_config is not None else None
+                        fabric_label = get_fabric_label(fabric_name, notebook_components.fabric_id)
+
+                        log(
+                            f"{Colors.OKGREEN}Notebook component `{node_name}` references path `{path}` in fabric `{fabric_label}` for job `{job_id}`{Colors.ENDC}",
+                            step_id=self._STEP_ID,
+                        )
+
+                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
+            except Exception as e:
+                log(step_status=Status.FAILED, step_id=self._STEP_ID)
+                log(
+                    f"{Colors.FAIL}Error processing notebook components{Colors.ENDC}",
+                    step_id=self._STEP_ID,
+                    exception=e,
+                )
+                raise e
+
+        return []
+
+    def _notebook_components_from_jobs(self) -> Dict[str, NotebookComponentsModel]:
+        job_id_to_notebook_components = {}
+
+        for jobs_id, job_data in self.databricks_jobs.databricks_job_json_for_refresh_and_new_jobs.items():
+            notebook_component_list = []
+
+            for components in job_data.databricks_job_json.get(COMPONENTS_LITERAL, []):
+                if NOTEBOOK_COMPONENT in components:
+                    notebook_component_list.append(components[NOTEBOOK_COMPONENT])
+
+            if len(notebook_component_list) > 0:
+                fabric_id = job_data.fabric_id
+                job_id_to_notebook_components[jobs_id] = NotebookComponentsModel(fabric_id, notebook_component_list)
+
+        return job_id_to_notebook_components
 
 
 class PipelineConfigurations:
