@@ -1000,9 +1000,7 @@ class RunJobComponents:
 
         if all_runjobs > 0:
             return [
-                StepMetadata(
-                    self._STEP_ID, f"Process {all_runjobs} RunJob components", Operation.Upload, StepType.Job
-                )
+                StepMetadata(self._STEP_ID, f"Process {all_runjobs} RunJob components", Operation.Upload, StepType.Job)
             ]
         else:
             return []
