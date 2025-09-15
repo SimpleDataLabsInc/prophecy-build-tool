@@ -16,6 +16,7 @@ from ...utils.project_models import (
     DbtComponentsModel,
     ScriptComponentsModel,
     NotebookComponentsModel,
+    RunJobComponentsModel,
     StepMetadata,
     Operation,
     StepType,
@@ -28,6 +29,7 @@ COMPONENTS = "components"
 FABRIC_ID = "fabric_id"
 DBT_COMPONENT = "DBTComponent"
 NOTEBOOK_COMPONENT = "NotebookComponent"
+RUNJOB_COMPONENT = "RunJobComponent"
 
 
 def get_fabric_label(name: str, id: str):
@@ -970,6 +972,101 @@ class NotebookComponents:
                 job_id_to_notebook_components[jobs_id] = NotebookComponentsModel(fabric_id, notebook_component_list)
 
         return job_id_to_notebook_components
+
+
+class RunJobComponents:
+    _STEP_ID = "runjob_components"
+
+    def __init__(self, project: Project, databricks_jobs: DatabricksJobsDeployment, project_config: ProjectConfig):
+        self.databricks_jobs = databricks_jobs
+        self.project = project
+        self.runjob_jobs = self._runjob_components_from_jobs()
+        self.fabric_config = project_config.fabric_config
+        self.deployment_state = project_config.jobs_state
+
+    def summary(self) -> List[str]:
+        runjob_summary = []
+
+        for job_id, runjob_job_list in self.runjob_jobs.items():
+            for runjob_job in runjob_job_list.runjobs:
+                node_name = runjob_job.get("nodeName", "Unknown")
+                target_job_id = self._get_target_job_id(runjob_job)
+                runjob_summary.append(f"Processing RunJob {node_name} targeting job {target_job_id} for job {job_id}")
+
+        return runjob_summary
+
+    def headers(self) -> List[StepMetadata]:
+        all_runjobs = sum(len(v.runjobs) for v in self.runjob_jobs.values())
+
+        if all_runjobs > 0:
+            return [
+                StepMetadata(
+                    self._STEP_ID, f"Process {all_runjobs} RunJob components", Operation.Upload, StepType.Job
+                )
+            ]
+        else:
+            return []
+
+    def deploy(self):
+        if len(self.headers()) > 0:
+            log(f"\n\n{Colors.OKBLUE}Processing RunJob components from job{Colors.ENDC}\n\n")
+            log(step_status=Status.RUNNING, step_id=self._STEP_ID)
+
+            try:
+                for job_id, runjob_components in self.runjob_jobs.items():
+                    for runjob in runjob_components.runjobs:
+                        node_name = runjob.get("nodeName", "Unknown")
+                        target_job_id = self._get_target_job_id(runjob)
+                        wait_for_completion = runjob.get("waitForCompletion", True)
+                        timeout_seconds = runjob.get("timeoutSeconds", 3600)
+
+                        fabric_config = self.fabric_config.get_fabric(runjob_components.fabric_id)
+                        fabric_name = fabric_config.name if fabric_config is not None else None
+                        fabric_label = get_fabric_label(fabric_name, runjob_components.fabric_id)
+
+                        log(
+                            f"{Colors.OKGREEN}RunJob component `{node_name}` references job `{target_job_id}` "
+                            f"(wait: {wait_for_completion}, timeout: {timeout_seconds}s) "
+                            f"in fabric `{fabric_label}` for job `{job_id}`{Colors.ENDC}",
+                            step_id=self._STEP_ID,
+                        )
+
+                log(step_status=Status.SUCCEEDED, step_id=self._STEP_ID)
+            except Exception as e:
+                log(step_status=Status.FAILED, step_id=self._STEP_ID)
+                log(
+                    f"{Colors.FAIL}Error processing RunJob components{Colors.ENDC}",
+                    step_id=self._STEP_ID,
+                    exception=e,
+                )
+                raise e
+
+        return []
+
+    def _get_target_job_id(self, runjob_component: dict) -> str:
+        """Extract the target job ID based on the selection mode"""
+        job_selection_mode = runjob_component.get("jobSelectionMode", "dropdown")
+
+        if job_selection_mode == "manual":
+            return runjob_component.get("manualJobId", "")
+        else:
+            return runjob_component.get("selectedJobId", "")
+
+    def _runjob_components_from_jobs(self) -> Dict[str, RunJobComponentsModel]:
+        job_id_to_runjob_components = {}
+
+        for jobs_id, job_data in self.databricks_jobs.databricks_job_json_for_refresh_and_new_jobs.items():
+            runjob_component_list = []
+
+            for components in job_data.databricks_job_json.get(COMPONENTS_LITERAL, []):
+                if RUNJOB_COMPONENT in components:
+                    runjob_component_list.append(components[RUNJOB_COMPONENT])
+
+            if len(runjob_component_list) > 0:
+                fabric_id = job_data.fabric_id
+                job_id_to_runjob_components[jobs_id] = RunJobComponentsModel(fabric_id, runjob_component_list)
+
+        return job_id_to_runjob_components
 
 
 class PipelineConfigurations:

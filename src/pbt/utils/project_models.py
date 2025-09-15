@@ -187,6 +187,12 @@ class NotebookComponentsModel:
         self.notebooks = notebooks
 
 
+class RunJobComponentsModel:
+    def __init__(self, fabric_id: str, runjobs: List):
+        self.fabric_id = fabric_id
+        self.runjobs = runjobs
+
+
 class DAG:
     def __init__(
         self,
