@@ -325,6 +325,22 @@ class DatabricksJobsDeployment:
                     )
                     operation = OperationType.REFRESH
 
+                    # Patch job ACL if it exists
+                    if job_data.acl:
+                        try:
+                            client.patch_job_acl(scheduler_job_id, {"access_control_list": job_data.acl})
+                            log(
+                                f"{Colors.OKGREEN}Successfully patched job ACL for job {job_id} with external job id {scheduler_job_id}{Colors.ENDC}",
+                                step_id=step_id,
+                            )
+                        except Exception as e:
+                            log(
+                                f"{Colors.FAIL}Error patching job ACL for job {job_id} in fabric {fabric_label}{Colors.ENDC}",
+                                exception=e,
+                                step_id=step_id,
+                            )
+                            return Either(left=e)
+
             if not scheduler_job_id:
                 response = client.create_job(job_data.databricks_json)
                 log(
