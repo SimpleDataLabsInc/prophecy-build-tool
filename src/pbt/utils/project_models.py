@@ -23,6 +23,7 @@ class StepType(enum.Enum):
     PipelineConfiguration = "PipelineConfiguration"
     Job = "Job"
     Script = "Script"
+    Notebook = "Notebook"
     DbtProfile = "DbtProfile"
     DbtSecret = "DbtSecret"
     DbtContent = "DbtContent"
@@ -178,6 +179,18 @@ class ScriptComponentsModel:
     def __init__(self, fabric_id: str, scripts: List):
         self.scripts = scripts
         self.fabric_id = fabric_id
+
+
+class NotebookComponentsModel:
+    def __init__(self, fabric_id: str, notebooks: List):
+        self.fabric_id = fabric_id
+        self.notebooks = notebooks
+
+
+class RunJobComponentsModel:
+    def __init__(self, fabric_id: str, runjobs: List):
+        self.fabric_id = fabric_id
+        self.runjobs = runjobs
 
 
 class DAG:
