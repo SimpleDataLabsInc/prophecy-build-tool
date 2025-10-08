@@ -94,7 +94,7 @@ class PackageBuilder:
     def _build(self, command: list):
         env = dict(os.environ)
 
-        # Set the MAVEN_OPTS variable with environment defaults
+        # Set the MAVEN_OPTS variable with environment overrides
         env["MAVEN_OPTS"] = get_maven_opts()
 
         process = subprocess.Popen(

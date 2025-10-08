@@ -4,44 +4,34 @@ import os
 def get_maven_opts():
     """Get Maven options from environment with default fallbacks.
 
-    This function merges MAVEN_OPTS from environment variables with default values.
+    This function merges MAVEN_OPTS from environment variables with specific default values:
+    - -Xmx1024m (heap size)
+    - -XX:MaxMetaspaceSize=512m (metaspace size)
+    - -Xss32m (stack size)
+
     Environment variables take precedence, and missing defaults are appended.
 
     Returns:
         str: Merged Maven options string
     """
-    default_opts = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
     existing_opts = os.environ.get("MAVEN_OPTS", "").strip()
 
     if not existing_opts:
-        return default_opts
+        return "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
 
-    # Start with existing options, then add missing defaults
-    result_parts = existing_opts.split()
-    default_parts = default_opts.split()
+    # Check which specific default options are missing and append them
+    result = existing_opts
 
-    # Extract keys from existing options
-    existing_keys = set()
-    for part in result_parts:
-        if part.startswith("-Xmx"):
-            existing_keys.add("-Xmx")
-        elif part.startswith("-Xss"):
-            existing_keys.add("-Xss")
-        elif part.startswith("-XX:"):
-            key = part.split("=")[0]
-            existing_keys.add(key)
-        else:
-            existing_keys.add(part)
+    # Add default heap size if not present
+    if not any(opt.startswith("-Xmx") for opt in existing_opts.split()):
+        result += " -Xmx1024m"
 
-    # Add missing defaults
-    for part in default_parts:
-        if part.startswith("-Xmx") and "-Xmx" not in existing_keys:
-            result_parts.append(part)
-        elif part.startswith("-Xss") and "-Xss" not in existing_keys:
-            result_parts.append(part)
-        elif part.startswith("-XX:"):
-            key = part.split("=")[0]
-            if key not in existing_keys:
-                result_parts.append(part)
+    # Add default metaspace size if not present
+    if "-XX:MaxMetaspaceSize=" not in existing_opts:
+        result += " -XX:MaxMetaspaceSize=512m"
 
-    return " ".join(result_parts)
+    # Add default stack size if not present
+    if not any(opt.startswith("-Xss") for opt in existing_opts.split()):
+        result += " -Xss32m"
+
+    return result
