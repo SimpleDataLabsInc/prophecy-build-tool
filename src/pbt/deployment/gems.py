@@ -10,6 +10,7 @@ from ..utils.project_config import ProjectConfig
 from ..utils.project_models import StepMetadata, StepType, Operation, Status
 from ..utility import custom_print as log, Either
 from . import get_python_commands
+from .utils import get_maven_opts
 
 GEMS = "Gems"
 
@@ -93,8 +94,8 @@ class PackageBuilder:
     def _build(self, command: list):
         env = dict(os.environ)
 
-        # Set the MAVEN_OPTS variable
-        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
+        # Set the MAVEN_OPTS variable with environment defaults
+        env["MAVEN_OPTS"] = get_maven_opts()
 
         process = subprocess.Popen(
             command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=self.path
