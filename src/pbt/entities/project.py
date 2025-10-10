@@ -28,6 +28,8 @@ from ..utils.constants import (
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 from ..utils.versioning import update_all_versions
 
+# Example:
+# 'gitUri=http://gitserver:3000/UnSTjHIY_team_5/UnSTjHIY_project_12.git&subPath=&tag=HelloWorld/rashmin-1.0.25&projectSubscriptionProjectId=12&path=pipelines/customers_orders'
 SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
     r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
 )

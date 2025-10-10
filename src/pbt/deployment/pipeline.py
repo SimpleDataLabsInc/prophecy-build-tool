@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
 from . import JobData, get_python_commands
+from .utils import get_maven_opts
 from .uploader.PipelineUploaderManager import PipelineUploadManager
 from ..client.nexus import NexusClient
 from ..deployment.jobs.airflow import AirflowJobDeployment
@@ -703,8 +704,8 @@ class PackageBuilderAndUploader:
     def _build(self, command: list, ignore_build_errors: bool = False):
         env = dict(os.environ)
 
-        # Set the MAVEN_OPTS variable
-        env["MAVEN_OPTS"] = "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
+        # Set the MAVEN_OPTS variable with environment overrides
+        env["MAVEN_OPTS"] = get_maven_opts()
 
         if env.get("FABRIC_NAME", None) is None:
             env["FABRIC_NAME"] = "default"  # for python test runs.

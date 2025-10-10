@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 import os
 import secrets
 import re
@@ -11,6 +12,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from .databricks import get_fabric_label
+from .utils import extract_dependency_project_ids
 from ...client.airflow.airflow_utility import create_airflow_client, get_fabric_provider_type
 from ...client.rest_client_factory import RestClientFactory
 from ...deployment import EntityIdToFabricId, JobData, JobInfoAndOperation, OperationType
@@ -1031,23 +1033,73 @@ class EMRProjectConfigurations:
         self._jobs_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
         self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+        # Load dependency project configurations
+        self.dependency_project_configurations = self._load_dependency_project_configurations()
+
+    def _load_dependency_project_configurations(self):
+        """Load configurations from dependency projects referenced in jobs"""
+        dependency_configs = {}
+        # Get all dependency project IDs from jobs
+        dependency_project_ids = set()
+
+        for job_id in self.project.jobs.keys():
+            # Try to load job folder content
+            rdc = self.project.load_airflow_folder_with_placeholder(job_id)
+            if rdc and "prophecy-job.json" in rdc:
+                prophecy_json = json.loads(rdc["prophecy-job.json"])
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
+
+        # Load configurations from each dependency project
+        for project_id in dependency_project_ids:
+            dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
+            config_path = os.path.join(dependency_path, "projectConfigurations/config/code/configs")
+
+            if os.path.exists(config_path):
+                log(f"Config path exists for dependency project {project_id}: {config_path}", step_id=self._STEP_ID)
+
+                configurations = {}
+                for file_name in os.listdir(config_path):
+                    if file_name.endswith(".json"):
+                        file_path = os.path.join(config_path, file_name)
+                        with open(file_path, "r") as file:
+                            content = file.read()
+                            config_name = file_name[:-5]  # Remove .json extension
+                            configurations[config_name] = content
+
+                if configurations:
+                    dependency_configs[project_id] = configurations
+                    # Log the configurations that will be uploaded to Summary
+                    for config_name in configurations.keys():
+                        log(f"Uploading dependency project {project_id} configuration {config_name}", "Summary")
+
+        return dependency_configs
 
     def _emr_fabrics(self):
         return self._fabric_config.emr_fabrics()
 
     def summary(self) -> List[str]:
         summary = []
-        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0) and len(
-            self._emr_fabrics()
-        ) > 0:
+        if (
+            len(self.subscribed_project_configurations) > 0
+            or len(self.project_configurations) > 0
+            or len(self.dependency_project_configurations) > 0
+        ) and len(self._emr_fabrics()) > 0:
             for config_name in self.subscribed_project_configurations.keys():
                 summary.append(f"Uploading project emr-configuration {config_name}")
             for config_name in self.project_configurations.keys():
                 summary.append(f"Uploading project emr-configuration {config_name}")
+            for project_id, configs in self.dependency_project_configurations.items():
+                for config_name in configs.keys():
+                    summary.append(f"Uploading dependency project {project_id} emr-configuration {config_name}")
         return summary
 
     def headers(self) -> List[StepMetadata]:
         total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        # Add dependency project configurations to the total
+        for configs in self.dependency_project_configurations.values():
+            total_configs += len(configs)
         if total_configs > 0 and len(self._emr_fabrics()) > 0:
             return [
                 StepMetadata(
@@ -1087,6 +1139,14 @@ class EMRProjectConfigurations:
                 for fabric_info in self._fabric_config.emr_fabrics():
                     if fabric_info.emr is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
+            # Upload dependency project configurations
+            for project_id, configurations in self.dependency_project_configurations.items():
+                dep_project_path = f"{path}/{project_id}/{self.project.release_version}/configurations"
+                for configuration_name, configuration_content in configurations.items():
+                    configuration_path = f"{dep_project_path}/{configuration_name}.jsn"
+                    for fabric_info in self._fabric_config.emr_fabrics():
+                        if fabric_info.emr is not None:
+                            execute_job(fabric_info, configuration_content, configuration_path)
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
@@ -1125,23 +1185,73 @@ class DataprocProjectConfigurations:
         self._deployment_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
         self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+        # Load dependency project configurations
+        self.dependency_project_configurations = self._load_dependency_project_configurations()
+
+    def _load_dependency_project_configurations(self):
+        """Load configurations from dependency projects referenced in jobs"""
+        dependency_configs = {}
+        # Get all dependency project IDs from jobs
+        dependency_project_ids = set()
+
+        for job_id in self.project.jobs.keys():
+            # Try to load job folder content
+            rdc = self.project.load_airflow_folder_with_placeholder(job_id)
+            if rdc and "prophecy-job.json" in rdc:
+                prophecy_json = json.loads(rdc["prophecy-job.json"])
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
+
+        # Load configurations from each dependency project
+        for project_id in dependency_project_ids:
+            dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
+            config_path = os.path.join(dependency_path, "projectConfigurations/config/code/configs")
+
+            if os.path.exists(config_path):
+                log(f"Config path exists for dependency project {project_id}: {config_path}", step_id=self._STEP_ID)
+
+                configurations = {}
+                for file_name in os.listdir(config_path):
+                    if file_name.endswith(".json"):
+                        file_path = os.path.join(config_path, file_name)
+                        with open(file_path, "r") as file:
+                            content = file.read()
+                            config_name = file_name[:-5]  # Remove .json extension
+                            configurations[config_name] = content
+
+                if configurations:
+                    dependency_configs[project_id] = configurations
+                    # Log the configurations that will be uploaded to Summary
+                    for config_name in configurations.keys():
+                        log(f"Uploading dependency project {project_id} configuration {config_name}", "Summary")
+
+        return dependency_configs
 
     def _dataproc_fabrics(self):
         return self._fabric_config.dataproc_fabrics()
 
     def summary(self) -> List[str]:
         summary = []
-        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0) and len(
-            self._dataproc_fabrics()
-        ) > 0:
+        if (
+            len(self.subscribed_project_configurations) > 0
+            or len(self.project_configurations) > 0
+            or len(self.dependency_project_configurations) > 0
+        ) and len(self._dataproc_fabrics()) > 0:
             for config_name in self.subscribed_project_configurations.keys():
                 summary.append(f"Uploading project dataproc-configuration {config_name}")
             for config_name in self.project_configurations.keys():
                 summary.append(f"Uploading project dataproc-configuration {config_name}")
+            for project_id, configs in self.dependency_project_configurations.items():
+                for config_name in configs.keys():
+                    summary.append(f"Uploading dependency project {project_id} dataproc-configuration {config_name}")
         return summary
 
     def headers(self) -> List[StepMetadata]:
         total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        # Add dependency project configurations to the total
+        for configs in self.dependency_project_configurations.values():
+            total_configs += len(configs)
         if total_configs > 0 and len(self._dataproc_fabrics()) > 0:
             return [
                 StepMetadata(
@@ -1181,6 +1291,14 @@ class DataprocProjectConfigurations:
                 for fabric_info in self._fabric_config.dataproc_fabrics():
                     if fabric_info.dataproc is not None:
                         execute_job(fabric_info, configuration_content, configuration_path)
+            # Upload dependency project configurations
+            for project_id, configurations in self.dependency_project_configurations.items():
+                dep_project_path = f"{path}/{project_id}/{self.project.release_version}/configurations"
+                for configuration_name, configuration_content in configurations.items():
+                    configuration_path = f"{dep_project_path}/{configuration_name}.jsn"
+                    for fabric_info in self._fabric_config.dataproc_fabrics():
+                        if fabric_info.dataproc is not None:
+                            execute_job(fabric_info, configuration_content, configuration_path)
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(self, fabric_info: FabricInfo, configuration_content, configuration_path):
@@ -1219,23 +1337,75 @@ class SparkSubmitProjectConfigurations:
         self._deployment_state = project_config.jobs_state
         self._fabric_config = project_config.fabric_config
         self._rest_client_factory = RestClientFactory.get_instance(RestClientFactory, self._fabric_config)
+        # Load dependency project configurations
+        self.dependency_project_configurations = self._load_dependency_project_configurations()
+
+    def _load_dependency_project_configurations(self):
+        """Load configurations from dependency projects referenced in jobs"""
+        dependency_configs = {}
+        # Get all dependency project IDs from jobs
+        dependency_project_ids = set()
+
+        for job_id in self.project.jobs.keys():
+            # Try to load job folder content
+            rdc = self.project.load_airflow_folder_with_placeholder(job_id)
+            if rdc and "prophecy-job.json" in rdc:
+                prophecy_json = json.loads(rdc["prophecy-job.json"])
+                # Use shared utility to extract dependency project IDs
+                found_ids = extract_dependency_project_ids(prophecy_json)
+                dependency_project_ids.update(found_ids)
+
+        # Load configurations from each dependency project
+        for project_id in dependency_project_ids:
+            dependency_path = os.path.join(self.project.project_path, ".prophecy", project_id)
+            config_path = os.path.join(dependency_path, "projectConfigurations/config/code/configs")
+
+            if os.path.exists(config_path):
+                log(f"Config path exists for dependency project {project_id}: {config_path}", step_id=self._STEP_ID)
+
+                configurations = {}
+                for file_name in os.listdir(config_path):
+                    if file_name.endswith(".json"):
+                        file_path = os.path.join(config_path, file_name)
+                        with open(file_path, "r") as file:
+                            content = file.read()
+                            config_name = file_name[:-5]  # Remove .json extension
+                            configurations[config_name] = content
+
+                if configurations:
+                    dependency_configs[project_id] = configurations
+                    # Log the configurations that will be uploaded to Summary
+                    for config_name in configurations.keys():
+                        log(f"Uploading dependency project {project_id} configuration {config_name}", "Summary")
+
+        return dependency_configs
 
     def _spark_submit_fabrics(self):
         return self._fabric_config.airflow_open_source_fabrics()
 
     def summary(self) -> List[str]:
         summary = []
-        if (len(self.subscribed_project_configurations) > 0 or len(self.project_configurations) > 0) and len(
-            self._spark_submit_fabrics()
-        ) > 0:
+        if (
+            len(self.subscribed_project_configurations) > 0
+            or len(self.project_configurations) > 0
+            or len(self.dependency_project_configurations) > 0
+        ) and len(self._spark_submit_fabrics()) > 0:
             for config_name in self.subscribed_project_configurations.keys():
                 summary.append(f"Uploading project spark-submit-configuration {config_name}")
             for config_name in self.project_configurations.keys():
                 summary.append(f"Uploading project spark-submit-configuration {config_name}")
+            for project_id, configs in self.dependency_project_configurations.items():
+                for config_name in configs.keys():
+                    summary.append(
+                        f"Uploading dependency project {project_id} spark-submit-configuration {config_name}"
+                    )
         return summary
 
     def headers(self) -> List[StepMetadata]:
         total_configs = len(self.subscribed_project_configurations) + len(self.project_configurations)
+        # Add dependency project configurations to the total
+        for configs in self.dependency_project_configurations.values():
+            total_configs += len(configs)
         if total_configs > 0 and len(self._spark_submit_fabrics()) > 0:
             return [
                 StepMetadata(
@@ -1267,23 +1437,57 @@ class SparkSubmitProjectConfigurations:
 
             path = self.project_config.system_config.get_hdfs_base_path()
             project_path = f"{path}/{self.project.project_id}/{self.project.release_version}/configurations"
-            configuration_relative_directory = project_path
 
+            configuration_relative_directory = project_path
             configs = {
                 f"{configuration_name}.json": configuration_content
                 for configuration_name, configuration_content in self.project_configurations.items()
             }
-
             suffix = secrets.token_hex(4)
             output_zip_file_path = f"/tmp/configurations_{suffix}.zip"
             zip_folder(configs, output_zip_file_path)
-
             for fabric_info in self._spark_submit_fabrics():
                 if fabric_info.airflow_oss is not None:
                     execute_job(
                         fabric_info, configuration_relative_directory, output_zip_file_path, "configurations.zip"
                     )
 
+            for configuration_name, configuration_content in self.subscribed_project_configurations.items():
+                configuration_file_name = f"{configuration_name}.jsn"
+                configuration_relative_directory = project_path
+                for fabric_info in self._spark_submit_fabrics():
+                    if fabric_info.airflow_oss is not None:
+                        execute_job(
+                            fabric_info,
+                            configuration_relative_directory,
+                            configuration_file_name,
+                            configuration_content,
+                        )
+            for configuration_name, configuration_content in self.project_configurations.items():
+                configuration_file_name = f"{configuration_name}.jsn"
+                configuration_relative_directory = project_path
+                for fabric_info in self._spark_submit_fabrics():
+                    if fabric_info.airflow_oss is not None:
+                        execute_job(
+                            fabric_info,
+                            configuration_relative_directory,
+                            configuration_file_name,
+                            configuration_content,
+                        )
+            # Upload dependency project configurations
+            for project_id, configurations in self.dependency_project_configurations.items():
+                dep_project_path = f"{path}/{project_id}/{self.project.release_version}/configurations"
+                for configuration_name, configuration_content in configurations.items():
+                    configuration_file_name = f"{configuration_name}.jsn"
+                    configuration_relative_directory = dep_project_path
+                    for fabric_info in self._spark_submit_fabrics():
+                        if fabric_info.airflow_oss is not None:
+                            execute_job(
+                                fabric_info,
+                                configuration_relative_directory,
+                                configuration_file_name,
+                                configuration_content,
+                            )
         return await_futures_and_update_states(futures, self._STEP_ID)
 
     def _upload_configuration(
