@@ -17,7 +17,7 @@ def get_maven_opts():
     existing_opts = os.environ.get("MAVEN_OPTS", "").strip()
 
     if not existing_opts:
-        return "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m"
+        return "-Xmx1024m -XX:MaxMetaspaceSize=512m -Xss32m -Dfile.encoding=UTF-8"
 
     # Check which specific default options are missing and append them
     result = existing_opts
