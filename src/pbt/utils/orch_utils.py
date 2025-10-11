@@ -40,11 +40,11 @@ def generate_job_json_template(
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
     wheel_filename = f"{package_name}-1.0.0-py3-none-any.whl"
     
-    # Base path for wheel file
-    wheel_path = f"dbfs:/FileStore/prophecy/artifacts/saas/app/jpmc/orchestrate/{project_id}/{wheel_filename}"
+    # Base path for wheel file (Workspace Files for DBR 15+ compatibility)
+    wheel_path = f"/Workspace/Shared/prophecy/orch/jpmc/wheel-exec/{project_name}/{pipeline_name}/{wheel_filename}"
     
     # Job name and cluster key
-    job_name = f"{pipeline_name}_orchestration_job"
+    job_name = f"prophecy_{project_name}_{pipeline_name}_orchestration_job"
     job_cluster_key = f"{job_name}_cluster"
     
     job_json = {
@@ -95,7 +95,7 @@ def generate_job_json_template(
                     },
                     "node_type_id": node_type,
                     "enable_elastic_disk": False,
-                    "data_security_mode": "DATA_SECURITY_MODE_DEDICATED",
+                    "data_security_mode": "NONE",
                     "runtime_engine": "PHOTON",
                     "kind": "CLASSIC_PREVIEW",
                     "is_single_node": True,
@@ -144,213 +144,16 @@ def generate_setup_py_content(project_name: str, pipeline_name: str, project_pat
     """
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
     
-    setup_py_content = f'''import os
-import sys
-import subprocess
-from setuptools import setup, find_packages
-from setuptools.command.install import install
-
-class OrchestrationInstall(install):
-    """Custom install command that runs orchestration."""
+    # Build paths that will be used in the setup.py
+    project_data_pattern = f"{project_name}/**"
+    requirements_path = os.path.join(project_path, "data", project_name, "cicd", "requirements-pipeline.txt")
     
-    def run(self):
-        """Execute the orchestration workflow."""
-
-        # Detect if we're in a wheel build context vs actual install
-        # During bdist_wheel, install_lib path contains 'build/bdist' or 'build\\\\bdist'
-        # During real install in Databricks, it goes to site-packages
-        install_lib = getattr(self, 'install_lib', '')
-        
-        if 'build' in install_lib and ('bdist' in install_lib or 'wheel' in install_lib):
-            # We're building the wheel, not actually installing - skip orchestration
-            install.run(self)
-            return
-        
-        # Check if we're in Databricks orchestration context
-        orch_binary_path = os.environ.get("ORCHESTRATION_BINARY_PATH")
-        
-        if not orch_binary_path:
-            # Not in orchestration context - just do standard install
-            install.run(self)
-            return
-        
-        print("Starting orchestration execution...")
-        
-        print(f"Orchestration binary path: {{orch_binary_path}}")
-        
-        # Set up execution paths
-        project_name = "{project_name}"
-        pipeline_name = "{pipeline_name}"
-        package_name = "{package_name}"
-        
-        execution_base = f"/tmp/prophecy/orchestrate-exec/{{project_name}}/{{pipeline_name}}"
-        os.makedirs(execution_base, exist_ok=True)
-        print(f"Execution directory: {{execution_base}}")
-        
-        # Change to execution directory
-        os.chdir(execution_base)
-        
-        # Get the wheel filename
-        wheel_filename = f"{{package_name}}-{version}-py3-none-any.whl"
-        wheel_path = os.path.join(execution_base, wheel_filename)
-        
-        # Copy wheel from DBFS to execution path using dbutils
-        try:
-            print(f"Downloading wheel from DBFS...")
-            # Construct DBFS source path
-            dbfs_wheel_path = f"dbfs:/FileStore/prophecy/orch/{{project_name}}/{{pipeline_name}}/{{wheel_filename}}"
-            
-            # Use dbutils to copy from DBFS
-            dbutils.fs.cp(dbfs_wheel_path, f"file://{{wheel_path}}")
-            print(f"Downloaded wheel to: {{wheel_path}}")
-        
-        except Exception as e:
-            print(f"ERROR: Failed to download wheel: {{e}}")
-            sys.exit(1)
-        
-        # Unzip the wheel using unzip command
-        try:
-            print(f"Extracting wheel...")
-            result = subprocess.run(
-                ['unzip', '-o', wheel_path, '-d', execution_base],
-                check=True,
-                capture_output=True,
-                text=True
-            )
-            print(f"Wheel extracted to: {{execution_base}}")
-        except subprocess.CalledProcessError as e:
-            print(f"ERROR: Failed to extract wheel: {{e}}")
-            if e.stderr:
-                print(f"{{e.stderr}}")
-            sys.exit(1)
-        except Exception as e:
-            print(f"ERROR: Failed to extract wheel: {{e}}")
-            sys.exit(1)
-        
-        # Get access token from auth.py if it exists
-        try:
-            print(f"Getting access token from auth.py...")
-            
-            # Add extraction directory to Python path to import auth module
-            sys.path.insert(0, execution_base)
-            
-            # Try to import and call get_access_token from cicd/scripts/auth.py
-            auth_module_path = os.path.join(execution_base, "cicd", "scripts", "auth.py")
-            
-            if os.path.exists(auth_module_path):
-                # Import the auth module
-                import importlib.util
-                spec = importlib.util.spec_from_file_location("auth", auth_module_path)
-                auth = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(auth)
-                
-                # Call get_access_token() to get the token
-                access_token = auth.get_access_token()
-                print(f"Successfully obtained access token")
-                
-                # Set environment variables
-                os.environ["PROPHECY_CREDS_DBX_TOKEN"] = access_token
-                print(f"Set PROPHECY_CREDS_DBX_TOKEN environment variable")
-            else:
-                print(f"Warning: auth.py not found at {{auth_module_path}}, skipping token generation")
-                
-        except Exception as e:
-            print(f"Warning: Failed to get access token from auth.py: {{e}}")
-            # Continue execution - token might be provided another way
-        
-        # Set other credential environment variables from Databricks secrets
-        try:
-            # Get secrets from Databricks secret scope using dbutils
-            dbx_jdbcurl = dbutils.secrets.get(scope="prophecy", key="dbx_jdbcurl")
-            tableau_token = dbutils.secrets.get(scope="prophecy", key="tableau_token")
-            
-            os.environ["PROPHECY_CREDS_DBX_JDBCURL"] = dbx_jdbcurl
-            os.environ["PROPHECY_CREDS_TABLEAU_TOKEN"] = tableau_token
-            print(f"Set credential environment variables from Databricks secrets")
-        except Exception as e:
-            print(f"Warning: Failed to get secrets from Databricks: {{e}}")
-        
-        # Copy orchestration binary to execution path using dbutils
-        try:
-            print(f"Copying orchestration binary (deploy-cli)...")
-            binary_name = "deploy-cli"
-            local_binary_path = os.path.join(execution_base, binary_name)
-            
-            # Use dbutils to copy the binary
-            dbutils.fs.cp(f"file://{{orch_binary_path}}", f"file://{{local_binary_path}}")
-            print(f"Binary copied to: {{local_binary_path}}")
-            
-            # Make the binary executable
-            os.chmod(binary_name, 0o755)
-            print(f"Binary is now executable")
-        except Exception as e:
-            print(f"ERROR: Failed to copy/setup binary: {{e}}")
-            sys.exit(1)
-        
-        # Run the orchestration binary with streaming output
-        try:
-            print(f"\\nExecuting orchestration binary...")
-            print("=" * 80)
-            
-            # Build the command: ./deploy-cli run <execution_base> --project-id <id> --pipeline-name <name>
-            # The execution_base already points to /tmp/prophecy/orchestrate-exec/{project_name}/{pipeline_name}
-            # We're already in execution_base (os.chdir above), so use ./deploy-cli
-            command = [
-                f"./{{binary_name}}",
-                "run",
-                execution_base,
-                "--project-id", project_name,
-                "--pipeline-name", pipeline_name
-            ]
-            
-            print(f"Command: {{' '.join(command)}}")
-            print("=" * 80)
-            
-            # Prepare environment variables for the deploy-cli execution
-            env = os.environ.copy()
-            env["ORCHESTRATION_BINARY_PATH"] = orch_binary_path
-            
-            # Run the binary and stream output in real-time
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
-                env=env
-            )
-            
-            # Stream output line by line
-            for line in process.stdout:
-                print(line, end='')
-                sys.stdout.flush()
-            
-            # Wait for process to complete
-            return_code = process.wait()
-            
-            print("=" * 80)
-            print(f"\\nOrchestration completed with exit code: {{return_code}}")
-            
-            if return_code != 0:
-                print(f"ERROR: Orchestration failed with exit code {{return_code}}")
-                sys.exit(return_code)
-            
-        except Exception as e:
-            print(f"ERROR: Failed to execute orchestration binary: {{e}}")
-            sys.exit(1)
-        
-        print("\\nOrchestration execution completed successfully!")
-        
-        # Now run the standard install
-        install.run(self)
-
-# The pipeline .py file should be in the same directory as this setup.py
-# (it will be copied there during build)
+    setup_py_content = f'''import os
+from setuptools import setup
 
 # Read dependencies from requirements-pipeline.txt if it exists
 install_requires = []
-requirements_file = os.path.join("{project_path}", "cicd", "requirements-pipeline.txt")
+requirements_file = "{requirements_path}"
 
 if os.path.exists(requirements_file):
     with open(requirements_file, 'r') as f:
@@ -363,14 +166,20 @@ if os.path.exists(requirements_file):
 setup(
     name="{package_name}",
     version="{version}",
-    py_modules=["{pipeline_name}"],  # Single Python module: {pipeline_name}.py
-    packages=find_packages(include=['cicd*']),  # Include cicd package if it exists
+    packages=['{package_name}'],  # Single package
+    package_data={{
+        '{package_name}': ['data/**/*', 'data/**/.*'],  # Include all project files in data/
+    }},
+    include_package_data=True,
     install_requires=install_requires,
-    cmdclass={{
-        'install': OrchestrationInstall,
+    entry_points={{
+        'console_scripts': [
+            'main = {package_name}.__main__:main',
+        ],
     }},
     python_requires=">=3.7",
     description="Prophecy Pipeline Orchestration: {pipeline_name}",
+    zip_safe=False,
 )
 '''
     return setup_py_content
