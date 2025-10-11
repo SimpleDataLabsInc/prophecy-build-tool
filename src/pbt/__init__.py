@@ -495,6 +495,66 @@ def tag(path, repo_path, no_push, branch, custom):
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
 
 
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+def generate_p4b_job(path):
+    """Generate Databricks job JSON files for all pipelines in the project."""
+    from .orchestration_commands import OrchestrationCommands
+    
+    try:
+        orch = OrchestrationCommands(path)
+        orch.generate_p4b_job()
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+def build_orch(path):
+    """Build Python wheels for orchestration."""
+    from .orchestration_commands import OrchestrationCommands
+    
+    try:
+        orch = OrchestrationCommands(path)
+        orch.build_orch()
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--pipeline-name",
+    help="Optional: specific pipeline name to deploy. If not provided, all pipelines will be deployed.",
+    default=None,
+    required=False,
+)
+def deploy_orch(path, pipeline_name):
+    """Deploy orchestration: upload wheels and create Databricks jobs."""
+    from .orchestration_commands import OrchestrationCommands
+    
+    try:
+        orch = OrchestrationCommands(path)
+        orch.deploy_orch(pipeline_name)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
 def main():
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"
