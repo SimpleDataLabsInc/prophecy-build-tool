@@ -143,9 +143,6 @@ def generate_setup_py_content(project_name: str, pipeline_name: str, project_pat
         String containing the setup.py content
     """
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
-    
-    # Build paths that will be used in the setup.py
-    project_data_pattern = f"{project_name}/**"
     requirements_path = os.path.join(project_path, "data", project_name, "cicd", "requirements-pipeline.txt")
     
     setup_py_content = f'''import os
@@ -166,9 +163,9 @@ if os.path.exists(requirements_file):
 setup(
     name="{package_name}",
     version="{version}",
-    packages=['{package_name}'],  # Single package
+    packages=['{package_name}', 'data'],  # Two packages
     package_data={{
-        '{package_name}': ['data/**/*', 'data/**/.*'],  # Include all project files in data/
+        'data': ['{project_name}/**/*', '{project_name}/**/.*'],  # Include all project files
     }},
     include_package_data=True,
     install_requires=install_requires,
