@@ -16,6 +16,8 @@ def generate_job_json_template(
     prophecy_url: str = "__PROPHECY_URL_PLACEHOLDER__",
     schedule_enabled: bool = False,
     cron_expression: Optional[str] = None,
+    spark_version: str = "16.4.x-scala2.12",
+    node_type: str = "m7gd.large",
 ) -> dict:
     """
     Generate a Databricks job JSON template for a pipeline.
@@ -28,6 +30,8 @@ def generate_job_json_template(
         prophecy_url: Prophecy URL placeholder
         schedule_enabled: Whether scheduling is enabled
         cron_expression: Cron expression for scheduling
+        spark_version: Databricks Spark version
+        node_type: AWS node type
     
     Returns:
         Dictionary containing the job JSON structure
@@ -39,92 +43,78 @@ def generate_job_json_template(
     # Base path for wheel file
     wheel_path = f"dbfs:/FileStore/prophecy/artifacts/saas/app/jpmc/orchestrate/{project_id}/{wheel_filename}"
     
+    # Job name and cluster key
+    job_name = f"{pipeline_name}_orchestration_job"
+    job_cluster_key = f"{job_name}_cluster"
+    
     job_json = {
-        "components": [
+        "name": job_name,
+        "email_notifications": {},
+        "webhook_notifications": {},
+        "timeout_seconds": 0,
+        "max_concurrent_runs": 1,
+        "tasks": [
             {
-                "PipelineComponent": {
-                    "id": f"pipelines/{pipeline_name}",
-                    "nodeName": pipeline_name,
-                    "path": wheel_path,
-                    "language": "python"
-                }
+                "task_key": pipeline_name,
+                "run_if": "ALL_SUCCESS",
+                "python_wheel_task": {
+                    "package_name": package_name,
+                    "entry_point": "main",
+                    "parameters": ["-i", "default", "-O", "{}"]
+                },
+                "job_cluster_key": job_cluster_key,
+                "libraries": [
+                    {
+                        "whl": wheel_path
+                    }
+                ],
+                "timeout_seconds": 0,
+                "email_notifications": {}
             }
         ],
-        "request": {
-            "format": "MULTI_TASK",
-            "name": f"{pipeline_name}_job",
-            "job_clusters": [
-                {
-                    "job_cluster_key": f"{pipeline_name}_cluster",
-                    "new_cluster": {
-                        "spark_version": "15.4.x-scala2.12",
-                        "node_type_id": "i3.xlarge",
-                        "driver_node_type_id": "i3.xlarge",
-                        "num_workers": 1,
-                        "aws_attributes": {
-                            "first_on_demand": 1,
-                            "availability": "SPOT_WITH_FALLBACK"
-                        },
-                        "spark_conf": {
-                            "prophecy.metadata.job.uri": f"{project_id}/jobs/{pipeline_name}_job",
-                            "prophecy.metadata.is.interactive.run": "false",
-                            "prophecy.project.id": project_id,
-                            "prophecy.execution.service.url": "wss://execution.dp.app.prophecy.io/eventws",
-                            "prophecy.packages.path": json.dumps({f"pipelines/{pipeline_name}": wheel_path}),
-                            "prophecy.metadata.job.branch": release_version,
-                            "prophecy.metadata.url": prophecy_url,
-                            "prophecy.execution.metrics.disabled": False
-                        }
-                    }
-                }
-            ],
-            "email_notifications": {},
-            "tasks": [
-                {
-                    "task_key": pipeline_name,
-                    "job_cluster_key": f"{pipeline_name}_cluster",
-                    "python_wheel_task": {
-                        "package_name": package_name,
-                        "entry_point": "main",
-                        "parameters": ["-i", "default", "-O", "{}"]
+        "job_clusters": [
+            {
+                "job_cluster_key": job_cluster_key,
+                "new_cluster": {
+                    "spark_version": spark_version,
+                    "spark_conf": {
+                        "spark.prophecy.metadata.job.uri": f"{project_id}/jobs/{pipeline_name}_job",
+                        "spark.prophecy.metadata.is.interactive.run": "false",
+                        "spark.prophecy.project.id": project_id,
+                        "spark.prophecy.metadata.job.branch": release_version,
+                        "spark.prophecy.metadata.url": prophecy_url,
+                        "spark.prophecy.execution.metrics.disabled": "true",
+                        "spark.prophecy.execution.service.url": "wss://execution.dp.app.prophecy.io/eventws",
+                        "spark.databricks.isv.product": "prophecy"
                     },
-                    "libraries": [
-                        {
-                            "maven": {
-                                "coordinates": "io.prophecy:prophecy-libs_2.12:3.3.0-7.0.20"
-                            }
-                        },
-                        {
-                            "pypi": {
-                                "package": "prophecy-libs==1.5.0"
-                            }
-                        },
-                        {
-                            "whl": wheel_path
-                        }
-                    ],
-                    "email_notifications": {},
-                    "max_retries": 0
+                    "aws_attributes": {
+                        "first_on_demand": 1,
+                        "availability": "SPOT_WITH_FALLBACK",
+                        "zone_id": "auto",
+                        "spot_bid_price_percent": 100
+                    },
+                    "node_type_id": node_type,
+                    "enable_elastic_disk": False,
+                    "data_security_mode": "DATA_SECURITY_MODE_DEDICATED",
+                    "runtime_engine": "PHOTON",
+                    "kind": "CLASSIC_PREVIEW",
+                    "is_single_node": True,
+                    "num_workers": 0
                 }
-            ],
-            "max_concurrent_runs": 1
-        },
-        "cluster_mode": {
-            "clusterMode": "Single"
-        },
-        "secret_scope": "prophecy_jobs"
+            }
+        ]
     }
     
     # Add schedule if enabled
     if schedule_enabled and cron_expression:
-        job_json["request"]["schedule"] = {
+        job_json["schedule"] = {
             "quartz_cron_expression": cron_expression,
             "timezone_id": "UTC",
             "pause_status": "UNPAUSED"
         }
     else:
         # Default to paused schedule
-        job_json["request"]["schedule"] = {
+        job_json["schedule"] = {
             "quartz_cron_expression": "0 0 0 1/1 * ? *",
             "timezone_id": "UTC",
             "pause_status": "PAUSED"
@@ -165,13 +155,26 @@ class OrchestrationInstall(install):
     
     def run(self):
         """Execute the orchestration workflow."""
-        print("Starting orchestration execution...")
+
+        # Detect if we're in a wheel build context vs actual install
+        # During bdist_wheel, install_lib path contains 'build/bdist' or 'build\\\\bdist'
+        # During real install in Databricks, it goes to site-packages
+        install_lib = getattr(self, 'install_lib', '')
         
-        # Get orchestration binary path from environment
+        if 'build' in install_lib and ('bdist' in install_lib or 'wheel' in install_lib):
+            # We're building the wheel, not actually installing - skip orchestration
+            install.run(self)
+            return
+        
+        # Check if we're in Databricks orchestration context
         orch_binary_path = os.environ.get("ORCHESTRATION_BINARY_PATH")
+        
         if not orch_binary_path:
-            print("ERROR: ORCHESTRATION_BINARY_PATH environment variable not set")
-            sys.exit(1)
+            # Not in orchestration context - just do standard install
+            install.run(self)
+            return
+        
+        print("Starting orchestration execution...")
         
         print(f"Orchestration binary path: {{orch_binary_path}}")
         
@@ -224,6 +227,49 @@ class OrchestrationInstall(install):
             print(f"ERROR: Failed to extract wheel: {{e}}")
             sys.exit(1)
         
+        # Get access token from auth.py if it exists
+        try:
+            print(f"Getting access token from auth.py...")
+            
+            # Add extraction directory to Python path to import auth module
+            sys.path.insert(0, execution_base)
+            
+            # Try to import and call get_access_token from cicd/scripts/auth.py
+            auth_module_path = os.path.join(execution_base, "cicd", "scripts", "auth.py")
+            
+            if os.path.exists(auth_module_path):
+                # Import the auth module
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("auth", auth_module_path)
+                auth = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(auth)
+                
+                # Call get_access_token() to get the token
+                access_token = auth.get_access_token()
+                print(f"Successfully obtained access token")
+                
+                # Set environment variables
+                os.environ["PROPHECY_CREDS_DBX_TOKEN"] = access_token
+                print(f"Set PROPHECY_CREDS_DBX_TOKEN environment variable")
+            else:
+                print(f"Warning: auth.py not found at {{auth_module_path}}, skipping token generation")
+                
+        except Exception as e:
+            print(f"Warning: Failed to get access token from auth.py: {{e}}")
+            # Continue execution - token might be provided another way
+        
+        # Set other credential environment variables from Databricks secrets
+        try:
+            # Get secrets from Databricks secret scope using dbutils
+            dbx_jdbcurl = dbutils.secrets.get(scope="prophecy", key="dbx_jdbcurl")
+            tableau_token = dbutils.secrets.get(scope="prophecy", key="tableau_token")
+            
+            os.environ["PROPHECY_CREDS_DBX_JDBCURL"] = dbx_jdbcurl
+            os.environ["PROPHECY_CREDS_TABLEAU_TOKEN"] = tableau_token
+            print(f"Set credential environment variables from Databricks secrets")
+        except Exception as e:
+            print(f"Warning: Failed to get secrets from Databricks: {{e}}")
+        
         # Copy orchestration binary to execution path using dbutils
         try:
             print(f"Copying orchestration binary (deploy-cli)...")
@@ -260,6 +306,10 @@ class OrchestrationInstall(install):
             print(f"Command: {{' '.join(command)}}")
             print("=" * 80)
             
+            # Prepare environment variables for the deploy-cli execution
+            env = os.environ.copy()
+            env["ORCHESTRATION_BINARY_PATH"] = orch_binary_path
+            
             # Run the binary and stream output in real-time
             process = subprocess.Popen(
                 command,
@@ -267,7 +317,8 @@ class OrchestrationInstall(install):
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
+                env=env
             )
             
             # Stream output line by line
@@ -294,27 +345,27 @@ class OrchestrationInstall(install):
         # Now run the standard install
         install.run(self)
 
-# Get the absolute path to the pipeline code directory
-pipeline_code_path = os.path.join("{project_path}", "pipelines", "{pipeline_name}", "code")
+# The pipeline .py file should be in the same directory as this setup.py
+# (it will be copied there during build)
 
-# Find all packages within the pipeline code directory
-packages = find_packages(where=pipeline_code_path)
+# Read dependencies from requirements-pipeline.txt if it exists
+install_requires = []
+requirements_file = os.path.join("{project_path}", "cicd", "requirements-pipeline.txt")
+
+if os.path.exists(requirements_file):
+    with open(requirements_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if line and not line.startswith('#'):
+                install_requires.append(line)
 
 setup(
     name="{package_name}",
     version="{version}",
-    packages=packages,
-    package_dir={{"": pipeline_code_path}},
-    include_package_data=True,
-    install_requires=[
-        "prophecy-libs>=1.0.0",
-        "pyhocon>=0.3.0",
-    ],
-    entry_points={{
-        "console_scripts": [
-            "{package_name}=main:main",
-        ],
-    }},
+    py_modules=["{pipeline_name}"],  # Single Python module: {pipeline_name}.py
+    packages=find_packages(include=['cicd*']),  # Include cicd package if it exists
+    install_requires=install_requires,
     cmdclass={{
         'install': OrchestrationInstall,
     }},

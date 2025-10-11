@@ -180,13 +180,30 @@ class OrchestrationCommands:
             print(f"\n  Building wheel for pipeline: {pipeline_name}")
             
             try:
-                # Create a temporary directory for setup.py
+                # Create a temporary directory for building
                 with tempfile.TemporaryDirectory() as temp_dir:
+                    # Copy the pipeline .py file to temp directory
+                    pipeline_source = os.path.join(self.pipelines_dir, f"{pipeline_name}.py")
+                    pipeline_dest = os.path.join(temp_dir, f"{pipeline_name}.py")
+                    
+                    if not os.path.exists(pipeline_source):
+                        raise FileNotFoundError(f"Pipeline file not found: {pipeline_source}")
+                    
+                    import shutil
+                    shutil.copy(pipeline_source, pipeline_dest)
+                    
+                    # Copy cicd folder if it exists (for auth.py and requirements-pipeline.txt)
+                    cicd_source = os.path.join(self.project_path, "cicd")
+                    if os.path.exists(cicd_source):
+                        cicd_dest = os.path.join(temp_dir, "cicd")
+                        shutil.copytree(cicd_source, cicd_dest)
+                        print(f"    Copied cicd/ folder for dependencies and auth")
+                    
                     # Generate setup.py content
                     setup_py_content = generate_setup_py_content(
                         project_name=self.project_name,
                         pipeline_name=pipeline_name,
-                        project_path=self.project_path,
+                        project_path=temp_dir,  # Use temp_dir as the base
                     )
                     
                     # Write setup.py to temp directory
@@ -209,8 +226,11 @@ class OrchestrationCommands:
                         built_count += 1
                     else:
                         print(f"    ERROR: Failed to build wheel for {pipeline_name}")
+                        print(f"    Return code: {result.returncode}")
+                        if result.stdout:
+                            print(f"    STDOUT:\n{result.stdout}")
                         if result.stderr:
-                            print(f"    {result.stderr}")
+                            print(f"    STDERR:\n{result.stderr}")
                         failed_pipelines.append(pipeline_name)
                 
             except Exception as e:
@@ -369,30 +389,21 @@ class OrchestrationCommands:
                 with open(job_filepath, 'r') as f:
                     job_json = json.load(f)
                 
-                # Update wheel path in job JSON (in the request section)
-                job_request = job_json.get("request", {})
-                
                 # Update wheel paths in tasks
-                for task in job_request.get("tasks", []):
+                for task in job_json.get("tasks", []):
                     if "libraries" in task:
                         for lib in task["libraries"]:
                             if "whl" in lib:
                                 lib["whl"] = dbfs_path
                 
-                # Update components
-                if "components" in job_json:
-                    for component in job_json["components"]:
-                        if "PipelineComponent" in component:
-                            component["PipelineComponent"]["path"] = dbfs_path
-                
                 # Create the job
                 print(f"    Creating Databricks job...")
-                response = client.create_job(job_request)
+                response = client.create_job(job_json)
                 job_id = response.get("job_id")
                 
                 print(f"    Job created successfully")
                 print(f"    Job ID: {job_id}")
-                print(f"    Job Name: {job_request.get('name')}")
+                print(f"    Job Name: {job_json.get('name')}")
                 
                 deployed_count += 1
                 
