@@ -261,29 +261,28 @@ def main():
     # Change to execution directory
     os.chdir(execution_base)
     
-    # Get access token from auth.py if it exists
+    # Get access token from auth.py if available
+    print("Setting up credentials...")
     try:
-        print(f"Getting access token from auth.py...")
+        # Get the correct site-packages
+        this_file_dir = os.path.dirname(os.path.abspath(__file__))
+        site_packages = os.path.dirname(this_file_dir)
+        data_package_path = os.path.join(site_packages, "data")
         
-        # Project files are in data/project_name/ within the package
-        import site
-        site_packages = site.getsitepackages()[0]
-        project_data_path = os.path.join(site_packages, "data", project_name)
-        cicd_scripts_dir = os.path.join(project_data_path, "cicd", "scripts")
-        
-        if os.path.exists(os.path.join(cicd_scripts_dir, "auth.py")):
-            sys.path.insert(0, cicd_scripts_dir)
-            import auth
-            access_token = auth.get_access_token()
-            print(f"Successfully obtained access token")
-            
-            os.environ["PROPHECY_CREDS_DBX_TOKEN"] = access_token
-            print(f"Set PROPHECY_CREDS_DBX_TOKEN environment variable")
-        else:
-            print(f"Warning: auth.py not found, skipping token generation")
-            
+        # Find cicd/scripts/auth.py
+        for item in os.listdir(data_package_path):
+            item_path = os.path.join(data_package_path, item)
+            if os.path.isdir(item_path):
+                cicd_scripts_dir = os.path.join(item_path, "cicd", "scripts")
+                if os.path.exists(os.path.join(cicd_scripts_dir, "auth.py")):
+                    sys.path.insert(0, cicd_scripts_dir)
+                    import auth
+                    access_token = auth.get_access_token()
+                    os.environ["PROPHECY_CREDS_DBX_TOKEN"] = access_token
+                    print("Obtained access token from auth.py")
+                    break
     except Exception as e:
-        print(f"Warning: Failed to get access token from auth.py: {{e}}")
+        pass
     
     # Set credential environment variables from Databricks secrets
     try:
@@ -291,10 +290,12 @@ def main():
         tableau_token = dbutils.secrets.get(scope="prophecy", key="tableau_token")
         os.environ["PROPHECY_CREDS_DBX_JDBCURL"] = dbx_jdbcurl
         os.environ["PROPHECY_CREDS_TABLEAU_TOKEN"] = tableau_token
+        print("Retrieved secrets from Databricks")
     except Exception as e:
         pass
     
     # Copy orchestration binary to execution directory
+    print("Preparing orchestration binary...")
     try:
         binary_name = "deploy-cli"
         local_binary_path = os.path.join(execution_base, binary_name)
@@ -302,35 +303,50 @@ def main():
         import shutil
         shutil.copy(orch_binary_path, local_binary_path)
         os.chmod(local_binary_path, 0o755)
+        print("Binary ready")
     except Exception as e:
-        print(f"ERROR: Failed to copy binary: {{e}}")
+        print(f"ERROR: Failed to prepare binary: {{e}}")
         sys.exit(1)
     
     # Copy project files from data package
+    print("Copying project files...")
     try:
-        import site
-        site_packages = site.getsitepackages()[0]
-        data_package_path = os.path.join(site_packages, "data")
+        # Get the correct site-packages (where THIS module is installed)
+        this_file_dir = os.path.dirname(os.path.abspath(__file__))
+        site_packages = os.path.dirname(this_file_dir)
         
-        if os.path.exists(data_package_path):
-            data_contents = os.listdir(data_package_path)
-            project_dir_found = None
+        # Try both locations: data/ package OR main_package/data/
+        package_name_full = "{self.project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_").lower()
+        
+        data_package_path = os.path.join(site_packages, "data")
+        data_in_main_path = os.path.join(site_packages, package_name_full, "data")
+        
+        project_dir_found = None
+        
+        if os.path.exists(data_in_main_path):
+            project_dir_found = data_in_main_path
+        elif os.path.exists(data_package_path):
+            data_contents = [d for d in os.listdir(data_package_path) if d != "__pycache__" and d != "__init__.py"]
             for item in data_contents:
                 item_path = os.path.join(data_package_path, item)
-                if os.path.isdir(item_path) and item != "__pycache__":
+                if os.path.isdir(item_path):
                     project_dir_found = item_path
                     break
-            
-            if project_dir_found:
-                import shutil
-                for item in os.listdir(project_dir_found):
-                    src = os.path.join(project_dir_found, item)
-                    dst = os.path.join(execution_base, item)
-                    if os.path.isdir(src):
-                        if not os.path.exists(dst):
-                            shutil.copytree(src, dst)
-                    else:
-                        shutil.copy(src, dst)
+        
+        if project_dir_found:
+            import shutil
+            copied_count = 0
+            for item in os.listdir(project_dir_found):
+                src = os.path.join(project_dir_found, item)
+                dst = os.path.join(execution_base, item)
+                if os.path.isdir(src):
+                    if not os.path.exists(dst):
+                        shutil.copytree(src, dst)
+                        copied_count += 1
+                else:
+                    shutil.copy(src, dst)
+                    copied_count += 1
+            print(f"Copied {{copied_count}} project items")
     except Exception as e:
         pass
     
@@ -366,14 +382,16 @@ def main():
             sys.stdout.flush()
         
         return_code = process.wait()
-        
         print("=" * 80)
         
         if return_code != 0:
             sys.exit(return_code)
         
     except Exception as e:
-        print(f"ERROR: Failed to execute binary: {{e}}")
+        if "Exec format error" in str(e):
+            print(f"\\nERROR: Binary is wrong architecture (needs Linux x86_64)")
+        else:
+            print(f"\\nERROR: {{e}}")
         sys.exit(1)
 
 if __name__ == "__main__":
