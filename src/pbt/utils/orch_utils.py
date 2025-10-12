@@ -165,7 +165,7 @@ setup(
     version="{version}",
     packages=['{package_name}', 'data'],  # Two packages
     package_data={{
-        'data': ['{project_name}/**/*', '{project_name}/**/.*'],  # Include all project files
+        'data': ['{project_name}/**/*', '{project_name}/**/.*', '{project_name}/**/.*/**/*'],  # Include all project files
     }},
     include_package_data=True,
     install_requires=install_requires,
@@ -227,14 +227,22 @@ def check_schedule_enabled(resolved_pipeline_json: Optional[dict]) -> Tuple[bool
 
     try:
         # Check if there's a schedule configuration
-        schedule = resolved_pipeline_json.get("schedule", {})
+        metainfo = resolved_pipeline_json.get("metainfo", {})
         
-        if not schedule:
+        if not metainfo:
+            print("Warning: Could not find metainfo in resolved pipeline JSON")
             return False, None
-        
+
+        schedule = metainfo.get("schedule", {})
+
+        if not schedule:
+            print("Warning: Could not find schedule in metainfo")
+            return False, None
+
+
         # Check if schedule is enabled
         enabled = schedule.get("enabled", False)
-        cron_expression = schedule.get("cronExpression", None)
+        cron_expression = schedule.get("cron", None)
         
         return enabled, cron_expression
     

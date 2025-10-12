@@ -596,7 +596,7 @@ if __name__ == "__main__":
                     client.reset_job(existing_job_id, job_json)
                     job_id = existing_job_id
                 else:
-                    print(f"    Creating job")
+                    print(f"    Creating job...")
                     response = client.create_job(job_json)
                     job_id = response.get("job_id")
                 
