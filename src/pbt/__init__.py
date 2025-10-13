@@ -504,7 +504,7 @@ def tag(path, repo_path, no_push, branch, custom):
 def generate_p4b_job(path):
     """Generate Databricks job JSON files for all pipelines in the project."""
     from .orchestration_commands import OrchestrationCommands
-    
+
     try:
         orch = OrchestrationCommands(path)
         orch.generate_p4b_job()
@@ -522,7 +522,7 @@ def generate_p4b_job(path):
 def build_orch(path):
     """Build Python wheels for orchestration."""
     from .orchestration_commands import OrchestrationCommands
-    
+
     try:
         orch = OrchestrationCommands(path)
         orch.build_orch()
@@ -546,7 +546,7 @@ def build_orch(path):
 def deploy_orch(path, pipeline_name):
     """Deploy orchestration: upload wheels and create Databricks jobs."""
     from .orchestration_commands import OrchestrationCommands
-    
+
     try:
         orch = OrchestrationCommands(path)
         orch.deploy_orch(pipeline_name)

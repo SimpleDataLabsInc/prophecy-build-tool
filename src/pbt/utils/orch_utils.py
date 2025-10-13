@@ -22,7 +22,7 @@ def generate_job_json_template(
 ) -> dict:
     """
     Generate a Databricks job JSON template for a pipeline.
-    
+
     Args:
         pipeline_name: Name of the pipeline
         project_name: Name of the project
@@ -34,21 +34,21 @@ def generate_job_json_template(
         timezone: Timezone for schedule (default: UTC)
         spark_version: Databricks Spark version
         node_type: AWS node type
-    
+
     Returns:
         Dictionary containing the job JSON structure
     """
     # Sanitize pipeline name for package naming
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
     wheel_filename = f"{package_name}-1.0.0-py3-none-any.whl"
-    
+
     # Base path for wheel file (Workspace Files for DBR 15+ compatibility)
     wheel_path = f"/Workspace/Shared/prophecy/orch/jpmc/wheel-exec/{project_name}/{pipeline_name}/{wheel_filename}"
-    
+
     # Job name and cluster key
     job_name = f"prophecy_{project_name}_{pipeline_name}_orchestration_job"
     job_cluster_key = f"{job_name}_cluster"
-    
+
     job_json = {
         "name": job_name,
         "email_notifications": {},
@@ -62,16 +62,12 @@ def generate_job_json_template(
                 "python_wheel_task": {
                     "package_name": package_name,
                     "entry_point": "main",
-                    "parameters": ["-i", "default", "-O", "{}"]
+                    "parameters": ["-i", "default", "-O", "{}"],
                 },
                 "job_cluster_key": job_cluster_key,
-                "libraries": [
-                    {
-                        "whl": wheel_path
-                    }
-                ],
+                "libraries": [{"whl": wheel_path}],
                 "timeout_seconds": 0,
-                "email_notifications": {}
+                "email_notifications": {},
             }
         ],
         "job_clusters": [
@@ -87,69 +83,67 @@ def generate_job_json_template(
                         "spark.prophecy.metadata.url": prophecy_url,
                         "spark.prophecy.execution.metrics.disabled": "true",
                         "spark.prophecy.execution.service.url": "wss://execution.dp.app.prophecy.io/eventws",
-                        "spark.databricks.isv.product": "prophecy"
+                        "spark.databricks.isv.product": "prophecy",
                     },
                     "spark_env_vars": {
                         "ORCHESTRATOR_PATH": "{{secrets/prophecy/orchestrator_path}}",
                         "PROPHECY_CREDS_DBX_JDBCURL": "{{secrets/prophecy/dbx_jdbcurl}}",
                         "PROPHECY_CREDS_DBX_TOKEN": "{{secrets/prophecy/dbx_token}}",
-                        "PROPHECY_CREDS_TABLEAU_TOKEN": "{{secrets/prophecy/tableau_token}}"
+                        "PROPHECY_CREDS_TABLEAU_TOKEN": "{{secrets/prophecy/tableau_token}}",
                     },
-                    "aws_attributes": {
-                        "zone_id": "auto"
-                    },
+                    "aws_attributes": {"zone_id": "auto"},
                     "node_type_id": node_type,
                     "data_security_mode": "NONE",
                     "kind": "CLASSIC_PREVIEW",
                     "runtime_engine": "STANDARD",
                     "is_single_node": True,
-                    "num_workers": 0
-                }
+                    "num_workers": 0,
+                },
             }
-        ]
+        ],
     }
-    
+
     # Add schedule if enabled
     if schedule_enabled and cron_expression:
         job_json["schedule"] = {
             "quartz_cron_expression": cron_expression,
             "timezone_id": timezone,
-            "pause_status": "UNPAUSED"
+            "pause_status": "UNPAUSED",
         }
     else:
         # Default to paused schedule
         job_json["schedule"] = {
             "quartz_cron_expression": "0 0 0 1/1 * ? *",
             "timezone_id": timezone,
-            "pause_status": "PAUSED"
+            "pause_status": "PAUSED",
         }
-    
+
     return job_json
 
 
 def generate_setup_py_content(project_name: str, pipeline_name: str, project_path: str, version: str = "1.0.0") -> str:
     """
     Generate setup.py content for orchestration execution.
-    
+
     This creates a special setup.py that:
     1. Gets the orchestration binary from environment
     2. Creates execution directory
     3. Downloads and extracts the wheel from DBFS
     4. Runs the orchestration binary with streaming output
-    
+
     Args:
         project_name: Name of the project
         pipeline_name: Name of the pipeline
         project_path: Path to the project directory
         version: Version string for the package
-    
+
     Returns:
         String containing the setup.py content
     """
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
     requirements_path = os.path.join(project_path, "data", project_name, "cicd", "requirements-pipeline.txt")
-    
-    setup_py_content = f'''import os
+
+    setup_py_content = f"""import os
 from setuptools import setup
 
 # Base requirements (hardcoded)
@@ -216,37 +210,33 @@ setup(
     description="Prophecy Pipeline Orchestration: {pipeline_name}",
     zip_safe=False,
 )
-'''
+"""
     return setup_py_content
 
 
 def get_resolved_pipeline_info(project_path: str, pipeline_name: str) -> Optional[dict]:
     """
     Read and return resolved pipeline JSON information.
-    
+
     Args:
         project_path: Path to the project directory
         pipeline_name: Name of the pipeline
-    
+
     Returns:
         Dictionary containing the resolved pipeline info, or None if not found
     """
     resolved_pipeline_path = os.path.join(
-        project_path, 
-        ".prophecy", 
-        "ide", 
-        "resolved_pipelines", 
-        f"{pipeline_name}.json"
+        project_path, ".prophecy", "ide", "resolved_pipelines", f"{pipeline_name}.json"
     )
-    
+
     if os.path.exists(resolved_pipeline_path):
         try:
-            with open(resolved_pipeline_path, 'r') as f:
+            with open(resolved_pipeline_path, "r") as f:
                 return json.load(f)
         except Exception as e:
             print(f"Warning: Could not read resolved pipeline info for {pipeline_name}: {e}")
             return None
-    
+
     return None
 
 
@@ -266,7 +256,7 @@ def check_schedule_enabled(resolved_pipeline_json: Optional[dict]) -> Tuple[bool
     try:
         # Check if there's a schedule configuration
         metainfo = resolved_pipeline_json.get("metainfo", {})
-        
+
         if not metainfo:
             return False, None, None
 
@@ -279,9 +269,9 @@ def check_schedule_enabled(resolved_pipeline_json: Optional[dict]) -> Tuple[bool
         enabled = schedule.get("enabled", False)
         cron_expression = schedule.get("cron", None)
         timezone = metainfo.get("scheduleTimeZone", "UTC")  # Get timezone from metainfo
-        
+
         return enabled, cron_expression, timezone
-    
+
     except Exception as e:
         print(f"Warning: Could not parse schedule information: {e}")
         return False, None, None
@@ -290,10 +280,10 @@ def check_schedule_enabled(resolved_pipeline_json: Optional[dict]) -> Tuple[bool
 def sanitize_pipeline_name(pipeline_name: str) -> str:
     """
     Sanitize pipeline name to be used in file names and package names.
-    
+
     Args:
         pipeline_name: Original pipeline name
-    
+
     Returns:
         Sanitized pipeline name
     """
@@ -303,25 +293,24 @@ def sanitize_pipeline_name(pipeline_name: str) -> str:
 def get_pipelines_from_project(project_path: str) -> list:
     """
     Get list of all pipelines in the project by scanning for .py files in the pipelines directory.
-    
+
     Args:
         project_path: Path to the project directory
-    
+
     Returns:
         List of pipeline names (without .py extension)
     """
     pipelines_dir = os.path.join(project_path, "pipelines")
-    
+
     if not os.path.exists(pipelines_dir):
         return []
-    
+
     pipelines = []
     for item in os.listdir(pipelines_dir):
         # Check if it's a .py file
-        if item.endswith('.py') and os.path.isfile(os.path.join(pipelines_dir, item)):
+        if item.endswith(".py") and os.path.isfile(os.path.join(pipelines_dir, item)):
             # Remove .py extension to get pipeline name
             pipeline_name = item[:-3]
             pipelines.append(pipeline_name)
-    
-    return pipelines
 
+    return pipelines
