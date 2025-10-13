@@ -55,11 +55,6 @@ def generate_job_json_template(
         "webhook_notifications": {},
         "timeout_seconds": 0,
         "max_concurrent_runs": 1,
-        "environment_variables": {
-            "ORCHESTRATOR_PATH": "{{secrets/prophecy/orchestrator_path}}",
-            "PROPHECY_CREDS_DBX_JDBCURL": "{{secrets/prophecy/dbx_jdbcurl}}",
-            "PROPHECY_CREDS_TABLEAU_TOKEN": "{{secrets/prophecy/tableau_token}}"
-        },
         "tasks": [
             {
                 "task_key": pipeline_name,
@@ -94,6 +89,11 @@ def generate_job_json_template(
                         "spark.prophecy.execution.service.url": "wss://execution.dp.app.prophecy.io/eventws",
                         "spark.databricks.isv.product": "prophecy"
                     },
+                    "spark_env_vars": {
+                        "ORCHESTRATOR_PATH": "{{secrets/prophecy/orchestrator_path}}",
+                        "PROPHECY_CREDS_DBX_JDBCURL": "{{secrets/prophecy/dbx_jdbcurl}}",
+                        "PROPHECY_CREDS_TABLEAU_TOKEN": "{{secrets/prophecy/tableau_token}}"
+                    },
                     "aws_attributes": {
                         "first_on_demand": 1,
                         "availability": "SPOT_WITH_FALLBACK",
@@ -104,8 +104,6 @@ def generate_job_json_template(
                     "enable_elastic_disk": False,
                     "data_security_mode": "NONE",
                     "runtime_engine": "PHOTON",
-                    "kind": "CLASSIC_PREVIEW",
-                    "is_single_node": True,
                     "num_workers": 0
                 }
             }
