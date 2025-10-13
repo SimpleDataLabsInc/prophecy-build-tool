@@ -145,13 +145,12 @@ class OrchestrationCommands:
             print(f"ERROR: No pipelines found in {self.pipelines_dir}")
             sys.exit(1)
 
-
         # Build wheels for each pipeline
         print("\n preparing package files...")
         prep_count = 0
         failed_pipelines = []
         build_directory = os.path.join(self.project_path, "package_builds")
-        
+
         # Delete and recreate the build directory if it exists
         if os.path.exists(build_directory):
             shutil.rmtree(build_directory)
@@ -167,15 +166,26 @@ class OrchestrationCommands:
 
                 # Copy only specific files and directories
                 allowed_items = {
-                    "tests", "snapshots", "seeds", "prophecy-sources", "pipelines",
-                    "pbt_project.yml", "packages.yml", "models", "macros", "jobs",
-                    "dbt_project.yml", "dbt_packages", "apps", ".prophecy"
+                    "tests",
+                    "snapshots",
+                    "seeds",
+                    "prophecy-sources",
+                    "pipelines",
+                    "pbt_project.yml",
+                    "packages.yml",
+                    "models",
+                    "macros",
+                    "jobs",
+                    "dbt_project.yml",
+                    "dbt_packages",
+                    "apps",
+                    ".prophecy",
                 }
-                
+
                 for item in allowed_items:
                     source_path = os.path.join(self.project_path, item)
                     dest_path = os.path.join(temp_dir, item)
-                    
+
                     if os.path.exists(source_path):
                         if os.path.isdir(source_path):
                             shutil.copytree(source_path, dest_path)
@@ -234,13 +244,12 @@ __all__ = ['main']
                 setup_py_path = os.path.join(temp_dir, "setup.py")
                 with open(setup_py_path, "w") as f:
                     f.write(setup_py_content)
-                
+
                 prep_count += 1
 
             except Exception as e:
                 print(f"    ERROR: Failed to prepare package for {pipeline_name}: {e}")
                 failed_pipelines.append(pipeline_name)
-                
 
         if failed_pipelines:
             print(f"\nFailed pipelines:")
@@ -252,7 +261,6 @@ __all__ = ['main']
         print(f"\nSuccessfully prepared {prep_count}/{len(pipelines)} pipeline package(s)")
 
         print(f"\n package files located in: {self.wheel_output_dir}")
-
 
     def build_orch(self):
         """
@@ -297,7 +305,7 @@ __all__ = ['main']
 
             # check that package files have been prepared
             package_dir = os.path.join(build_directory, pipeline_name)
-            
+
             # check if setup.py file exists in the package directory
             setup_py_path = os.path.join(package_dir, "setup.py")
             if not os.path.exists(setup_py_path):
@@ -362,7 +370,6 @@ __all__ = ['main']
                 print(f"  - {pipeline}")
 
         print(f"\nWheel files located in: {self.wheel_output_dir}")
-
 
     def deploy_orch(self, pipeline_name: Optional[str] = None):
         """

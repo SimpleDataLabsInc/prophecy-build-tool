@@ -15,7 +15,7 @@ from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
 
 
-@click.group(context_settings={'help_option_names': ['-h', '--help']})
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cli():
     pass
 

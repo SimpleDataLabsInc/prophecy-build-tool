@@ -12,19 +12,19 @@ from typing import Dict, Optional, Tuple
 def get_project_version(project_path: str) -> str:
     """
     Read the version from pbt_project.yml file.
-    
+
     Args:
         project_path: Path to the project directory containing pbt_project.yml
-        
+
     Returns:
         Version string from pbt_project.yml, defaults to "1.0.0" if not found
     """
     pbt_project_file = os.path.join(project_path, "pbt_project.yml")
-    
+
     if not os.path.exists(pbt_project_file):
         print(f"Warning: pbt_project.yml not found at {pbt_project_file}, using default version 1.0.0")
         return "1.0.0"
-    
+
     try:
         with open(pbt_project_file, "r") as f:
             pbt_project_dict = yaml.safe_load(f)
@@ -167,16 +167,18 @@ def generate_setup_py_content(project_name: str, pipeline_name: str, project_pat
     Returns:
         String containing the setup.py content
     """
-    
+
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
     requirements_path = os.path.join(project_path, "data", project_name, "cicd", "requirements-pipeline.txt")
 
     with open(os.path.join(os.path.dirname(__file__), "setup_py_template.py"), "r") as f:
-        setup_py_content = f.read().format(package_name=package_name, 
-                                            pipeline_name=pipeline_name, 
-                                            project_name=project_name, 
-                                            requirements_path=requirements_path,
-                                            version=version)
+        setup_py_content = f.read().format(
+            package_name=package_name,
+            pipeline_name=pipeline_name,
+            project_name=project_name,
+            requirements_path=requirements_path,
+            version=version,
+        )
     return setup_py_content
 
 
@@ -280,4 +282,3 @@ def get_pipelines_from_project(project_path: str) -> list:
             pipelines.append(pipeline_name)
 
     return pipelines
-
