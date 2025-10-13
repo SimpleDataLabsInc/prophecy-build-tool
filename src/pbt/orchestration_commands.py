@@ -237,7 +237,7 @@ from datetime import datetime
 
 def main():
     """Main orchestration entry point - runs deploy-cli binary."""
-    exec_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    exec_id = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     print("\\n\\n" + "=" * 80)
     print(f"  PROPHECY ORCHESTRATION")
@@ -252,7 +252,7 @@ def main():
         print("✗ ERROR: ORCHESTRATOR_PATH environment variable not set")
         print("  Ensure spark_env_vars is configured with secrets in job definition")
         sys.exit(1)
-    print(f"✓ Orchestrator path: /{{orchestrator_path[1:]}}")
+    print(f"✓ Orchestrator path: {{orchestrator_path[1:]}}")
     
     # Step 2: Setup execution environment
     print("\\n[2/4] Setting up execution environment...")
@@ -294,7 +294,7 @@ def main():
         import shutil
         shutil.copy(binary_source, local_binary_path)
         os.chmod(local_binary_path, 0o755)
-        print(f"✓ Binary ready: /{{binary_source[1:]}}")
+        print(f"✓ Binary ready: {{binary_source[1:]}}")
         
     except Exception as e:
         print(f"✗ ERROR: Failed to prepare binary: {{e}}")
@@ -359,7 +359,7 @@ def main():
         env["ORCHESTRATOR_PATH"] = orchestrator_path
         
         print(f"Command: {{' '.join(command)}}")
-        print(f"Config: /{{env['CONFIG_FILE'][1:]}}")
+        print(f"Config: {{env['CONFIG_FILE'][1:]}}")
         print("-" * 80 + "\\n")
         
         # Execute binary with streaming output
@@ -387,7 +387,6 @@ def main():
             sys.exit(return_code)
         else:
             print(f"✓ ORCHESTRATION COMPLETED SUCCESSFULLY")
-            print(f"  Execution ID: {{exec_id}}")
             print(f"  Project: {{project_name}} | Pipeline: {{pipeline_name}}")
             print("=" * 80 + "\\n")
         
