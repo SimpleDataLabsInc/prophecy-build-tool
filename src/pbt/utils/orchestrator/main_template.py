@@ -68,7 +68,7 @@ def main():
     print("\n[3/4] Preparing orchestration binary...")
     try:
         binary_name = "deploy-cli"
-        binary_source = f"{orchestrator_path}/bin/deploy-cli"
+        binary_source = f"{orchestrator_path}/deploy-cli"
         local_binary_path = os.path.join(execution_base, binary_name)
 
         shutil.copy(binary_source, local_binary_path)
