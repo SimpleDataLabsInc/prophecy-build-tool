@@ -6,7 +6,7 @@ Provides helper functions for generating job JSONs, setup.py templates, and mana
 import os
 import json
 import yaml
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 
 def get_project_version(project_path: str) -> str:

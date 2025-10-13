@@ -8,7 +8,7 @@ import sys
 import json
 import subprocess
 import shutil
-from typing import Optional, List
+from typing import Optional
 
 from .client.databricks import DatabricksClient
 from .utils.orchestrator.orch_utils import (

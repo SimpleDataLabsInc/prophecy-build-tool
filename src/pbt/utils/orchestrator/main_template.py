@@ -1,8 +1,9 @@
 """Orchestration entry point module."""
 
 import os
-import sys
+import shutil
 import subprocess
+import sys
 import yaml
 from datetime import datetime
 
@@ -70,8 +71,6 @@ def main():
         binary_source = f"{orchestrator_path}/bin/deploy-cli"
         local_binary_path = os.path.join(execution_base, binary_name)
 
-        import shutil
-
         shutil.copy(binary_source, local_binary_path)
         os.chmod(local_binary_path, 0o755)
         print(f"✓ Binary ready: {binary_source[1:]}")
@@ -99,8 +98,6 @@ def main():
                     break
 
         if project_dir_found:
-            import shutil
-
             copied_count = 0
             for item in os.listdir(project_dir_found):
                 src = os.path.join(project_dir_found, item)
