@@ -29,6 +29,14 @@ def get_project_version(project_path: str) -> str:
         with open(pbt_project_file, "r") as f:
             pbt_project_dict = yaml.safe_load(f)
             version = pbt_project_dict.get("version", "1.0.0")
+
+            # If version is a single int, convert to semver string (e.g., 1 -> 1.0.0)
+            if isinstance(version, int):
+                version = f"{version}.0.0"
+            elif isinstance(version, str):
+                # check if it's a digit string, e.g. "2"
+                if version.isdigit():
+                    version = f"{version}.0.0"
             return str(version)
     except Exception as e:
         print(f"Warning: Could not read version from pbt_project.yml: {e}, using default version 1.0.0")
