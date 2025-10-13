@@ -18,7 +18,7 @@ def generate_job_json_template(
     cron_expression: Optional[str] = None,
     timezone: str = "UTC",
     spark_version: str = "16.4.x-scala2.12",
-    node_type: str = "m7gd.large",
+    node_type: str = "i3.xlarge",
 ) -> dict:
     """
     Generate a Databricks job JSON template for a pipeline.
@@ -92,18 +92,17 @@ def generate_job_json_template(
                     "spark_env_vars": {
                         "ORCHESTRATOR_PATH": "{{secrets/prophecy/orchestrator_path}}",
                         "PROPHECY_CREDS_DBX_JDBCURL": "{{secrets/prophecy/dbx_jdbcurl}}",
+                        "PROPHECY_CREDS_DBX_TOKEN": "{{secrets/prophecy/dbx_token}}",
                         "PROPHECY_CREDS_TABLEAU_TOKEN": "{{secrets/prophecy/tableau_token}}"
                     },
                     "aws_attributes": {
-                        "first_on_demand": 1,
-                        "availability": "SPOT_WITH_FALLBACK",
-                        "zone_id": "auto",
-                        "spot_bid_price_percent": 100
+                        "zone_id": "auto"
                     },
                     "node_type_id": node_type,
-                    "enable_elastic_disk": False,
                     "data_security_mode": "NONE",
-                    "runtime_engine": "PHOTON",
+                    "kind": "CLASSIC_PREVIEW",
+                    "runtime_engine": "STANDARD",
+                    "is_single_node": True,
                     "num_workers": 0
                 }
             }
