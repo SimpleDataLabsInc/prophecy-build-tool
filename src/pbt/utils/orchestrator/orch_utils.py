@@ -5,7 +5,34 @@ Provides helper functions for generating job JSONs, setup.py templates, and mana
 
 import os
 import json
+import yaml
 from typing import Dict, Optional, Tuple
+
+
+def get_project_version(project_path: str) -> str:
+    """
+    Read the version from pbt_project.yml file.
+    
+    Args:
+        project_path: Path to the project directory containing pbt_project.yml
+        
+    Returns:
+        Version string from pbt_project.yml, defaults to "1.0.0" if not found
+    """
+    pbt_project_file = os.path.join(project_path, "pbt_project.yml")
+    
+    if not os.path.exists(pbt_project_file):
+        print(f"Warning: pbt_project.yml not found at {pbt_project_file}, using default version 1.0.0")
+        return "1.0.0"
+    
+    try:
+        with open(pbt_project_file, "r") as f:
+            pbt_project_dict = yaml.safe_load(f)
+            version = pbt_project_dict.get("version", "1.0.0")
+            return str(version)
+    except Exception as e:
+        print(f"Warning: Could not read version from pbt_project.yml: {e}, using default version 1.0.0")
+        return "1.0.0"
 
 
 def generate_job_json_template(
@@ -135,82 +162,21 @@ def generate_setup_py_content(project_name: str, pipeline_name: str, project_pat
         project_name: Name of the project
         pipeline_name: Name of the pipeline
         project_path: Path to the project directory
-        version: Version string for the package
+        version: Version string for the package.
 
     Returns:
         String containing the setup.py content
     """
+    
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
     requirements_path = os.path.join(project_path, "data", project_name, "cicd", "requirements-pipeline.txt")
 
-    setup_py_content = f"""import os
-from setuptools import setup
-
-# Base requirements (hardcoded)
-install_requires = [
-    "dbt-core~=1.9.1",
-    "dbt-postgres~=1.9.0",
-    "dbt-bigquery~=1.9.0",
-    "dbt-databricks~=1.9.0",
-    "dbt-snowflake~=1.9.0",
-    "dbt-trino~=1.9.0",
-    "dbt-redshift~=1.9.0",
-    "fastapi[all]",
-    "uvicorn",
-    "pydantic",
-    "grpcio",
-    "grpcio-tools",
-    "sqlglot",
-    "jinja2>=3.1.2,<4.0.0",
-    "pyyaml>=6.0,<7.0",
-    "networkx>=3.1,<4.0",
-    "python-dotenv>=1.0.0,<2.0.0",
-    "colorlog>=6.7.0,<7.0.0",
-    "structlog>=23.1.0,<24.0.0",
-    "supervisor-stdout>=0.1.1",
-    "googleapis-common-protos>=1.60.0",
-    "grpcio-reflection",
-    "dbt-duckdb~=1.9.0",
-    "s5cmd",
-    "opentelemetry-api",
-    "opentelemetry-sdk",
-    "opentelemetry-exporter-zipkin",
-    "opentelemetry-exporter-otlp",
-    "opentelemetry-distro[otlp]",
-    "opentelemetry-instrumentation-grpc",
-]
-
-# Read additional dependencies from requirements-pipeline.txt if it exists
-requirements_file = "{requirements_path}"
-if os.path.exists(requirements_file):
-    with open(requirements_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-            # Skip empty lines and comments
-            if line and not line.startswith('#'):
-                # Avoid duplicates
-                if line not in install_requires:
-                    install_requires.append(line)
-
-setup(
-    name="{package_name}",
-    version="{version}",
-    packages=['{package_name}', 'data'],  # Two packages
-    package_data={{
-        'data': ['{project_name}/**/*', '{project_name}/**/.*', '{project_name}/**/.*/**/*'],  # Include all project files
-    }},
-    include_package_data=True,
-    install_requires=install_requires,
-    entry_points={{
-        'console_scripts': [
-            'main = {package_name}.__main__:main',
-        ],
-    }},
-    python_requires=">=3.7",
-    description="Prophecy Pipeline Orchestration: {pipeline_name}",
-    zip_safe=False,
-)
-"""
+    with open(os.path.join(os.path.dirname(__file__), "setup_py_template.py"), "r") as f:
+        setup_py_content = f.read().format(package_name=package_name, 
+                                            pipeline_name=pipeline_name, 
+                                            project_name=project_name, 
+                                            requirements_path=requirements_path,
+                                            version=version)
     return setup_py_content
 
 
@@ -314,3 +280,4 @@ def get_pipelines_from_project(project_path: str) -> list:
             pipelines.append(pipeline_name)
 
     return pipelines
+

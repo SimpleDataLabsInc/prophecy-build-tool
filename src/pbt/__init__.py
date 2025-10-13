@@ -15,7 +15,7 @@ from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
 
 
-@click.group()
+@click.group(context_settings={'help_option_names': ['-h', '--help']})
 def cli():
     pass
 
@@ -519,13 +519,31 @@ def generate_p4b_job(path):
     help="Path to the directory containing the pbt_project.yml file",
     required=True,
 )
-def build_orch(path):
+@click.option(
+    "--prep-only",
+    help="flag to only prepare the package files, without building the wheels",
+    is_flag=True,
+    required=False,
+)
+@click.option(
+    "--build-only",
+    help="flag to only build the wheels, without preparing the package files",
+    is_flag=True,
+    required=False,
+)
+def build_orch(path, prep_only, build_only):
     """Build Python wheels for orchestration."""
     from .orchestration_commands import OrchestrationCommands
 
     try:
         orch = OrchestrationCommands(path)
-        orch.build_orch()
+        if prep_only:
+            orch.prepare_orch_project()
+        elif build_only:
+            orch.build_orch()
+        else:
+            orch.prepare_orch_project()
+            orch.build_orch()
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)

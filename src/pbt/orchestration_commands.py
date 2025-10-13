@@ -7,17 +7,18 @@ import os
 import sys
 import json
 import subprocess
-import tempfile
+import shutil
 from typing import Optional, List
 
 from .client.databricks import DatabricksClient
-from .utils.orch_utils import (
+from .utils.orchestrator.orch_utils import (
     generate_job_json_template,
     generate_setup_py_content,
     get_resolved_pipeline_info,
     check_schedule_enabled,
     get_pipelines_from_project,
     sanitize_pipeline_name,
+    get_project_version,
 )
 
 
@@ -120,6 +121,139 @@ class OrchestrationCommands:
         print(f"\nSuccessfully generated {generated_count}/{len(pipelines)} job JSON file(s)")
         print(f"Job JSON files are located in: {self.jobs_dir}")
 
+    def prepare_orch_project(self):
+        """
+        Build Python wheels for orchestration.
+
+        This command:
+        1. Verifies that job JSON files exist for all pipelines
+        2. For each pipeline, creates a wheel package using a custom setup.py
+        3. Stores wheels in parent_folder/{project-name}_whl/
+        """
+        print("\nStarting wheel build process...")
+
+        # Verify jobs directory exists
+        if not os.path.exists(self.jobs_dir):
+            print(f"ERROR: Jobs directory not found: {self.jobs_dir}")
+            print("Please run 'pbt generate-p4b-job' first to generate job definitions.")
+            sys.exit(1)
+
+        # Get list of all pipelines
+        pipelines = get_pipelines_from_project(self.project_path)
+
+        if not pipelines:
+            print(f"ERROR: No pipelines found in {self.pipelines_dir}")
+            sys.exit(1)
+
+
+        # Build wheels for each pipeline
+        print("\n preparing package files...")
+        prep_count = 0
+        failed_pipelines = []
+        build_directory = os.path.join(self.project_path, "package_builds")
+        
+        # Delete and recreate the build directory if it exists
+        if os.path.exists(build_directory):
+            shutil.rmtree(build_directory)
+        os.makedirs(build_directory, exist_ok=True)
+
+        for pipeline_name in pipelines:
+            print(f"\n  Preparing package files for pipeline: {pipeline_name}")
+
+            try:
+                # Create a temporary directory for building
+                temp_dir = os.path.join(build_directory, pipeline_name)
+                os.makedirs(temp_dir, exist_ok=True)
+
+                # Copy only specific files and directories
+                allowed_items = {
+                    "tests", "snapshots", "seeds", "prophecy-sources", "pipelines",
+                    "pbt_project.yml", "packages.yml", "models", "macros", "jobs",
+                    "dbt_project.yml", "dbt_packages", "apps", ".prophecy"
+                }
+                
+                for item in allowed_items:
+                    source_path = os.path.join(self.project_path, item)
+                    dest_path = os.path.join(temp_dir, item)
+                    
+                    if os.path.exists(source_path):
+                        if os.path.isdir(source_path):
+                            shutil.copytree(source_path, dest_path)
+                        else:
+                            shutil.copy(source_path, dest_path)
+
+                # Create data package structure
+                data_package_dir = os.path.join(temp_dir, "data")
+                project_data_dir = os.path.join(data_package_dir, self.project_name)
+                os.makedirs(project_data_dir, exist_ok=True)
+
+                # Move all copied files into data/{project_name}/
+                for item in os.listdir(temp_dir):
+                    if item == "data":
+                        continue
+                    source = os.path.join(temp_dir, item)
+                    dest = os.path.join(project_data_dir, item)
+                    shutil.move(source, dest)
+
+                # Create __init__.py files
+                with open(os.path.join(data_package_dir, "__init__.py"), "w") as f:
+                    f.write("")
+
+                # ORCHESTRATOR_PATH will be retrieved from Databricks secrets at runtime
+                # No need to bake it into the wheel
+
+                # Create the main package
+                package_name = f"{self.project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
+                package_dir = os.path.join(temp_dir, package_name)
+                os.makedirs(package_dir, exist_ok=True)
+
+                # Create __init__.py for the package that exports main
+                init_content = '''"""Prophecy Orchestration Package."""
+from .__main__ import main
+
+__all__ = ['main']
+'''
+                with open(os.path.join(package_dir, "__init__.py"), "w") as f:
+                    f.write(init_content)
+
+                # Create __main__.py as the entry point module inside the package
+                # copy the template file
+                template_path = os.path.join(os.path.dirname(__file__), "utils", "orchestrator", "main_template.py")
+                main_module_path = os.path.join(package_dir, "__main__.py")
+                shutil.copy(template_path, main_module_path)
+
+                # Generate setup.py content
+                setup_py_content = generate_setup_py_content(
+                    project_name=self.project_name,
+                    pipeline_name=pipeline_name,
+                    project_path=temp_dir,  # Use temp_dir as the base
+                    version=get_project_version(self.project_path),
+                )
+
+                # Write setup.py to temp directory
+                setup_py_path = os.path.join(temp_dir, "setup.py")
+                with open(setup_py_path, "w") as f:
+                    f.write(setup_py_content)
+                
+                prep_count += 1
+
+            except Exception as e:
+                print(f"    ERROR: Failed to prepare package for {pipeline_name}: {e}")
+                failed_pipelines.append(pipeline_name)
+                
+
+        if failed_pipelines:
+            print(f"\nFailed pipelines:")
+            for pipeline in failed_pipelines:
+                print(f"  - {pipeline}")
+            exit(1)
+
+        # Summary
+        print(f"\nSuccessfully prepared {prep_count}/{len(pipelines)} pipeline package(s)")
+
+        print(f"\n package files located in: {self.wheel_output_dir}")
+
+
     def build_orch(self):
         """
         Build Python wheels for orchestration.
@@ -144,9 +278,12 @@ class OrchestrationCommands:
             print(f"ERROR: No pipelines found in {self.pipelines_dir}")
             sys.exit(1)
 
+        build_directory = os.path.join(self.project_path, "package_builds")
+
         # Verify all job JSONs exist
         print("\nVerifying job JSON files...")
         missing_jobs = []
+        missing_prep = []
 
         for pipeline_name in pipelines:
             job_filename = f"{pipeline_name}-databricks-job.json"
@@ -158,9 +295,22 @@ class OrchestrationCommands:
             else:
                 print(f"  Found: {job_filename}")
 
+            # check that package files have been prepared
+            package_dir = os.path.join(build_directory, pipeline_name)
+            
+            # check if setup.py file exists in the package directory
+            setup_py_path = os.path.join(package_dir, "setup.py")
+            if not os.path.exists(setup_py_path):
+                missing_prep.append(f"{pipeline_name} setup.py")
+                print(f"  Missing: {pipeline_name} setup.py")
+
         if missing_jobs:
             print(f"\nERROR: Missing job JSON files for {len(missing_jobs)} pipeline(s)")
             print("Please run 'pbt generate-p4b-job' first to generate missing job definitions.")
+            sys.exit(1)
+        if missing_prep:
+            print(f"\nERROR: Missing package files for {len(missing_prep)} pipeline(s)")
+            print("Please run 'pbt build-orch --prep-only' first to generate missing package files.")
             sys.exit(1)
 
         # Create wheel output directory
@@ -179,265 +329,25 @@ class OrchestrationCommands:
             print(f"\n  Building wheel for pipeline: {pipeline_name}")
 
             try:
-                # Create a temporary directory for building
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    # Copy ALL files from the project folder to temp directory
-                    import shutil
+                temp_dir = os.path.join(build_directory, pipeline_name)
+                # Build the wheel
+                build_cmd = [sys.executable, "setup.py", "bdist_wheel", "--dist-dir", self.wheel_output_dir]
 
-                    # Copy ALL items from project directory (everything, no exceptions)
-                    for item in os.listdir(self.project_path):
-                        source_path = os.path.join(self.project_path, item)
-                        dest_path = os.path.join(temp_dir, item)
+                result = subprocess.run(
+                    build_cmd,
+                    cwd=temp_dir,
+                    capture_output=True,
+                    text=True,
+                )
 
-                        if os.path.isdir(source_path):
-                            shutil.copytree(source_path, dest_path)
-                        else:
-                            shutil.copy(source_path, dest_path)
-
-                    # Create data package structure
-                    data_package_dir = os.path.join(temp_dir, "data")
-                    project_data_dir = os.path.join(data_package_dir, self.project_name)
-                    os.makedirs(project_data_dir, exist_ok=True)
-
-                    # Move all copied files into data/{project_name}/
-                    for item in os.listdir(temp_dir):
-                        if item == "data":
-                            continue
-                        source = os.path.join(temp_dir, item)
-                        dest = os.path.join(project_data_dir, item)
-                        shutil.move(source, dest)
-
-                    # Create __init__.py files
-                    with open(os.path.join(data_package_dir, "__init__.py"), "w") as f:
-                        f.write("")
-
-                    # ORCHESTRATOR_PATH will be retrieved from Databricks secrets at runtime
-                    # No need to bake it into the wheel
-
-                    # Create the main package
-                    package_name = f"{self.project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
-                    package_dir = os.path.join(temp_dir, package_name)
-                    os.makedirs(package_dir, exist_ok=True)
-
-                    # Create __init__.py for the package that exports main
-                    init_content = '''"""Prophecy Orchestration Package."""
-from .__main__ import main
-
-__all__ = ['main']
-'''
-                    with open(os.path.join(package_dir, "__init__.py"), "w") as f:
-                        f.write(init_content)
-
-                    # Create __main__.py as the entry point module inside the package
-                    main_module_content = f'''"""Orchestration entry point module."""
-import os
-import sys
-import subprocess
-from datetime import datetime
-
-def main():
-    """Main orchestration entry point - runs deploy-cli binary."""
-    exec_id = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    print("\\n\\n" + "=" * 80)
-    print(f"  PROPHECY ORCHESTRATION")
-    print(f"  Project: {self.project_name} | Pipeline: {pipeline_name}")
-    print(f"  Execution ID: {{exec_id}}")
-    print("=" * 80 + "\\n")
-    
-    # Step 1: Validate environment
-    print("[1/4] Validating environment...")
-    orchestrator_path = os.environ.get("ORCHESTRATOR_PATH")
-    if not orchestrator_path:
-        print("✗ ERROR: ORCHESTRATOR_PATH environment variable not set")
-        print("  Ensure spark_env_vars is configured with secrets in job definition")
-        sys.exit(1)
-    print(f"✓ Orchestrator path: {{orchestrator_path[1:]}}")
-    
-    # Step 2: Setup execution environment
-    print("\\n[2/4] Setting up execution environment...")
-    project_name = "{self.project_name}"
-    pipeline_name = "{pipeline_name}"
-    
-    execution_base = f"/tmp/prophecy/orchestrate-exec/{{project_name}}/{{pipeline_name}}"
-    os.makedirs(execution_base, exist_ok=True)
-    os.chdir(execution_base)
-    print(f"✓ Execution directory: {{execution_base}}")
-    
-    # Retrieve credentials (auth token if available)
-    try:
-        this_file_dir = os.path.dirname(os.path.abspath(__file__))
-        site_packages = os.path.dirname(this_file_dir)
-        data_package_path = os.path.join(site_packages, "data")
-        
-        for item in os.listdir(data_package_path):
-            item_path = os.path.join(data_package_path, item)
-            if os.path.isdir(item_path):
-                cicd_scripts_dir = os.path.join(item_path, "cicd", "scripts")
-                if os.path.exists(os.path.join(cicd_scripts_dir, "auth.py")):
-                    sys.path.insert(0, cicd_scripts_dir)
-                    import auth
-                    access_token = auth.get_access_token()
-                    os.environ["PROPHECY_CREDS_DBX_TOKEN"] = access_token
-                    print("✓ Access token obtained from auth.py")
-                    break
-    except Exception:
-        print("ℹ No custom auth.py found, using environment credentials")
-    
-    # Step 3: Prepare orchestration binary
-    print("\\n[3/4] Preparing orchestration binary...")
-    try:
-        binary_name = "deploy-cli"
-        binary_source = f"{{orchestrator_path}}/bin/deploy-cli"
-        local_binary_path = os.path.join(execution_base, binary_name)
-        
-        import shutil
-        shutil.copy(binary_source, local_binary_path)
-        os.chmod(local_binary_path, 0o755)
-        print(f"✓ Binary ready: {{binary_source[1:]}}")
-        
-    except Exception as e:
-        print(f"✗ ERROR: Failed to prepare binary: {{e}}")
-        sys.exit(1)
-    
-    # Copy project files from wheel data package
-    try:
-        this_file_dir = os.path.dirname(os.path.abspath(__file__))
-        site_packages = os.path.dirname(this_file_dir)
-        package_name_full = "{self.project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_").lower()
-        
-        data_package_path = os.path.join(site_packages, "data")
-        data_in_main_path = os.path.join(site_packages, package_name_full, "data")
-        
-        project_dir_found = None
-        if os.path.exists(data_in_main_path):
-            project_dir_found = data_in_main_path
-        elif os.path.exists(data_package_path):
-            data_contents = [d for d in os.listdir(data_package_path) if d != "__pycache__" and d != "__init__.py"]
-            for item in data_contents:
-                item_path = os.path.join(data_package_path, item)
-                if os.path.isdir(item_path):
-                    project_dir_found = item_path
-                    break
-        
-        if project_dir_found:
-            import shutil
-            copied_count = 0
-            for item in os.listdir(project_dir_found):
-                src = os.path.join(project_dir_found, item)
-                dst = os.path.join(execution_base, item)
-                if os.path.isdir(src):
-                    if not os.path.exists(dst):
-                        shutil.copytree(src, dst)
-                        copied_count += 1
+                if result.returncode == 0:
+                    print(f"    Successfully built wheel for {pipeline_name}")
+                    built_count += 1
                 else:
-                    shutil.copy(src, dst)
-                    copied_count += 1
-            print(f"✓ Copied {{copied_count}} project files to execution directory")
-    except Exception:
-        print("ℹ No additional project files to copy")
-    
-    # Step 4: Execute deploy-cli
-    print("\\n[4/4] Executing deploy-cli orchestrator...")
-    print("-" * 80)
-    
-    try:
-        binary_name = "deploy-cli"
-        command = [
-            f"./{{binary_name}}",
-            "run",
-            execution_base,
-            "--project-id", project_name,
-            "--pipeline-name", pipeline_name
-        ]
-        
-        # Configure environment for deploy-cli
-        env = os.environ.copy()
-        env["LD_LIBRARY_PATH"] = f"{{orchestrator_path}}/bin"
-        env["CONFIG_FILE"] = f"{{orchestrator_path}}/config/embedded.yml"
-        env["LOG_FORMAT"] = "console"
-        env["ORCHESTRATOR_PATH"] = orchestrator_path
-        
-        print(f"Command: {{' '.join(command)}}")
-        print(f"Config: {{env['CONFIG_FILE'][1:]}}")
-        print("-" * 80 + "\\n")
-        
-        # Execute binary with streaming output
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            universal_newlines=True,
-            env=env
-        )
-        
-        for line in process.stdout:
-            print(line, end='')
-            sys.stdout.flush()
-        
-        return_code = process.wait()
-        
-        # Report final status
-        print("\\n" + "=" * 80)
-        if return_code != 0:
-            print(f"✗ ORCHESTRATION FAILED (Exit code: {{return_code}})")
-            print("=" * 80)
-            sys.exit(return_code)
-        else:
-            print(f"✓ ORCHESTRATION COMPLETED SUCCESSFULLY")
-            print(f"  Project: {{project_name}} | Pipeline: {{pipeline_name}}")
-            print("=" * 80 + "\\n")
-        
-    except Exception as e:
-        print("\\n" + "=" * 80)
-        if "Exec format error" in str(e):
-            print("✗ ERROR: Binary architecture mismatch")
-            print("  The deploy-cli binary is not compiled for Linux x86_64")
-            print("  Please provide a Linux-compatible binary")
-        else:
-            print(f"✗ ERROR: Execution failed - {{e}}")
-        print("=" * 80)
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
-'''
-                    main_module_path = os.path.join(package_dir, "__main__.py")
-                    with open(main_module_path, "w") as f:
-                        f.write(main_module_content)
-
-                    # Generate setup.py content
-                    setup_py_content = generate_setup_py_content(
-                        project_name=self.project_name,
-                        pipeline_name=pipeline_name,
-                        project_path=temp_dir,  # Use temp_dir as the base
-                    )
-
-                    # Write setup.py to temp directory
-                    setup_py_path = os.path.join(temp_dir, "setup.py")
-                    with open(setup_py_path, "w") as f:
-                        f.write(setup_py_content)
-
-                    # Build the wheel
-                    build_cmd = [sys.executable, "setup.py", "bdist_wheel", "--dist-dir", self.wheel_output_dir]
-
-                    result = subprocess.run(
-                        build_cmd,
-                        cwd=temp_dir,
-                        capture_output=True,
-                        text=True,
-                    )
-
-                    if result.returncode == 0:
-                        print(f"    Successfully built wheel for {pipeline_name}")
-                        built_count += 1
-                    else:
-                        print(f"    ERROR: Failed to build wheel for {pipeline_name}")
-                        if result.stderr:
-                            print(f"    {result.stderr}")
-                        failed_pipelines.append(pipeline_name)
+                    print(f"    ERROR: Failed to build wheel for {pipeline_name}")
+                    if result.stderr:
+                        print(f"    {result.stderr}")
+                    failed_pipelines.append(pipeline_name)
 
             except Exception as e:
                 print(f"    ERROR: Failed to build wheel for {pipeline_name}: {e}")
@@ -452,6 +362,7 @@ if __name__ == "__main__":
                 print(f"  - {pipeline}")
 
         print(f"\nWheel files located in: {self.wheel_output_dir}")
+
 
     def deploy_orch(self, pipeline_name: Optional[str] = None):
         """
