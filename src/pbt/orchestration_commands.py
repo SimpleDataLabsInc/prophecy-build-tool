@@ -237,9 +237,9 @@ from datetime import datetime
 
 def main():
     """Main orchestration entry point - runs deploy-cli binary."""
-    exec_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+    exec_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    print("\\n" + "=" * 80)
+    print("\\n\\n" + "=" * 80)
     print(f"  PROPHECY ORCHESTRATION")
     print(f"  Project: {self.project_name} | Pipeline: {pipeline_name}")
     print(f"  Execution ID: {{exec_id}}")
