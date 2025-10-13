@@ -94,7 +94,7 @@ class OrchestrationCommands:
             try:
                 # Check for resolved pipeline info
                 resolved_info = get_resolved_pipeline_info(self.project_path, pipeline_name)
-                schedule_enabled, cron_expression = check_schedule_enabled(resolved_info)
+                schedule_enabled, cron_expression, timezone = check_schedule_enabled(resolved_info)
                 
                 # Generate job JSON
                 job_json = generate_job_json_template(
@@ -102,6 +102,7 @@ class OrchestrationCommands:
                     project_name=self.project_name,
                     schedule_enabled=schedule_enabled,
                     cron_expression=cron_expression,
+                    timezone=timezone or "UTC",
                 )
                 
                 # Write to file
@@ -214,8 +215,8 @@ class OrchestrationCommands:
                     with open(os.path.join(data_package_dir, "__init__.py"), 'w') as f:
                         f.write("")
                     
-                    # Get ORCHESTRATION_BINARY_PATH from environment (to bake into wheel)
-                    orch_binary_path = os.environ.get("ORCHESTRATION_BINARY_PATH", "/dbfs/FileStore/prophecy/orch/deploy-cli")
+                    # ORCHESTRATOR_PATH will be retrieved from Databricks secrets at runtime
+                    # No need to bake it into the wheel
                     
                     # Create the main package
                     package_name = f"{self.project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
@@ -241,15 +242,14 @@ def main():
     """Main orchestration entry point - runs deploy-cli binary."""
     print("Starting orchestration execution...")
     
-    # Initialize dbutils (not auto-available in python_wheel_task)
-    from pyspark.dbutils import DBUtils
-    from pyspark.sql import SparkSession
-    spark = SparkSession.builder.getOrCreate()
-    dbutils = DBUtils(spark)
+    # Get orchestrator path from environment (injected by Databricks job)
+    orchestrator_path = os.environ.get("ORCHESTRATOR_PATH")
+    if not orchestrator_path:
+        print(f"ERROR: ORCHESTRATOR_PATH environment variable not set")
+        print(f"Ensure the job has environment_variables configured with secrets")
+        sys.exit(1)
     
-    # Orchestration binary path (baked in at build time)
-    orch_binary_path = "{orch_binary_path}"
-    print(f"Orchestration binary path: {{orch_binary_path}}")
+    print(f"Using orchestrator at: {{orchestrator_path}}")
     
     # Set up execution paths
     project_name = "{self.project_name}"
@@ -257,13 +257,14 @@ def main():
     
     execution_base = f"/tmp/prophecy/orchestrate-exec/{{project_name}}/{{pipeline_name}}"
     os.makedirs(execution_base, exist_ok=True)
+    print(f"Created execution directory: {{execution_base}}")
     
     # Change to execution directory
     os.chdir(execution_base)
     
     # Get access token from auth.py if available
-    print("Setting up credentials...")
     try:
+        print("Setting up credentials...")
         # Get the correct site-packages
         this_file_dir = os.path.dirname(os.path.abspath(__file__))
         site_packages = os.path.dirname(this_file_dir)
@@ -284,24 +285,18 @@ def main():
     except Exception as e:
         pass
     
-    # Set credential environment variables from Databricks secrets
-    try:
-        dbx_jdbcurl = dbutils.secrets.get(scope="prophecy", key="dbx_jdbcurl")
-        tableau_token = dbutils.secrets.get(scope="prophecy", key="tableau_token")
-        os.environ["PROPHECY_CREDS_DBX_JDBCURL"] = dbx_jdbcurl
-        os.environ["PROPHECY_CREDS_TABLEAU_TOKEN"] = tableau_token
-        print("Retrieved secrets from Databricks")
-    except Exception as e:
-        pass
+    # Note: PROPHECY_CREDS_DBX_JDBCURL and PROPHECY_CREDS_TABLEAU_TOKEN
+    # are injected as environment variables by the Databricks job
     
     # Copy orchestration binary to execution directory
     print("Preparing orchestration binary...")
     try:
         binary_name = "deploy-cli"
+        binary_source = f"{{orchestrator_path}}/bin/deploy-cli"
         local_binary_path = os.path.join(execution_base, binary_name)
         
         import shutil
-        shutil.copy(orch_binary_path, local_binary_path)
+        shutil.copy(binary_source, local_binary_path)
         os.chmod(local_binary_path, 0o755)
         print("Binary ready")
     except Exception as e:
@@ -364,8 +359,12 @@ def main():
             "--pipeline-name", pipeline_name
         ]
         
+        # Set environment variables for deploy-cli
         env = os.environ.copy()
-        env["ORCHESTRATION_BINARY_PATH"] = orch_binary_path
+        env["LD_LIBRARY_PATH"] = f"{{orchestrator_path}}/bin"
+        env["CONFIG_FILE"] = f"{{orchestrator_path}}/config/embedded.yml"
+        env["LOG_FORMAT"] = "console"
+        env["ORCHESTRATOR_PATH"] = orchestrator_path
         
         process = subprocess.Popen(
             command,
@@ -600,7 +599,10 @@ if __name__ == "__main__":
                     response = client.create_job(job_json)
                     job_id = response.get("job_id")
                 
-                print(f"    Job: {job_name} (ID: {job_id})")
+                # Show job details with clickable link
+                job_url = f"{databricks_host.rstrip('/')}/jobs/{job_id}"
+                print(f"    Job: {job_name}")
+                print(f"    URL: {job_url}")
                 
                 deployed_count += 1
                 

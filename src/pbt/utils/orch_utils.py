@@ -16,6 +16,7 @@ def generate_job_json_template(
     prophecy_url: str = "__PROPHECY_URL_PLACEHOLDER__",
     schedule_enabled: bool = False,
     cron_expression: Optional[str] = None,
+    timezone: str = "UTC",
     spark_version: str = "16.4.x-scala2.12",
     node_type: str = "m7gd.large",
 ) -> dict:
@@ -30,6 +31,7 @@ def generate_job_json_template(
         prophecy_url: Prophecy URL placeholder
         schedule_enabled: Whether scheduling is enabled
         cron_expression: Cron expression for scheduling
+        timezone: Timezone for schedule (default: UTC)
         spark_version: Databricks Spark version
         node_type: AWS node type
     
@@ -53,6 +55,11 @@ def generate_job_json_template(
         "webhook_notifications": {},
         "timeout_seconds": 0,
         "max_concurrent_runs": 1,
+        "environment_variables": {
+            "ORCHESTRATOR_PATH": "{{secrets/prophecy/orchestrator_path}}",
+            "PROPHECY_CREDS_DBX_JDBCURL": "{{secrets/prophecy/dbx_jdbcurl}}",
+            "PROPHECY_CREDS_TABLEAU_TOKEN": "{{secrets/prophecy/tableau_token}}"
+        },
         "tasks": [
             {
                 "task_key": pipeline_name,
@@ -109,14 +116,14 @@ def generate_job_json_template(
     if schedule_enabled and cron_expression:
         job_json["schedule"] = {
             "quartz_cron_expression": cron_expression,
-            "timezone_id": "UTC",
+            "timezone_id": timezone,
             "pause_status": "UNPAUSED"
         }
     else:
         # Default to paused schedule
         job_json["schedule"] = {
             "quartz_cron_expression": "0 0 0 1/1 * ? *",
-            "timezone_id": "UTC",
+            "timezone_id": timezone,
             "pause_status": "PAUSED"
         }
     
@@ -212,43 +219,41 @@ def get_resolved_pipeline_info(project_path: str, pipeline_name: str) -> Optiona
     return None
 
 
-def check_schedule_enabled(resolved_pipeline_json: Optional[dict]) -> Tuple[bool, Optional[str]]:
+def check_schedule_enabled(resolved_pipeline_json: Optional[dict]) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Check if schedule is enabled and return the cron expression.
+    Check if schedule is enabled and return the cron expression and timezone.
 
     Args:
         resolved_pipeline_json: Resolved pipeline JSON dictionary
 
     Returns:
-        Tuple of (is_enabled, cron_expression)
+        Tuple of (is_enabled, cron_expression, timezone)
     """
     if not resolved_pipeline_json:
-        return False, None
+        return False, None, None
 
     try:
         # Check if there's a schedule configuration
         metainfo = resolved_pipeline_json.get("metainfo", {})
         
         if not metainfo:
-            print("Warning: Could not find metainfo in resolved pipeline JSON")
-            return False, None
+            return False, None, None
 
         schedule = metainfo.get("schedule", {})
 
         if not schedule:
-            print("Warning: Could not find schedule in metainfo")
-            return False, None
-
+            return False, None, None
 
         # Check if schedule is enabled
         enabled = schedule.get("enabled", False)
         cron_expression = schedule.get("cron", None)
+        timezone = metainfo.get("scheduleTimeZone", "UTC")  # Get timezone from metainfo
         
-        return enabled, cron_expression
+        return enabled, cron_expression, timezone
     
     except Exception as e:
         print(f"Warning: Could not parse schedule information: {e}")
-        return False, None
+        return False, None, None
 
 
 def sanitize_pipeline_name(pipeline_name: str) -> str:
