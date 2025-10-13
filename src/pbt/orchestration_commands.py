@@ -51,8 +51,7 @@ class OrchestrationCommands:
         self.resolved_pipelines_dir = os.path.join(self.project_path, ".prophecy", "ide", "resolved_pipelines")
 
         # Wheel output directory (parent of project folder)
-        self.parent_dir = os.path.dirname(self.project_path)
-        self.wheel_output_dir = os.path.join(self.parent_dir, f"{self.project_name}_whl")
+        self.wheel_output_dir = os.path.join(self.project_path, "package_builds_output")
 
     def generate_p4b_job(self):
         """
