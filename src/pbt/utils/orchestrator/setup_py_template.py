@@ -51,24 +51,20 @@ setup(
     name="{package_name}",
     version="{version}",
     packages=["{package_name}", "data"],  # Two packages
-    package_data={
-        {
-            "data": [
-                "{project_name}/**/*",
-                "{project_name}/**/.*",
-                "{project_name}/**/.*/**/*",
-            ],  # Include all project files
-        }
-    },
+    package_data={{
+        "data": [
+            "{project_name}/**/*",
+            "{project_name}/**/.*",
+            "{project_name}/**/.*/**/*",
+        ],  # Include all project files
+    }},
     include_package_data=True,
     install_requires=install_requires,
-    entry_points={
-        {
-            "console_scripts": [
-                "main = {package_name}.__main__:main",
-            ],
-        }
-    },
+    entry_points={{
+        "console_scripts": [
+            "main = {package_name}.__main__:main",
+        ],
+    }},
     python_requires=">=3.7",
     description="Prophecy Pipeline Orchestration: {pipeline_name}",
     zip_safe=False,
