@@ -1,3 +1,4 @@
+# fmt: off
 import os
 from setuptools import setup
 
@@ -69,3 +70,4 @@ setup(
     description="Prophecy Pipeline Orchestration: {pipeline_name}",
     zip_safe=False,
 )
+# fmt: on
