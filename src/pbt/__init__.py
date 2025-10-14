@@ -15,7 +15,7 @@ from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cli():
     pass
 
@@ -493,6 +493,84 @@ def tag(path, repo_path, no_push, branch, custom):
     if not repo_path:
         repo_path = path
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+def generate_p4b_job(path):
+    """Generate Databricks job JSON files for all pipelines in the project."""
+    from .orchestration_commands import OrchestrationCommands
+
+    try:
+        orch = OrchestrationCommands(path)
+        orch.generate_p4b_job()
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--prep-only",
+    help="flag to only prepare the package files, without building the wheels",
+    is_flag=True,
+    required=False,
+)
+@click.option(
+    "--build-only",
+    help="flag to only build the wheels, without preparing the package files",
+    is_flag=True,
+    required=False,
+)
+def build_orch(path, prep_only, build_only):
+    """Build Python wheels for orchestration."""
+    from .orchestration_commands import OrchestrationCommands
+
+    try:
+        orch = OrchestrationCommands(path)
+        if prep_only:
+            orch.prepare_orch_project()
+        elif build_only:
+            orch.build_orch()
+        else:
+            orch.prepare_orch_project()
+            orch.build_orch()
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--pipeline-name",
+    help="Optional: specific pipeline name to deploy. If not provided, all pipelines will be deployed.",
+    default=None,
+    required=False,
+)
+def deploy_orch(path, pipeline_name):
+    """Deploy orchestration: upload wheels and create Databricks jobs."""
+    from .orchestration_commands import OrchestrationCommands
+
+    try:
+        orch = OrchestrationCommands(path)
+        orch.deploy_orch(pipeline_name)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 def main():

@@ -86,8 +86,12 @@ class DatabricksClient:
         reraise=True,
     )
     def upload_src_path(self, src_path: str, destination_path: str):
-        # todo maybe deprecate put_file method altogether once we have enough confidence.
-        if destination_path.startswith("dbfs:/Volumes") or destination_path.startswith("/Volumes"):
+        # Handle Workspace Files (DBR 15+)
+        if destination_path.startswith("/Workspace/"):
+            DBRequests(self.host, self.token, self.headers).put_workspace_file(
+                src_path, destination_path, overwrite=True
+            )
+        elif destination_path.startswith("dbfs:/Volumes") or destination_path.startswith("/Volumes"):
             DBRequests(self.host, self.token, self.headers).put_fs(src_path, destination_path, overwrite=True)
         else:
             self.dbfs.put_file(
@@ -244,4 +248,68 @@ class DBRequests(object):
             message = get_error_message(response.status_code)
             raise Exception(
                 f"{message} Failed to upload file to {destination_path} from uri {uri}. Full response: {response}"
+            )
+
+    def _create_workspace_directory(self, directory_path: str):
+        """Create directory in Workspace if it doesn't exist."""
+        # Remove /Workspace prefix for the API call
+        dir_path = directory_path.replace("/Workspace", "")
+
+        # Prepare headers with authorization and content-type
+        headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+        host = self.host if self.host[-1] == "/" else self.host + "/"
+        uri = f"{host}api/2.0/workspace/mkdirs"
+
+        payload = {"path": dir_path}
+
+        response = requests.post(uri, json=payload, headers=headers)
+
+        # 200 = success, 409 = already exists (both are OK)
+        if response.status_code in [200, 201, 409]:
+            return None
+        else:
+            raise Exception(
+                f"Failed to create Workspace directory at {directory_path}. "
+                f"Status: {response.status_code}, Response: {response.text}"
+            )
+
+    def put_workspace_file(self, src_path: str, destination_path: str, overwrite: bool):
+        """Upload file to Databricks Workspace Files (DBR 15+ compatible)."""
+        # Create parent directory structure first
+        import os
+
+        parent_dir = os.path.dirname(destination_path)
+        self._create_workspace_directory(parent_dir)
+
+        with open(src_path, "rb") as file:
+            file_content = file.read()
+
+        # Prepare headers with authorization and content-type
+        headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+        # Workspace Files API endpoint
+        host = self.host if self.host[-1] == "/" else self.host + "/"
+
+        # Remove /Workspace prefix for the API call
+        file_path = destination_path.replace("/Workspace", "")
+
+        # Use Workspace import API with base64 encoding
+        import base64
+
+        content_base64 = base64.b64encode(file_content).decode("utf-8")
+
+        uri = f"{host}api/2.0/workspace/import"
+
+        payload = {"path": file_path, "content": content_base64, "overwrite": overwrite, "format": "AUTO"}
+
+        response = requests.post(uri, json=payload, headers=headers)
+
+        if response.status_code == 200 or response.status_code == 201:
+            return None
+        else:
+            message = get_error_message(response.status_code)
+            raise Exception(
+                f"{message} Failed to upload file to Workspace at {destination_path}. "
+                f"Status: {response.status_code}, Response: {response.text}"
             )
