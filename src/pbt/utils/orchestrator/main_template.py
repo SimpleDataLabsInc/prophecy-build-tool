@@ -17,10 +17,21 @@ def main():
     site_packages = os.path.dirname(this_file_dir)
     data_package_path = os.path.join(site_packages, "data")
 
+    project_name = None
+    for item in os.listdir(data_package_path):
+        candidate_dir = os.path.join(data_package_path, item)
+        if os.path.isdir(candidate_dir):
+            candidate_yml = os.path.join(candidate_dir, "pbt_project.yml")
+            if os.path.isfile(candidate_yml):
+                project_name = item
+                break
+    if project_name is None:
+        print("✗ ERROR: Could not find a subdirectory in 'data' containing 'pbt_project.yml'.")
+        sys.exit(1)
+
     # Dynamically derive project_name and pipeline_name from pbt_project.yml stored in data section
     with open(os.path.join(data_package_path, "pbt_project.yml"), "r") as f:
         pbt_project_dict = yaml.safe_load(f)
-        project_name = pbt_project_dict["project_name"]
         pipeline_name = pbt_project_dict["pipeline_name"]
 
     print("\n\n" + "=" * 80)
