@@ -12,6 +12,17 @@ def main():
     """Main orchestration entry point - runs deploy-cli binary."""
     exec_id = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # Get the path to the data folder of this wheel package
+    this_file_dir = os.path.dirname(os.path.abspath(__file__))
+    site_packages = os.path.dirname(this_file_dir)
+    data_package_path = os.path.join(site_packages, "data")
+
+    # Dynamically derive project_name and pipeline_name from pbt_project.yml stored in data section
+    with open(os.path.join(data_package_path, "pbt_project.yml"), "r") as f:
+        pbt_project_dict = yaml.safe_load(f)
+        project_name = pbt_project_dict["project_name"]
+        pipeline_name = pbt_project_dict["pipeline_name"]
+
     print("\n\n" + "=" * 80)
     print(f"  PROPHECY ORCHESTRATION")
     print(f"  Project: {project_name} | Pipeline: {pipeline_name}")
@@ -29,17 +40,6 @@ def main():
 
     # Step 2: Setup execution environment
     print("\n[2/4] Setting up execution environment...")
-
-    # Get the path to the data folder of this wheel package
-    this_file_dir = os.path.dirname(os.path.abspath(__file__))
-    site_packages = os.path.dirname(this_file_dir)
-    data_package_path = os.path.join(site_packages, "data")
-
-    # Dynamically derive project_name and pipeline_name from pbt_project.yml stored in data section
-    with open(os.path.join(data_package_path, "pbt_project.yml"), "r") as f:
-        pbt_project_dict = yaml.safe_load(f)
-        project_name = pbt_project_dict["project_name"]
-        pipeline_name = pbt_project_dict["pipeline_name"]
 
     execution_base = f"/tmp/prophecy/orchestrate-exec/{project_name}/{pipeline_name}"
     os.makedirs(execution_base, exist_ok=True)
