@@ -54,6 +54,7 @@ def generate_job_json_template(
     timezone: str = "UTC",
     spark_version: str = "16.4.x-scala2.12",
     node_type: str = "i3.xlarge",
+    version: str = "0.0.1",
 ) -> dict:
     """
     Generate a Databricks job JSON template for a pipeline.
@@ -69,13 +70,14 @@ def generate_job_json_template(
         timezone: Timezone for schedule (default: UTC)
         spark_version: Databricks Spark version
         node_type: AWS node type
+        version: Version string for the package.
 
     Returns:
         Dictionary containing the job JSON structure
     """
     # Sanitize pipeline name for package naming
     package_name = f"{project_name}_{pipeline_name}".replace("-", "_").replace(" ", "_")
-    wheel_filename = f"{package_name}-1.0.0-py3-none-any.whl"
+    wheel_filename = f"{package_name}-{version}-py3-none-any.whl"
 
     # Base path for wheel file (Workspace Files for DBR 15+ compatibility)
     wheel_path = f"/Workspace/Shared/prophecy/orch/jpmc/wheel-exec/{project_name}/{pipeline_name}/{wheel_filename}"

@@ -88,6 +88,8 @@ class OrchestrationCommands:
         print("\nGenerating job JSON files...")
         generated_count = 0
 
+        version = get_project_version(self.project_path)
+
         for pipeline_name in pipelines:
             try:
                 # Check for resolved pipeline info
@@ -101,6 +103,7 @@ class OrchestrationCommands:
                     schedule_enabled=schedule_enabled,
                     cron_expression=cron_expression,
                     timezone=timezone or "UTC",
+                    version=version,
                 )
 
                 # Write to file
