@@ -1,51 +1,58 @@
-
 class Task:
     def __init__(self, task_id, component, *args, **kwargs):
         self.task_id = task_id
         self.component = component
         self.modelName = kwargs.get("modelName")
-        self.upstream_task_ids = set()
-        self.downstream_task_ids = set()
+        self.upstream_list = set()
+        self.downstream_list = set()
+        dag = kwargs.get("dag")
         # If no DAG passed explicitly, attach to current active DAG
         if dag is None:
-            dag = DagContext.get_current_dag()
+            dag = DagContext.get_instance().get_current_dag()
         
         # Register self to DAG
         if dag is not None:
             dag.add_task(self)
     
     def set_upstream(self, task):
-        self.upstream_task_ids.add(task.task_id)
-        task.downstream_task_ids.add(self.task_id)
+        self.upstream_list.add(task)
+        task.downstream_list.add(self)
     
     def set_downstream(self, task):
-        self.downstream_task_ids.add(task.task_id)
-        task.upstream_task_ids.add(self.task_id)
+        self.downstream_list.add(task)
+        task.upstream_list.add(self)
     
     def __rshift__(self, task):
-        self.set_downstream(task)
+        if isinstance(task, list):
+            for t in task:
+                self.set_downstream(t) 
+        else:
+            self.set_downstream(task)
         return task
     
     def __lshift__(self, task):
-        self.set_upstream(task)
+        if isinstance(task, list):
+            for t in task:
+                self.set_upstream(t) 
+        else:
+            self.set_upstream(task)
         return task
 
     def run(self):
         if self.component == "Model":
             import subprocess
             #code to get new IDanywhere bearer token here
-            def get_idanywhere_bearer_token():
+            def get_IDanywhere_bearer_token():
                 pass
 
             token = get_IDanywhere_bearer_token()
 
             #TODO
             def read_deployments_file():
-                return catalog, schema, host, http_path
+                #return catalog, schema, host, http_path
+                pass
             
-            catalog, schema, host, http_path = read_deployments_file()
-            
-            def create_profile_yml(catalog, schema, host, http_path, token, target="dev"):
+            def create_profile_yml(catalog, schema, host, http_path, token, target="dev",test=True):
                 import yaml
                 profile_data = {
                     'prophecy-default': {
@@ -97,6 +104,8 @@ class Task:
                 
                 return [f"{param["name"]}: {type_mapper_func(param)}" for param in config_params]
             
+            token = get_IDanywhere_bearer_token()
+
             config_vars = get_configs()
 
             if config_vars:
@@ -104,7 +113,3 @@ class Task:
                 subprocess.run(["dbt", "run", "--select", self.modelName, "--vars", vars_string])
             else:
                 subprocess.run(["dbt", "run", "--select", self.modelName])
-        
-        elif self.component ==  "Script":
-
-        

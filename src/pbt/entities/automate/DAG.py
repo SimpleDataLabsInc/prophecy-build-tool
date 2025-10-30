@@ -1,34 +1,37 @@
 
-class DAG(Config, Schedule, SensorSchedule):
-    def __init__(self, Schedule, SensorSchedule):
+class DAG:
+    def __init__(self, Schedule, SensorSchedule, *args, **kwargs):
         self.schedule = Schedule
         self.sensor_schedule = SensorSchedule
-        self.config = Config
+        self.config = kwargs.get("Config")
         self.tasks = []
     
     def __enter__(self):
         # Set this DAG as the current active DAG
-        DagContext.set_current_dag(self)
+        ctx = DagContext.get_instance()
+        ctx.set_dag(self)
         return self
 
-    def __exit__(self): 
+    def __exit__(self, *args, **kwargs): 
         sorted_tasks = self.topological_sort()
 
         #Do something with configs...
 
         for task in sorted_tasks:
             task.run()
+    
+    def add_task(self, task):
+        self.tasks.append(task)
 
     def topological_sort(self):
-        """
-        Sorts tasks in topographical order, such that a task comes after any of its
-        upstream dependencies.
+        #Sorts tasks in topographical order, such that a task comes after any of its
+        #upstream dependencies.
 
-        Heavily inspired by:
-        http://blog.jupo.org/2012/04/06/topological-sorting-acyclic-directed-graphs/
+        #Heavily inspired by:
+        #http://blog.jupo.org/2012/04/06/topological-sorting-acyclic-directed-graphs/
 
-        :return: list of tasks in topological order
-        """
+        #:return: list of tasks in topological order
+        from collections import OrderedDict
 
         # convert into an OrderedDict to speedup lookup while keeping order the same
         graph_unsorted = OrderedDict((task.task_id, task) for task in self.tasks)
@@ -64,8 +67,7 @@ class DAG(Config, Schedule, SensorSchedule):
                     del graph_unsorted[node.task_id]
                     graph_sorted.append(node)
 
-            # if not acyclic:
-            #     raise AirflowException("A cyclic dependency occurred in dag: {}"
-            #                            .format(self.dag_id))
+            if not acyclic:
+                 raise Exception("A cyclic dependency occurred")
 
         return tuple(graph_sorted)
