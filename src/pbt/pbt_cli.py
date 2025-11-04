@@ -138,7 +138,7 @@ class PBTCli(object):
         if self.project.project.project_language == SCALA_LANGUAGE:
             self.version_set_suffix(f"-SNAPSHOT+sha.{branch_hash}", force, pbt_only)
         else:
-            self.version_set_suffix(f"-dev0+sha.{branch_hash}", force, pbt_only)
+            self.version_set_suffix(f"dev0+sha.{branch_hash}", force, pbt_only)
 
     def version_get_target_branch_version(self, repo_path, target_branch):
         repo = git.Repo(repo_path)
