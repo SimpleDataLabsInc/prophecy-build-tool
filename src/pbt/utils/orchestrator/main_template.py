@@ -1,5 +1,6 @@
 """Orchestration entry point module."""
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -10,6 +11,23 @@ from datetime import datetime
 
 def main():
     """Main orchestration entry point - runs deploy-cli binary."""
+    # Parse command line arguments for Databricks runtime variables
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", help="Input parameter")
+    parser.add_argument("-O", "--output", help="Output parameter")
+    parser.add_argument("--job-id", help="Databricks Job ID")
+    parser.add_argument("--run-id", help="Databricks Run ID")
+    parser.add_argument("--workspace-id", help="Databricks Workspace ID")
+    args, unknown = parser.parse_known_args()
+
+    # Set Databricks environment variables if provided
+    if args.job_id:
+        os.environ["DATABRICKS_JOB_ID"] = args.job_id
+    if args.run_id:
+        os.environ["DATABRICKS_JOB_RUN_ID"] = args.run_id
+    if args.workspace_id:
+        os.environ["DATABRICKS_WORKSPACE_ID"] = args.workspace_id
+
     exec_id = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Get the path to the data folder of this wheel package
