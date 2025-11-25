@@ -99,7 +99,12 @@ def generate_job_json_template(
                 "python_wheel_task": {
                     "package_name": package_name,
                     "entry_point": "main",
-                    "parameters": ["-i", "default", "-O", "{}"],
+                    "parameters": [
+                        "-i", "default", "-O", "{}",
+                        "--job-id", "{{job.id}}",
+                        "--run-id", "{{job.run_id}}",
+                        "--workspace-id", "{{workspace.id}}",
+                    ],
                 },
                 "job_cluster_key": job_cluster_key,
                 "libraries": [{"whl": wheel_path}],
