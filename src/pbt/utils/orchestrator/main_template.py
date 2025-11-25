@@ -28,30 +28,6 @@ def main():
     if args.workspace_id:
         os.environ["DATABRICKS_WORKSPACE_ID"] = args.workspace_id
 
-    # Print environment variables for debugging
-    print("\n" + "=" * 80)
-    print("ENVIRONMENT VARIABLES")
-    print("=" * 80)
-    env_vars = dict(os.environ)
-    sorted_vars = sorted(env_vars.items())
-    
-    # Print Databricks-specific variables first
-    databricks_vars = {k: v for k, v in sorted_vars if "DATABRICKS" in k.upper()}
-    if databricks_vars:
-        print("\nDatabricks Variables:")
-        print("-" * 80)
-        for key, value in databricks_vars.items():
-            print(f"  {key} = {value}")
-    
-    # Print all other variables
-    print("\nAll Environment Variables:")
-    print("-" * 80)
-    for key, value in sorted_vars:
-        # Truncate very long values for readability
-        display_value = value if len(value) < 100 else value[:100] + "..."
-        print(f"  {key} = {display_value}")
-    print("=" * 80 + "\n")
-
     exec_id = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Get the path to the data folder of this wheel package
