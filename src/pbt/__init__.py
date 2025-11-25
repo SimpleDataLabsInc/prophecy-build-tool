@@ -573,6 +573,30 @@ def deploy_orch(path, pipeline_name):
         sys.exit(1)
 
 
+@cli.command()
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file",
+    required=True,
+)
+@click.option(
+    "--pipeline-name",
+    help="Optional: specific pipeline name. If not provided, uses first pipeline found.",
+    default=None,
+    required=False,
+)
+def env_test(path, pipeline_name):
+    """Deploy a test job that prints all environment variables for debugging."""
+    from .orchestration_commands import OrchestrationCommands
+
+    try:
+        orch = OrchestrationCommands(path)
+        orch.deploy_env_test(pipeline_name)
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+
 def main():
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"

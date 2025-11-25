@@ -550,3 +550,225 @@ __all__ = ['main']
             sys.exit(1)
 
         print("\nDeployment completed successfully!")
+
+    def deploy_env_test(self, pipeline_name: Optional[str] = None):
+        """
+        Deploy a test job that prints all environment variables.
+        This is useful for debugging what variables are available at runtime.
+
+        Args:
+            pipeline_name: Optional specific pipeline name. If None, uses first pipeline found.
+        """
+        print("\nDeploying environment test job...")
+
+        # Verify environment variables
+        databricks_host = os.environ.get("DATABRICKS_HOST")
+        databricks_token = os.environ.get("DATABRICKS_TOKEN")
+
+        if not databricks_host or not databricks_token:
+            print("ERROR: DATABRICKS_HOST and DATABRICKS_TOKEN environment variables must be set")
+            print("\nPlease set the following environment variables:")
+            print("  export DATABRICKS_HOST=https://your-databricks-instance.cloud.databricks.com")
+            print("  export DATABRICKS_TOKEN=your-databricks-token")
+            sys.exit(1)
+
+        print(f"Connected to: {databricks_host}")
+
+        # Create Databricks client
+        try:
+            client = DatabricksClient.from_databricks_info(
+                host=databricks_host,
+                auth_type=None,
+                token=databricks_token,
+                oauth_client_secret=None,
+                user_agent="Prophecy-Build-Tool-Orchestration",
+            )
+        except Exception as e:
+            print(f"ERROR: Failed to connect to Databricks: {e}")
+            sys.exit(1)
+
+        # Determine pipeline name (just for naming)
+        if not pipeline_name:
+            pipelines = get_pipelines_from_project(self.project_path)
+            if pipelines:
+                pipeline_name = pipelines[0]
+            else:
+                pipeline_name = "test"
+
+        # Create a simple Python script that prints environment variables
+        print("\nCreating test script...")
+        test_script = '''#!/usr/bin/env python3
+"""Test script to print all environment variables available in Databricks job."""
+import os
+import sys
+import argparse
+from datetime import datetime
+
+# Parse command line arguments for Databricks runtime variables
+parser = argparse.ArgumentParser()
+parser.add_argument("--job-id", help="Databricks Job ID")
+parser.add_argument("--run-id", help="Databricks Run ID")
+
+parser.add_argument("--job-name", help="Databricks Job Name")
+parser.add_argument("--workspace-id", help="Databricks Workspace ID")
+args, unknown = parser.parse_known_args()
+
+# Inject arguments into environment variables for display
+if args.job_id:
+    os.environ["DATABRICKS_JOB_ID"] = args.job_id
+if args.run_id:
+    os.environ["DATABRICKS_RUN_ID"] = args.run_id
+
+if args.job_name:
+    os.environ["DATABRICKS_JOB_NAME"] = args.job_name
+if args.workspace_id:
+    os.environ["DATABRICKS_WORKSPACE_ID"] = args.workspace_id
+
+print("=" * 80)
+print(f"ENVIRONMENT VARIABLES TEST")
+print(f"Timestamp: {datetime.now()}")
+print("=" * 80)
+print()
+
+# Get all environment variables
+env_vars = dict(os.environ)
+
+# Sort by key for easier reading
+sorted_vars = sorted(env_vars.items())
+
+print(f"Total environment variables: {len(sorted_vars)}")
+print()
+print("-" * 80)
+
+# Print each variable
+for key, value in sorted_vars:
+    # Truncate very long values for readability
+    display_value = value if len(value) < 200 else value[:200] + "... (truncated)"
+    print(f"{key}={display_value}")
+
+print("-" * 80)
+print()
+
+# Highlight Databricks-specific variables
+print("DATABRICKS-SPECIFIC VARIABLES:")
+print("-" * 80)
+databricks_vars = {k: v for k, v in sorted_vars if "DATABRICKS" in k.upper() or "DBR" in k.upper()}
+for key, value in databricks_vars.items():
+    print(f"{key}={value}")
+
+print("-" * 80)
+print()
+
+# Highlight Spark-specific variables
+print("SPARK-SPECIFIC VARIABLES:")
+print("-" * 80)
+spark_vars = {k: v for k, v in sorted_vars if "SPARK" in k.upper()}
+for key, value in spark_vars.items():
+    print(f"{key}={value}")
+
+print("-" * 80)
+print()
+print("✓ Environment test completed successfully")
+sys.exit(0)
+'''
+
+        # Create a temporary directory for the test script
+        temp_dir = os.path.join(self.project_path, ".pbt_temp_test")
+        os.makedirs(temp_dir, exist_ok=True)
+
+        try:
+            # Write the test script
+            script_path = os.path.join(temp_dir, "env_test.py")
+            with open(script_path, "w") as f:
+                f.write(test_script)
+            
+            print(f"✓ Created test script: {script_path}")
+
+            # Upload script to Workspace
+            workspace_path = f"/Workspace/Shared/prophecy/orch/test/env_test_{self.project_name}.py"
+            print(f"\nUploading test script to: {workspace_path}")
+            client.upload_src_path(src_path=script_path, destination_path=workspace_path)
+            print("✓ Upload complete")
+
+            # Create job JSON for the test
+            job_name = f"prophecy_env_test_{self.project_name}_{pipeline_name}"
+            job_cluster_key = f"{job_name}_cluster"
+
+            job_json = {
+                "name": job_name,
+                "email_notifications": {},
+                "webhook_notifications": {},
+                "timeout_seconds": 0,
+                "max_concurrent_runs": 1,
+                "tasks": [
+                    {
+                        "task_key": "env_test",
+                        "run_if": "ALL_SUCCESS",
+                        "spark_python_task": {
+                            "python_file": workspace_path,
+                            "parameters": [
+                                "--job-id", "{{job.id}}",
+                                "--run-id", "{{job.run_id}}",
+
+                                "--job-name", "{{job.name}}",
+                                "--workspace-id", "{{workspace.id}}",
+                            ],
+                        },
+                        "job_cluster_key": job_cluster_key,
+                        "timeout_seconds": 0,
+                        "email_notifications": {},
+                    }
+                ],
+                "job_clusters": [
+                    {
+                        "job_cluster_key": job_cluster_key,
+                        "new_cluster": {
+                            "spark_version": "16.4.x-scala2.12",
+                            "spark_conf": {
+                                "spark.prophecy.test": "environment_variables",
+                            },
+                            "spark_env_vars": {
+                                # Custom test variables
+                                "TEST_PROJECT_NAME": self.project_name,
+                                "TEST_PIPELINE_NAME": pipeline_name,
+                            },
+                            "aws_attributes": {"zone_id": "auto"},
+                            "node_type_id": "i3.xlarge",
+                            "data_security_mode": "NONE",
+                            "kind": "CLASSIC_PREVIEW",
+                            "runtime_engine": "STANDARD",
+                            "is_single_node": True,
+                            "num_workers": 0,
+                        },
+                    }
+                ],
+            }
+
+            # Check if job already exists
+            existing_job_id = client.find_job(job_name)
+
+            if existing_job_id:
+                print(f"\nUpdating existing test job (ID: {existing_job_id})")
+                client.reset_job(existing_job_id, job_json)
+                job_id = existing_job_id
+            else:
+                print(f"\nCreating new test job...")
+                response = client.create_job(job_json)
+                job_id = response.get("job_id")
+
+            # Show job details with clickable link
+            job_url = f"{databricks_host.rstrip('/')}/jobs/{job_id}"
+            print(f"\n✓ Test job deployed successfully!")
+            print(f"  Job Name: {job_name}")
+            print(f"  Job ID: {job_id}")
+            print(f"  URL: {job_url}")
+            print(f"\nTo run the test:")
+            print(f"  1. Open the job URL above")
+            print(f"  2. Click 'Run Now'")
+            print(f"  3. View the run output to see all environment variables")
+
+        finally:
+            # Cleanup temporary directory
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+                print(f"\n✓ Cleaned up temporary files")
