@@ -100,7 +100,8 @@ def generate_job_json_template(
                     "package_name": package_name,
                     "entry_point": "main",
                     "parameters": [
-                        "-i", "default", "-O", "{}",
+                        "-i", "default", 
+                        "-O", "{}",
                         "--job-id", "{{job.id}}",
                         "--run-id", "{{job.run_id}}",
                         "--workspace-id", "{{workspace.id}}",
