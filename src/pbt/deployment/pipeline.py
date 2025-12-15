@@ -500,8 +500,11 @@ class PackageBuilderAndUploader:
                     indent=2,
                 )
             else:
-                self._initialize_temp_folder()
-                log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
+                if self._project_language == PYTHON_LANGUAGE and self._project.has_unified_pyproject():
+                    log("Using unified pyproject.toml structure, building from project root.", step_id=self._pipeline_id, indent=2)
+                else:
+                    self._initialize_temp_folder()
+                    log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
 
                 if self._project_language == SCALA_LANGUAGE:
                     self.mvn_build()
@@ -513,7 +516,12 @@ class PackageBuilderAndUploader:
                     indent=2,
                 )
 
-            path = Project.get_pipeline_whl_or_jar(self._base_path)
+            if self._project_language == PYTHON_LANGUAGE and self._project.has_unified_pyproject():
+                whl_search_path = self._project.project_path
+            else:
+                whl_search_path = self._base_path
+
+            path = Project.get_pipeline_whl_or_jar(whl_search_path)
             log(
                 f"{Colors.OKBLUE}Pipeline package path: {path}{Colors.ENDC}\n",
                 step_id=self._pipeline_id,
@@ -687,6 +695,28 @@ class PackageBuilderAndUploader:
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
+        if self._project.has_unified_pyproject():
+            return self._wheel_build_pyproject(ignore_build_error)
+        else:
+            return self._wheel_build_setup_py(ignore_build_error)
+
+    def _wheel_build_pyproject(self, ignore_build_error: bool = False):
+        build_path = self._project.project_path
+
+        command = [self._python_cmd, "-m", "build", "--wheel"]
+
+        log(f"Running python build command (pyproject.toml): {command}", step_id=self._pipeline_id, indent=2)
+        log(f"Building from project root: {build_path}", step_id=self._pipeline_id, indent=2)
+
+        original_base_path = self._base_path
+        self._base_path = build_path
+
+        try:
+            return self._build(command, ignore_build_error)
+        finally:
+            self._base_path = original_base_path
+
+    def _wheel_build_setup_py(self, ignore_build_error: bool = False):
         case_preserved_whl_build = (
             "import sys, runpy, setuptools._normalization as norm;"
             "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
@@ -696,7 +726,7 @@ class PackageBuilderAndUploader:
 
         command = [self._python_cmd, "-c", case_preserved_whl_build]
 
-        log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
+        log(f"Running python command (setup.py): {command}", step_id=self._pipeline_id, indent=2)
 
         return self._build(command, ignore_build_error)
 

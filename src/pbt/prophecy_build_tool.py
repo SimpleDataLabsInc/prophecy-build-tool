@@ -77,6 +77,9 @@ class ProphecyBuildTool:
         path_job_absolute = os.path.join(os.path.join(self.path_root, path_job), "code")
         return os.path.join(path_job_absolute, "prophecy-job.json")
 
+    def _has_pyproject_toml(self):
+        return os.path.isfile(os.path.join(self.path_root, "pyproject.toml"))
+
     # find all the pipelines which are needed to be build for the jobs
     def generate_pipeline_deps(self):
         all_jobs_deps = []
@@ -177,6 +180,10 @@ class ProphecyBuildTool:
             sys.exit(0)
 
     def build(self, pipelines, exit_on_build_failure=True):
+        # Check if this is a unified pyproject.toml project
+        if self._has_pyproject_toml():
+            return self._build_unified_project(exit_on_build_failure)
+
         if not pipelines:  # if pipelines not provided run for all pipelines
             pipelines = self.pipelines
         elif isinstance(pipelines, str):  # elif filter pipelines provided as string
@@ -249,6 +256,45 @@ class ProphecyBuildTool:
             if not exit_on_build_failure:
                 print("\n[bold yellow] Ignoring builds Errors as --ignore-build-errors is passed [/bold yellow]")
             return overall_build_status, self.pipelines_build_path
+
+    def _build_unified_project(self, exit_on_build_failure=True):
+        print("\n[bold blue]Building unified project (pyproject.toml)[/bold blue]")
+
+        command = [self.pip_cmd, "wheel", ".", "--no-deps", "--wheel-dir", "dist"]
+        print(f"\n  Running: {' '.join(command)}")
+        print(f"  Working directory: {self.path_root}")
+
+        return_code = Process.process_sequential(
+            [
+                Process(
+                    command,
+                    self.path_root,
+                    is_shell=(self.operating_system == "win32"),
+                )
+            ]
+        )
+
+        dist_path = join(self.path_root, "dist")
+        build_file_paths = list(
+            filter(
+                lambda x: (x.endswith("py3-none-any.whl")),
+                glob(f"{dist_path}{os.sep}*.whl"),
+            )
+        )
+
+        if return_code == 0 and len(build_file_paths) > 0:
+            self.pipelines_build_path["project"] = {
+                "source_absolute": build_file_paths[0],
+                "source": os.path.basename(build_file_paths[0]),
+                "uploaded": False,
+            }
+            print(f"\n[bold blue] Build complete! Wheel: {build_file_paths[0]}[/bold blue]")
+            return True, self.pipelines_build_path
+        else:
+            print(f"\n[bold red] Build failed![/bold red]")
+            if exit_on_build_failure:
+                sys.exit(1)
+            return False, self.pipelines_build_path
 
     def deploy(self, fabric_ids: str = "", skip_builds: bool = False, job_ids=None):
         # not allowed to pass job_id and fabric_ids filter together ( as only job_id support incremental build and
@@ -768,6 +814,7 @@ class ProphecyBuildTool:
             )
             self.pipelines = self.project["pipelines"]
             self.project_language = self.project["language"]
+            self.backend_language = self.project.get("backendLanguage")
             self.pipeline_configurations = dict(self.project.get("pipelineConfigurations", []))
             self.pipeline_to_local_config_path = {}
             self.pipeline_to_dbfs_config_path = {}
@@ -778,7 +825,12 @@ class ProphecyBuildTool:
                 self.pipeline_to_local_config_path[pipeline_config_object["basePipeline"]] = os.path.join(
                     self.path_root, pipeline_config_path
                 )
-        if self.project_language not in ("python", "scala"):
+        supported_languages = ("python", "scala")
+        is_supported = (
+            self.project_language in supported_languages
+            or self.backend_language in supported_languages
+        )
+        if not is_supported:
             self._error(f"Language: [i]{self.project_language}[/i] not supported by Prophecy-Build-Tool right now.")
 
         self.pipelines_count = len(self.pipelines)

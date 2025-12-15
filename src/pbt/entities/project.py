@@ -163,6 +163,10 @@ class Project:
     def load_pipeline_base_path(self, pipeline):
         return os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
 
+    def has_unified_pyproject(self) -> bool:
+        pyproject_path = os.path.join(self.project_path, "pyproject.toml")
+        return os.path.isfile(pyproject_path)
+
     def load_pipeline_folder(self, pipeline):
         base_path = os.path.join(self.project_path, pipeline, self._CODE_FOLDER)
 
