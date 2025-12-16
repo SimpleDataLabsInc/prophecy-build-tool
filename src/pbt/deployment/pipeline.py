@@ -500,7 +500,7 @@ class PackageBuilderAndUploader:
                     indent=2,
                 )
             else:
-                if self._project_language == PYTHON_LANGUAGE and self._project.has_unified_pyproject():
+                if self._project.has_unified_pyproject():
                     log("Using unified pyproject.toml structure, building from project root.", step_id=self._pipeline_id, indent=2)
                 else:
                     self._initialize_temp_folder()
@@ -516,7 +516,7 @@ class PackageBuilderAndUploader:
                     indent=2,
                 )
 
-            if self._project_language == PYTHON_LANGUAGE and self._project.has_unified_pyproject():
+            if self._project.has_unified_pyproject():
                 whl_search_path = self._project.project_path
             else:
                 whl_search_path = self._base_path
