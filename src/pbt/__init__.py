@@ -525,16 +525,16 @@ def tag(path, repo_path, no_push, branch, custom):
 def rename_pipeline_cmd(path, old_name, new_name, unsafe):
     """
     Rename a pipeline and update all references throughout the project.
-    
+
     By default, this command only updates the pipeline name/ID and leaves package names unchanged.
-    
+
     With --unsafe flag, it will also:
     - Rename package directories
     - Update all package imports
     - Update app names
     - Update config package names
     - Update setup.py configurations
-    
+
     This command will:
     - Rename the pipeline directory
     - Update pbt_project.yml
@@ -542,6 +542,7 @@ def rename_pipeline_cmd(path, old_name, new_name, unsafe):
     - Update workflow.latest.json
     """
     import os
+
     # Resolve path to absolute path (defaults to current directory)
     project_path = os.path.abspath(path)
     try:
