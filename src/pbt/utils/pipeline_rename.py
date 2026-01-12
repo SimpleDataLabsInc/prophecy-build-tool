@@ -266,25 +266,23 @@ def update_python_file(
         content
     )
     
-    old_pipeline_name_safe = old_pipeline_id.split('/')[-1]
-    new_pipeline_name_safe = new_pipeline_id.split('/')[-1]
+    old_pipeline_name = old_pipeline_id.split('/')[-1]
+    new_pipeline_name = new_pipeline_id.split('/')[-1]
+    
     content = re.sub(
-        r'prophecy_config_instances\.' + re.escape(old_pipeline_name_safe) + r'(?![a-zA-Z0-9_])',
-        f'prophecy_config_instances.{new_pipeline_name_safe}',
+        r'prophecy_config_instances\.' + re.escape(old_pipeline_name) + r'(?![a-zA-Z0-9_])',
+        f'prophecy_config_instances.{new_pipeline_name}',
         content
     )
     
     if os.path.basename(file_path) == '__init__.py':
         content = re.sub(
-            r'from\s+\.' + re.escape(old_pipeline_name_safe) + r'\s+import',
-            f'from .{new_pipeline_name_safe} import',
+            r'from\s+\.' + re.escape(old_pipeline_name) + r'\s+import',
+            f'from .{new_pipeline_name} import',
             content
         )
     
-    old_pipeline_name = old_pipeline_id.split('/')[-1]
-    new_pipeline_name = new_pipeline_id.split('/')[-1]
-    # Use regex with word boundaries for pipeline name in various contexts
-    # First handle quoted strings with just pipeline name
+    # Update pipeline URI references
     content = re.sub(
         r'"pipelines/' + re.escape(old_pipeline_name) + r'"',
         f'"{new_pipeline_id}"',
@@ -295,7 +293,7 @@ def update_python_file(
         f"'{new_pipeline_id}'",
         content
     )
-    # Also handle cases where pipeline URI might have the full package name (incorrect format)
+    # Handle cases where pipeline URI might have the full package name (incorrect format)
     content = re.sub(
         r'"pipelines/' + re.escape(old_package) + r'"',
         f'"{new_pipeline_id}"',
@@ -306,13 +304,12 @@ def update_python_file(
         f"'{new_pipeline_id}'",
         content
     )
-    # Then handle unquoted pipeline ID references (with word boundary to avoid substring matches)
+    # Handle unquoted pipeline ID references
     content = re.sub(
         r'\b' + re.escape(f'pipelines/{old_pipeline_name}') + r'\b',
         new_pipeline_id,
         content
     )
-    # Also handle unquoted full package name references
     content = re.sub(
         r'\b' + re.escape(f'pipelines/{old_package}') + r'\b',
         new_pipeline_id,
@@ -348,12 +345,9 @@ def update_python_file(
             lambda m: m.group(0).replace(old_package, new_package),
             content
         )
-        # Also update prophecy_config_instances.{old_name} patterns
-        old_pipeline_name_safe = old_pipeline_id.split('/')[-1]
-        new_pipeline_name_safe = new_pipeline_id.split('/')[-1]
         content = re.sub(
-            r"['\"]prophecy_config_instances\." + re.escape(old_pipeline_name_safe) + r"['\"]\s*:\s*['\"][^'\"]+['\"]",
-            lambda m: m.group(0).replace(f'prophecy_config_instances.{old_pipeline_name_safe}', f'prophecy_config_instances.{new_pipeline_name_safe}'),
+            r"['\"]prophecy_config_instances\." + re.escape(old_pipeline_name) + r"['\"]\s*:\s*['\"][^'\"]+['\"]",
+            lambda m: m.group(0).replace(f'prophecy_config_instances.{old_pipeline_name}', f'prophecy_config_instances.{new_pipeline_name}'),
             content
         )
         
@@ -363,22 +357,21 @@ def update_python_file(
             lambda m: m.group(0).replace(old_package, new_package),
             content
         )
-        # Also update prophecy_config_instances.{old_name} in package_data
         content = re.sub(
-            r"['\"]prophecy_config_instances\." + re.escape(old_pipeline_name_safe) + r"['\"]\s*:\s*\[[^\]]+\]",
-            lambda m: m.group(0).replace(f'prophecy_config_instances.{old_pipeline_name_safe}', f'prophecy_config_instances.{new_pipeline_name_safe}'),
+            r"['\"]prophecy_config_instances\." + re.escape(old_pipeline_name) + r"['\"]\s*:\s*\[[^\]]+\]",
+            lambda m: m.group(0).replace(f'prophecy_config_instances.{old_pipeline_name}', f'prophecy_config_instances.{new_pipeline_name}'),
             content
         )
         
         # Update packages list - handle prophecy_config_instances.{old_name}
         content = re.sub(
-            r"\['prophecy_config_instances\." + re.escape(old_pipeline_name_safe) + r"'\]",
-            f"['prophecy_config_instances.{new_pipeline_name_safe}']",
+            r"\['prophecy_config_instances\." + re.escape(old_pipeline_name) + r"'\]",
+            f"['prophecy_config_instances.{new_pipeline_name}']",
             content
         )
         content = re.sub(
-            r'\["prophecy_config_instances\.' + re.escape(old_pipeline_name_safe) + r'"\]',
-            f'["prophecy_config_instances.{new_pipeline_name_safe}"]',
+            r'\["prophecy_config_instances\.' + re.escape(old_pipeline_name) + r'"\]',
+            f'["prophecy_config_instances.{new_pipeline_name}"]',
             content
         )
         
@@ -464,6 +457,12 @@ def update_python_file_pipeline_id_only(
     # Update spark.conf.set for pipeline URI
     content = re.sub(
         r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']' + re.escape(old_pipeline_id) + r'["\']\)',
+        f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
+        content
+    )
+    # Also handle cases where URI might use just the pipeline name
+    content = re.sub(
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/' + re.escape(old_name) + r'["\']\)',
         f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
         content
     )
@@ -602,67 +601,7 @@ def update_job_python_file(
         content
     )
     
-    if old_package_name and new_package_name:
-        content = re.sub(
-            r'"pipelines/' + re.escape(old_name_to_use) + r'"\s*:\s*["\']' + re.escape(old_package_name) + r'["\']',
-            f'"{new_pipeline_id}": "{new_package_name}"',
-            content
-        )
-        content = re.sub(
-            r"'pipelines/" + re.escape(old_name_to_use) + r"'\s*:\s*['\"]" + re.escape(old_package_name) + r"['\"]",
-            f"'{new_pipeline_id}': '{new_package_name}'",
-            content
-        )
-    
-    if old_package_name and new_package_name:
-        content = re.sub(
-            r'dbfs:/[^"\']*' + re.escape(old_package_name) + r'[^"\']*\.whl',
-            lambda m: m.group(0).replace(old_package_name, new_package_name),
-            content
-        )
-    content = re.sub(
-        r'dbfs:/[^"\']*' + re.escape(old_name_to_use) + r'[^"\']*\.whl',
-        lambda m: m.group(0).replace(old_name_to_use, new_name_to_use),
-        content
-    )
-    
-    if content != original_content:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        log(f"Updated job Python file: {file_path}")
-
-
-def update_job_python_file(
-    file_path: str,
-    old_pipeline_id: str,
-    new_pipeline_id: str,
-    old_name: str = None,
-    new_name: str = None,
-    old_package_name: str = None,
-    new_package_name: str = None
-) -> None:
-    with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    original_content = content
-    
-    old_pipeline_name = old_pipeline_id.split('/')[-1] if '/' in old_pipeline_id else old_pipeline_id
-    new_pipeline_name = new_pipeline_id.split('/')[-1] if '/' in new_pipeline_id else new_pipeline_id
-    
-    old_name_to_use = old_name if old_name else old_pipeline_name
-    new_name_to_use = new_name if new_name else new_pipeline_name
-    
-    content = re.sub(
-        r'"pipelines/' + re.escape(old_name_to_use) + r'":',
-        f'"{new_pipeline_id}":',
-        content
-    )
-    content = re.sub(
-        r"'pipelines/" + re.escape(old_name_to_use) + r"':",
-        f"'{new_pipeline_id}':",
-        content
-    )
-    
+    # Update pipeline package name in dictionaries
     if old_package_name and new_package_name:
         content = re.sub(
             r'"pipelines/' + re.escape(old_name_to_use) + r'"\s*:\s*["\']' + re.escape(old_package_name) + r'["\']',
@@ -850,22 +789,19 @@ def update_json_file(
                                     spark_conf['prophecy.packages.path'] = json.dumps(packages_path)
                                     updated = True
                             except (json.JSONDecodeError, TypeError):
-                                # If it's not valid JSON, try simple string replacement
-                                if old_pipeline_id in spark_conf['prophecy.packages.path']:
-                                    spark_conf['prophecy.packages.path'] = spark_conf['prophecy.packages.path'].replace(
-                                        old_pipeline_id, new_pipeline_id
-                                    )
+                                # Fallback: simple string replacement if JSON parsing fails
+                                packages_path_str = spark_conf['prophecy.packages.path']
+                                if old_pipeline_id in packages_path_str:
+                                    packages_path_str = packages_path_str.replace(old_pipeline_id, new_pipeline_id)
                                     updated = True
-                                if old_package_name and new_package_name and old_package_name in spark_conf['prophecy.packages.path']:
-                                    spark_conf['prophecy.packages.path'] = spark_conf['prophecy.packages.path'].replace(
-                                        old_package_name, new_package_name
-                                    )
+                                if old_package_name and new_package_name and old_package_name in packages_path_str:
+                                    packages_path_str = packages_path_str.replace(old_package_name, new_package_name)
                                     updated = True
-                                if old_name_to_use in spark_conf['prophecy.packages.path']:
-                                    spark_conf['prophecy.packages.path'] = spark_conf['prophecy.packages.path'].replace(
-                                        old_name_to_use, new_name_to_use
-                                    )
+                                if old_name_to_use in packages_path_str:
+                                    packages_path_str = packages_path_str.replace(old_name_to_use, new_name_to_use)
                                     updated = True
+                                if updated:
+                                    spark_conf['prophecy.packages.path'] = packages_path_str
     
     if updated:
         with open(json_file_path, 'w') as f:
@@ -882,11 +818,11 @@ def rename_pipeline(
     log(f"Starting pipeline rename: {old_name} -> {new_name}")
     
     if unsafe:
-        log(f"UNSAFE MODE: Will rename package names, app names, and all identifiers.")
+        log("UNSAFE MODE: Will rename package names, app names, and all identifiers.")
         print("WARNING: This will update all package imports, directory structures, and identifiers throughout the codebase.")
         print("It can corrupt the project, please proceed at your own risk.")
     else:
-        log(f"SAFE MODE: Only pipeline name/ID will be changed. Package names and app names remain unchanged.")
+        log("SAFE MODE: Only pipeline name/ID will be changed. Package names and app names remain unchanged.")
     
     # Validate rename
     is_valid, error_msg = validate_rename(project_path, old_name, new_name)
@@ -896,15 +832,13 @@ def rename_pipeline(
     old_pipeline_id = f'pipelines/{old_name}'
     new_pipeline_id = f'pipelines/{new_name}'
     
-    # Step 1: Rename main pipeline directory
     rename_pipeline_directory(project_path, old_name, new_name)
     
     new_pipeline_code_path = os.path.join(project_path, 'pipelines', new_name, 'code')
     new_workflow_path = os.path.join(new_pipeline_code_path, '.prophecy', 'workflow.latest.json')
     
     if unsafe:
-        old_workflow_path = os.path.join(new_pipeline_code_path, '.prophecy', 'workflow.latest.json')
-        old_identifiers = get_pipeline_identifiers(old_workflow_path)
+        old_identifiers = get_pipeline_identifiers(new_workflow_path)
         
         is_valid, warning = validate_package_scoping(
             project_path,
