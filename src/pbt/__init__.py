@@ -13,6 +13,7 @@ from .utils.versioning import get_bumped_version
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
+from .utils.pipeline_rename import rename_pipeline
 
 
 @click.group()
@@ -493,6 +494,62 @@ def tag(path, repo_path, no_push, branch, custom):
     if not repo_path:
         repo_path = path
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
+
+
+@cli.command(name="rename-pipeline")
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file (defaults to current directory)",
+    required=False,
+    default=".",
+)
+@click.option(
+    "--old-name",
+    help="Old pipeline name to rename",
+    required=True,
+)
+@click.option(
+    "--new-name",
+    help="New pipeline name",
+    required=True,
+)
+@click.option(
+    "--unsafe",
+    help="Unsafe mode: Also rename package names, app names, and all identifiers (not just pipeline name/ID). "
+    "WARNING: This will update all package imports, directory structures, and identifiers throughout the codebase."
+    "It can corrupt the project, please proceed at your own risk.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def rename_pipeline_cmd(path, old_name, new_name, unsafe):
+    """
+    Rename a pipeline and update all references throughout the project.
+    
+    By default, this command only updates the pipeline name/ID and leaves package names unchanged.
+    
+    With --unsafe flag, it will also:
+    - Rename package directories
+    - Update all package imports
+    - Update app names
+    - Update config package names
+    - Update setup.py configurations
+    
+    This command will:
+    - Rename the pipeline directory
+    - Update pbt_project.yml
+    - Update job JSON files
+    - Update workflow.latest.json
+    """
+    import os
+    # Resolve path to absolute path (defaults to current directory)
+    project_path = os.path.abspath(path)
+    try:
+        rename_pipeline(project_path, old_name, new_name, unsafe=unsafe)
+        print(f"[bold green]Successfully renamed pipeline: {old_name} -> {new_name}[/bold green]")
+    except Exception as e:
+        print(f"[bold red]Error renaming pipeline: {e}[/bold red]")
+        sys.exit(1)
 
 
 def main():
