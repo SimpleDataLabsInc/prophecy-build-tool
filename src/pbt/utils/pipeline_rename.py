@@ -732,7 +732,7 @@ def rename_pipeline(project_path: str, old_name: str, new_name: str, unsafe: boo
         print(
             "WARNING: This will update all package imports, directory structures, and identifiers throughout the codebase."
         )
-        print("It can corrupt the project, please proceed at your own risk.")
+        print("It can corrupt the project, please review the changes carefully before pushing")
     else:
         log("SAFE MODE: Only pipeline name/ID will be changed. Package names and app names remain unchanged.")
 

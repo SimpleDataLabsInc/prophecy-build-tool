@@ -517,7 +517,7 @@ def tag(path, repo_path, no_push, branch, custom):
     "--unsafe",
     help="Unsafe mode: Also rename package names, app names, and all identifiers (not just pipeline name/ID). "
     "WARNING: This will update all package imports, directory structures, and identifiers throughout the codebase."
-    "It can corrupt the project, please proceed at your own risk.",
+    "It can corrupt the project, please review the changes carefully before pushing.",
     default=False,
     is_flag=True,
     required=False,
