@@ -13,7 +13,6 @@ from .utils.versioning import get_bumped_version
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
 from .utility import is_online_mode
-from .utils.pipeline_rename import rename_pipeline
 
 
 @click.group()
@@ -496,7 +495,7 @@ def tag(path, repo_path, no_push, branch, custom):
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
 
 
-@cli.command(name="rename-pipeline")
+@cli.command(name="rename-sync")
 @click.option(
     "--path",
     help="Path to the directory containing the pbt_project.yml file (defaults to current directory)",
@@ -504,15 +503,14 @@ def tag(path, repo_path, no_push, branch, custom):
     default=".",
 )
 @click.option(
-    "--old-name",
-    "--current-name",
-    help="Current pipeline name to rename",
-    required=True,
+    "--pipeline-id",
+    help="Pipeline ID to sync (e.g., 'p1_pipe' - will search for 'pipelines/p1_pipe' in pbt_project.yml)",
+    required=False,
 )
 @click.option(
-    "--new-name",
-    help="New pipeline name",
-    required=True,
+    "--pipeline-name",
+    help="Pipeline name to sync (will search for this name in the 'name' field of pbt_project.yml)",
+    required=False,
 )
 @click.option(
     "--unsafe",
@@ -523,25 +521,7 @@ def tag(path, repo_path, no_push, branch, custom):
     is_flag=True,
     required=False,
 )
-def rename_pipeline_cmd(path, old_name, new_name, unsafe):
-    """
-    Rename a pipeline and update all references throughout the project.
-
-    By default, this command only updates the pipeline name/ID and leaves package names unchanged.
-
-    With --unsafe flag, it will also:
-    - Rename package directories
-    - Update all package imports
-    - Update app names
-    - Update config package names
-    - Update setup.py configurations
-
-    This command will:
-    - Rename the pipeline directory
-    - Update pbt_project.yml
-    - Update job JSON files
-    - Update workflow.latest.json
-    """
+def rename_sync_cmd(path, pipeline_id, pipeline_name, unsafe):
     import os
     from .utils.pipeline_rename import (
         PipelineRenameError,
@@ -549,13 +529,14 @@ def rename_pipeline_cmd(path, old_name, new_name, unsafe):
         PipelineAlreadyExistsError,
         FileOperationError,
         ValidationError,
+        sync_pipeline,
     )
 
-    # Resolve path to absolute path (defaults to current directory)
     project_path = os.path.abspath(path)
     try:
-        rename_pipeline(project_path, old_name, new_name, unsafe=unsafe)
-        print(f"[bold green]Successfully renamed pipeline: {old_name} -> {new_name}[/bold green]")
+        sync_pipeline(project_path, pipeline_id, pipeline_name, unsafe=unsafe)
+        identifier = pipeline_id or pipeline_name
+        print(f"[bold green]Successfully synced pipeline: {identifier}[/bold green]")
     except PipelineNotFoundError as e:
         print(f"[bold red]Pipeline Not Found:[/bold red]\n{str(e)}")
         sys.exit(1)
@@ -569,7 +550,7 @@ def rename_pipeline_cmd(path, old_name, new_name, unsafe):
         print(f"[bold red]Validation Error:[/bold red]\n{str(e)}")
         sys.exit(1)
     except PipelineRenameError as e:
-        print(f"[bold red]Pipeline Rename Error:[/bold red]\n{str(e)}")
+        print(f"[bold red]Pipeline Sync Error:[/bold red]\n{str(e)}")
         sys.exit(1)
     except Exception as e:
         print(f"[bold red]Unexpected Error:[/bold red]\n{str(e)}")

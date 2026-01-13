@@ -6,6 +6,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 import yaml
 
+from rich import print
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from ..utility import custom_print as log, python_pipeline_name
@@ -144,64 +145,126 @@ def find_pipeline_in_project_config(project_config: dict, pipeline_name: str) ->
     return None
 
 
-def validate_rename(project_path: str, current_name: str, new_name: str) -> None:
-    current_pipeline_path = os.path.join(project_path, "pipelines", current_name)
-    new_pipeline_path = os.path.join(project_path, "pipelines", new_name)
+def find_pipeline_by_id_or_name(
+    project_config: dict, pipeline_id: Optional[str] = None, pipeline_name: Optional[str] = None
+) -> Tuple[Optional[str], Optional[str], Optional[dict]]:
+    pipelines = project_config.get("pipelines", {})
 
-    if not os.path.exists(current_pipeline_path):
-        raise PipelineNotFoundError(
-            f"Pipeline '{current_name}' does not exist.\n"
-            f"  Expected location: {current_pipeline_path}\n"
-            f"  ACTION: Verify the pipeline name is correct. List available pipelines with: ls {os.path.join(project_path, 'pipelines')}"
+    if pipeline_id:
+        full_id = f"pipelines/{pipeline_id}" if not pipeline_id.startswith("pipelines/") else pipeline_id
+        if full_id in pipelines:
+            pipeline_data = pipelines[full_id]
+            pipeline_name_from_config = pipeline_data.get("name") if isinstance(pipeline_data, dict) else None
+            return full_id, pipeline_name_from_config, pipeline_data
+
+    if pipeline_name:
+        for pid, pdata in pipelines.items():
+            if isinstance(pdata, dict) and pdata.get("name") == pipeline_name:
+                return pid, pipeline_name, pdata
+
+    return None, None, None
+
+
+def validate_sync(
+    project_path: str, pipeline_id: Optional[str] = None, pipeline_name: Optional[str] = None
+) -> Tuple[str, str, str]:
+    if not pipeline_id and not pipeline_name:
+        raise ValidationError(
+            "Either --pipeline-id or --pipeline-name must be provided.\n"
+            f"  ACTION: Specify either --pipeline-id <id> or --pipeline-name <name> to identify the pipeline to sync."
         )
 
-    if os.path.exists(new_pipeline_path):
-        raise PipelineAlreadyExistsError(
-            f"Pipeline '{new_name}' already exists.\n"
-            f"  Location: {new_pipeline_path}\n"
-            f"  ACTION: Choose a different name for the new pipeline, or delete/rename the existing one first."
+    if pipeline_id and pipeline_name:
+        raise ValidationError(
+            "Cannot specify both --pipeline-id and --pipeline-name.\n"
+            f"  ACTION: Use either --pipeline-id <id> or --pipeline-name <name>, not both."
         )
 
     pbt_project_file = os.path.join(project_path, PBT_FILE_NAME)
-    if os.path.exists(pbt_project_file):
-        try:
-            content = _read_file_with_retry(pbt_project_file)
-            project_config = yaml.safe_load(content)
-        except yaml.YAMLError as e:
-            raise ValidationError(
-                f"Invalid YAML in {PBT_FILE_NAME}.\n"
-                f"  Error: {str(e)}\n"
-                f"  ACTION: Fix the YAML syntax errors in {pbt_project_file} before renaming."
-            ) from e
-        except Exception as e:
-            raise FileOperationError(
-                f"Failed to read {PBT_FILE_NAME}.\n"
-                f"  Error: {str(e)}\n"
-                f"  ACTION: Check file permissions and ensure the file is accessible."
-            ) from e
+    if not os.path.exists(pbt_project_file):
+        raise ValidationError(
+            f"Project file not found: {pbt_project_file}\n"
+            f"  ACTION: Ensure you're running the command from the project root directory containing {PBT_FILE_NAME}."
+        )
 
-        if not project_config:
-            raise ValidationError(
-                f"Empty or invalid {PBT_FILE_NAME}.\n"
-                f"  ACTION: Ensure {PBT_FILE_NAME} contains valid project configuration."
-            )
+    try:
+        content = _read_file_with_retry(pbt_project_file)
+        project_config = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        raise ValidationError(
+            f"Invalid YAML in {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Fix the YAML syntax errors in {pbt_project_file} before syncing."
+        ) from e
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
 
-        current_pipeline_id = find_pipeline_in_project_config(project_config, current_name)
-        if not current_pipeline_id:
-            raise PipelineNotFoundError(
-                f"Pipeline '{current_name}' not found in {PBT_FILE_NAME}.\n"
-                f"  ACTION: Ensure the pipeline is registered in {PBT_FILE_NAME}. "
-                f"Check both the pipeline ID (pipelines/{current_name}) and the 'name' field."
-            )
+    if not project_config:
+        raise ValidationError(
+            f"Empty or invalid {PBT_FILE_NAME}.\n"
+            f"  ACTION: Ensure {PBT_FILE_NAME} contains valid project configuration."
+        )
 
-        new_pipeline_id = f"pipelines/{new_name}"
-        existing_new_pipeline_id = find_pipeline_in_project_config(project_config, new_name)
-        if existing_new_pipeline_id:
-            raise PipelineAlreadyExistsError(
-                f"Pipeline '{new_name}' already exists in {PBT_FILE_NAME}.\n"
-                f"  Found as: {existing_new_pipeline_id}\n"
-                f"  ACTION: Choose a different name for the new pipeline."
-            )
+    # Find pipeline by ID or name
+    found_id, found_name, pipeline_data = find_pipeline_by_id_or_name(project_config, pipeline_id, pipeline_name)
+
+    if not found_id:
+        pipelines = project_config.get("pipelines", {})
+        if pipeline_id:
+            for pid, pdata in pipelines.items():
+                if isinstance(pdata, dict) and pdata.get("name") == pipeline_id:
+                    raise PipelineNotFoundError(
+                        f"Pipeline ID 'pipelines/{pipeline_id}' not found in {PBT_FILE_NAME}.\n"
+                        f"  However, a pipeline with name '{pipeline_id}' exists with ID '{pid}'.\n"
+                        f"  ACTION: Use --pipeline-name {pipeline_id} instead, or verify the pipeline ID is correct."
+                    )
+        elif pipeline_name:
+            name_as_id = f"pipelines/{pipeline_name}"
+            if name_as_id in pipelines:
+                raise PipelineNotFoundError(
+                    f"Pipeline name '{pipeline_name}' not found in {PBT_FILE_NAME}.\n"
+                    f"  However, a pipeline with ID '{name_as_id}' exists.\n"
+                    f"  ACTION: Use --pipeline-id {pipeline_name} instead, or verify the pipeline name is correct."
+                )
+
+        raise PipelineNotFoundError(
+            f"Pipeline not found in {PBT_FILE_NAME}.\n"
+            f"  Searched for: {'ID' if pipeline_id else 'name'} = '{pipeline_id or pipeline_name}'\n"
+            f"  ACTION: Verify the pipeline exists in {PBT_FILE_NAME} and check both the pipeline ID and 'name' field."
+        )
+
+    target_pipeline_name = found_name
+    if not target_pipeline_name:
+        raise ValidationError(
+            f"Pipeline '{found_id}' found but has no 'name' field in {PBT_FILE_NAME}.\n"
+            f"  ACTION: Ensure the pipeline entry has a 'name' field."
+        )
+
+    current_directory_name = found_id.split("/")[-1] if "/" in found_id else found_id
+
+    if current_directory_name == target_pipeline_name:
+        raise ValidationError(
+            f"Pipeline is already synced.\n"
+            f"  Pipeline ID: {found_id}\n"
+            f"  Directory name: {current_directory_name}\n"
+            f"  Pipeline name: {target_pipeline_name}\n"
+            f"  ACTION: No sync needed - directory name and pipeline name already match."
+        )
+
+    # Check if target directory already exists (different pipeline with target name)
+    target_directory_path = os.path.join(project_path, "pipelines", target_pipeline_name)
+    if os.path.exists(target_directory_path) and current_directory_name != target_pipeline_name:
+        raise PipelineAlreadyExistsError(
+            f"Target directory '{target_pipeline_name}' already exists.\n"
+            f"  Location: {target_directory_path}\n"
+            f"  ACTION: Delete or rename the existing directory first, or choose a different pipeline name."
+        )
+
+    return found_id, current_directory_name, target_pipeline_name
 
 
 def validate_package_scoping(
@@ -921,6 +984,29 @@ def update_job_python_file(
         content,
     )
 
+    content = re.sub(
+        r'["\']' + re.escape(current_pipeline_id) + r'["\']',
+        f'"{new_pipeline_id}"',
+        content,
+    )
+    content = re.sub(
+        r'["\']' + re.escape(f"pipelines/{current_name_to_use}") + r'["\']',
+        f'"{new_pipeline_id}"',
+        content,
+    )
+
+    content = re.sub(
+        r'["\']' + re.escape(current_name_to_use) + r'["\']',
+        f'"{new_name_to_use}"',
+        content,
+    )
+
+    content = re.sub(
+        r"\b" + re.escape(current_name_to_use) + r"\b",
+        new_name_to_use,
+        content,
+    )
+
     if content != original_content:
         try:
             _write_file_with_retry(file_path, content, encoding="utf-8")
@@ -970,12 +1056,33 @@ def update_json_file(
     if "processes" in data:
         for process_key, process_value in data["processes"].items():
             if isinstance(process_value, dict):
-                # Update pipelineId
+                # Update pipelineId (can be a string or a dict with "value" field)
                 if "properties" in process_value:
                     if "pipelineId" in process_value["properties"]:
-                        if process_value["properties"]["pipelineId"] == current_pipeline_id:
-                            process_value["properties"]["pipelineId"] = new_pipeline_id
-                            updated = True
+                        pipeline_id_obj = process_value["properties"]["pipelineId"]
+                        # Handle case where pipelineId is a dict with "value" field
+                        if isinstance(pipeline_id_obj, dict) and "value" in pipeline_id_obj:
+                            if pipeline_id_obj["value"] == current_pipeline_id:
+                                pipeline_id_obj["value"] = new_pipeline_id
+                                updated = True
+                            elif (
+                                isinstance(pipeline_id_obj["value"], str)
+                                and current_pipeline_id in pipeline_id_obj["value"]
+                            ):
+                                pipeline_id_obj["value"] = pipeline_id_obj["value"].replace(
+                                    current_pipeline_id, new_pipeline_id
+                                )
+                                updated = True
+                        # Handle case where pipelineId is a direct string
+                        elif isinstance(pipeline_id_obj, str):
+                            if pipeline_id_obj == current_pipeline_id:
+                                process_value["properties"]["pipelineId"] = new_pipeline_id
+                                updated = True
+                            elif current_pipeline_id in pipeline_id_obj:
+                                process_value["properties"]["pipelineId"] = pipeline_id_obj.replace(
+                                    current_pipeline_id, new_pipeline_id
+                                )
+                                updated = True
 
                 # Update metadata label and slug
                 if "metadata" in process_value:
@@ -1123,6 +1230,65 @@ def update_json_file(
                                 if updated:
                                     spark_conf["prophecy.packages.path"] = packages_path_str
 
+    def update_strings_recursively(obj):
+        nonlocal updated
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if isinstance(value, str):
+                    if current_pipeline_id in value:
+                        new_value = value.replace(current_pipeline_id, new_pipeline_id)
+                        if new_value != value:
+                            obj[key] = new_value
+                            updated = True
+                    if current_name_to_use == value:
+                        obj[key] = new_name_to_use
+                        updated = True
+                    elif current_name_to_use in value:
+                        if (
+                            "/" in value
+                            or value.startswith("pipelines/")
+                            or "_" in value
+                            or value.startswith(current_name_to_use)
+                            or value.endswith(current_name_to_use)
+                            or current_name_to_use in value
+                        ):
+                            new_value = value.replace(current_name_to_use, new_name_to_use)
+                            if new_value != value:
+                                obj[key] = new_value
+                                updated = True
+                elif isinstance(value, (dict, list)):
+                    update_strings_recursively(value)
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                if isinstance(item, str):
+                    # Update pipeline ID
+                    if current_pipeline_id in item:
+                        new_item = item.replace(current_pipeline_id, new_pipeline_id)
+                        if new_item != item:
+                            obj[i] = new_item
+                            updated = True
+                    # Update pipeline name
+                    if current_name_to_use == item:
+                        obj[i] = new_name_to_use
+                        updated = True
+                    elif current_name_to_use in item:
+                        if (
+                            "/" in item
+                            or item.startswith("pipelines/")
+                            or "_" in item
+                            or item.startswith(current_name_to_use)
+                            or item.endswith(current_name_to_use)
+                        ):
+                            new_item = item.replace(current_name_to_use, new_name_to_use)
+                            if new_item != item:
+                                obj[i] = new_item
+                                updated = True
+                else:
+                    update_strings_recursively(item)
+
+    # Do recursive update as a safety net for any missed patterns
+    update_strings_recursively(data)
+
     if updated:
         try:
             _write_file_with_retry(json_file_path, json.dumps(data, indent=2))
@@ -1135,8 +1301,14 @@ def update_json_file(
             ) from e
 
 
-def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe: bool = False) -> None:
-    log(f"Starting pipeline rename: {current_name} -> {new_name}")
+def sync_pipeline(
+    project_path: str, pipeline_id: Optional[str] = None, pipeline_name: Optional[str] = None, unsafe: bool = False
+) -> None:
+    current_pipeline_id, current_directory_name, target_pipeline_name = validate_sync(
+        project_path, pipeline_id, pipeline_name
+    )
+
+    log(f"Starting pipeline sync: {current_pipeline_id} (dir: {current_directory_name}) -> {target_pipeline_name}")
 
     if unsafe:
         log("UNSAFE MODE: Will rename package names, app names, and all identifiers.")
@@ -1147,18 +1319,14 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
     else:
         log("SAFE MODE: Only pipeline name/ID will be changed. Package names and app names remain unchanged.")
 
-    # Validate rename
-    validate_rename(project_path, current_name, new_name)
-
-    current_pipeline_id = f"pipelines/{current_name}"
-    new_pipeline_id = f"pipelines/{new_name}"
+    new_pipeline_id = f"pipelines/{target_pipeline_name}"
 
     try:
-        rename_pipeline_directory(project_path, current_name, new_name)
+        rename_pipeline_directory(project_path, current_directory_name, target_pipeline_name)
     except (FileNotFoundError, PermissionError) as e:
         raise FileOperationError(str(e)) from e
 
-    new_pipeline_code_path = os.path.join(project_path, "pipelines", new_name, "code")
+    new_pipeline_code_path = os.path.join(project_path, "pipelines", target_pipeline_name, "code")
     new_workflow_path = os.path.join(new_pipeline_code_path, ".prophecy", "workflow.latest.json")
 
     if unsafe:
@@ -1167,13 +1335,15 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
         except (FileNotFoundError, ValidationError) as e:
             raise ValidationError(str(e)) from e
 
-        is_valid, warning = validate_package_scoping(project_path, new_name, current_identifiers["package_name"])
+        is_valid, warning = validate_package_scoping(
+            project_path, target_pipeline_name, current_identifiers["package_name"]
+        )
         if not is_valid:
             raise ValidationError(f"Package scoping validation failed: {warning}")
         if warning:
             log(f"Warning: {warning}")
 
-        new_identifiers = derive_new_identifiers(new_name)
+        new_identifiers = derive_new_identifiers(target_pipeline_name)
 
         log(f"Current package: {current_identifiers['package_name']}")
         log(f"New package: {new_identifiers['package_name']}")
@@ -1196,13 +1366,17 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
         try:
             update_workflow_json_uri_only(new_workflow_path, current_pipeline_id, new_pipeline_id)
             update_python_files_pipeline_id_only(
-                new_pipeline_code_path, current_pipeline_id, new_pipeline_id, current_name, new_name
+                new_pipeline_code_path,
+                current_pipeline_id,
+                new_pipeline_id,
+                current_directory_name,
+                target_pipeline_name,
             )
         except (FileOperationError, ValidationError) as e:
             raise ValidationError(str(e)) from e
 
     try:
-        update_pbt_project_yml(project_path, current_pipeline_id, new_pipeline_id, new_name)
+        update_pbt_project_yml(project_path, current_pipeline_id, new_pipeline_id, target_pipeline_name)
     except (FileNotFoundError, ValidationError, FileOperationError) as e:
         raise ValidationError(str(e)) from e
 
@@ -1230,8 +1404,8 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
             project_path,
             current_pipeline_id,
             new_pipeline_id,
-            current_name,
-            new_name,
+            current_directory_name,
+            target_pipeline_name,
             current_package_name_for_jobs,
             new_package_name_for_jobs,
         )
@@ -1239,10 +1413,12 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
         raise ValidationError(str(e)) from e
 
     # Validate that current name is no longer present
-    is_valid, files_with_current_name = validate_current_name_removed(project_path, new_name, current_pipeline_id)
+    is_valid, files_with_current_name = validate_current_name_removed(
+        project_path, target_pipeline_name, current_pipeline_id
+    )
     if not is_valid:
         print(
-            f"\n[bold yellow]WARNING: The current pipeline name '{current_name}' still appears in the following files:[/bold yellow]"
+            f"\n[bold yellow]WARNING: The current pipeline name '{current_directory_name}' still appears in the following files:[/bold yellow]"
         )
         for file_path in files_with_current_name[:10]:  # Show first 10 files
             print(f"  - {file_path}")
@@ -1252,4 +1428,6 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
             "[bold yellow]ACTION: Review these files manually to ensure all references are updated correctly.[/bold yellow]\n"
         )
 
-    log(f"Pipeline rename completed successfully: {current_name} -> {new_name}")
+    log(
+        f"Pipeline sync completed successfully: {current_pipeline_id} -> {new_pipeline_id} (name: {target_pipeline_name})"
+    )
