@@ -505,7 +505,8 @@ def tag(path, repo_path, no_push, branch, custom):
 )
 @click.option(
     "--old-name",
-    help="Old pipeline name to rename",
+    "--current-name",
+    help="Current pipeline name to rename",
     required=True,
 )
 @click.option(
@@ -542,14 +543,38 @@ def rename_pipeline_cmd(path, old_name, new_name, unsafe):
     - Update workflow.latest.json
     """
     import os
+    from .utils.pipeline_rename import (
+        PipelineRenameError,
+        PipelineNotFoundError,
+        PipelineAlreadyExistsError,
+        FileOperationError,
+        ValidationError,
+    )
 
     # Resolve path to absolute path (defaults to current directory)
     project_path = os.path.abspath(path)
     try:
         rename_pipeline(project_path, old_name, new_name, unsafe=unsafe)
         print(f"[bold green]Successfully renamed pipeline: {old_name} -> {new_name}[/bold green]")
+    except PipelineNotFoundError as e:
+        print(f"[bold red]Pipeline Not Found:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except PipelineAlreadyExistsError as e:
+        print(f"[bold red]Pipeline Already Exists:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except FileOperationError as e:
+        print(f"[bold red]File Operation Error:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except ValidationError as e:
+        print(f"[bold red]Validation Error:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except PipelineRenameError as e:
+        print(f"[bold red]Pipeline Rename Error:[/bold red]\n{str(e)}")
+        sys.exit(1)
     except Exception as e:
-        print(f"[bold red]Error renaming pipeline: {e}[/bold red]")
+        print(f"[bold red]Unexpected Error:[/bold red]\n{str(e)}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 
