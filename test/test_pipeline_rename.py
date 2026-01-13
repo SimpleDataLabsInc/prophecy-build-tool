@@ -176,7 +176,7 @@ class PipelineRenameTestCase(unittest.TestCase):
 
     def test_rename_pipeline_not_found_error(self):
         """Test error when pipeline doesn't exist."""
-        with self.assertRaises(ValidationError) as context:
+        with self.assertRaises(PipelineNotFoundError) as context:
             rename_pipeline(self.project_path, "nonexistent", "renamed", unsafe=False)
 
         self.assertIn("does not exist", str(context.exception))
@@ -184,7 +184,7 @@ class PipelineRenameTestCase(unittest.TestCase):
 
     def test_rename_pipeline_target_exists_error(self):
         """Test error when target pipeline already exists."""
-        with self.assertRaises(ValidationError) as context:
+        with self.assertRaises(PipelineAlreadyExistsError) as context:
             rename_pipeline(self.project_path, "test_pipeline", "another_pipeline", unsafe=False)
 
         self.assertIn("already exists", str(context.exception))
