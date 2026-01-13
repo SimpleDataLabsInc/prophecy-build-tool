@@ -574,6 +574,7 @@ def rename_pipeline_cmd(path, old_name, new_name, unsafe):
     except Exception as e:
         print(f"[bold red]Unexpected Error:[/bold red]\n{str(e)}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
