@@ -131,37 +131,37 @@ def derive_new_identifiers(new_pipeline_name: str) -> Dict[str, str]:
     }
 
 
-def find_pipeline_in_project_config(project_config: dict, pipeline_name: str) -> Optional[str]
+def find_pipeline_in_project_config(project_config: dict, pipeline_name: str) -> Optional[str]:
     pipelines = project_config.get("pipelines", {})
     pipeline_id = f"pipelines/{pipeline_name}"
-    
+
     if pipeline_id in pipelines:
         return pipeline_id
     for pid, pipeline_data in pipelines.items():
         if isinstance(pipeline_data, dict) and pipeline_data.get("name") == pipeline_name:
             return pid
-    
+
     return None
 
 
 def validate_rename(project_path: str, current_name: str, new_name: str) -> None:
     current_pipeline_path = os.path.join(project_path, "pipelines", current_name)
     new_pipeline_path = os.path.join(project_path, "pipelines", new_name)
-    
+
     if not os.path.exists(current_pipeline_path):
         raise PipelineNotFoundError(
             f"Pipeline '{current_name}' does not exist.\n"
             f"  Expected location: {current_pipeline_path}\n"
             f"  ACTION: Verify the pipeline name is correct. List available pipelines with: ls {os.path.join(project_path, 'pipelines')}"
         )
-    
+
     if os.path.exists(new_pipeline_path):
         raise PipelineAlreadyExistsError(
             f"Pipeline '{new_name}' already exists.\n"
             f"  Location: {new_pipeline_path}\n"
             f"  ACTION: Choose a different name for the new pipeline, or delete/rename the existing one first."
         )
-    
+
     pbt_project_file = os.path.join(project_path, PBT_FILE_NAME)
     if os.path.exists(pbt_project_file):
         try:
@@ -254,11 +254,10 @@ def rename_pipeline_directory(project_path: str, current_name: str, new_name: st
             f"Pipeline directory not found: {current_path}\n"
             f"  ACTION: Verify the pipeline name is correct and the directory exists."
         )
-    
+
     if os.path.exists(new_path):
         raise PipelineAlreadyExistsError(
-            f"Target directory already exists: {new_path}\n"
-            f"  ACTION: Delete or rename the existing directory first."
+            f"Target directory already exists: {new_path}\n" f"  ACTION: Delete or rename the existing directory first."
         )
 
     try:
@@ -325,7 +324,9 @@ def rename_package_directories(pipeline_code_path: str, current_package_name: st
             ) from e
 
 
-def update_workflow_json(workflow_path: str, current_identifiers: Dict[str, str], new_identifiers: Dict[str, str]) -> None:
+def update_workflow_json(
+    workflow_path: str, current_identifiers: Dict[str, str], new_identifiers: Dict[str, str]
+) -> None:
     if not os.path.exists(workflow_path):
         log(f"Workflow file not found: {workflow_path}, skipping update")
         return
@@ -445,7 +446,7 @@ def update_python_file(
     original_content = content
     current_pipeline_name = current_pipeline_id.split("/")[-1]
     new_pipeline_name = new_pipeline_id.split("/")[-1]
-    
+
     # IMPORTANT: Update pipeline URIs FIRST, before package name replacement
     # This prevents pipeline URIs from being incorrectly updated during package name replacement
     content = re.sub(r'"pipelines/' + re.escape(current_pipeline_name) + r'"', f'"{new_pipeline_id}"', content)
@@ -459,20 +460,26 @@ def update_python_file(
 
     # Update pipelineId in MetricsCollector.instrument calls
     content = re.sub(
-        r'pipelineId\s*=\s*["\']' + re.escape(current_pipeline_id) + r'["\']', f'pipelineId = "{new_pipeline_id}"', content
+        r'pipelineId\s*=\s*["\']' + re.escape(current_pipeline_id) + r'["\']',
+        f'pipelineId = "{new_pipeline_id}"',
+        content,
     )
     # Also handle spark.conf.set patterns
     content = re.sub(
-        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']' + re.escape(current_pipeline_id) + r'["\']\)',
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']'
+        + re.escape(current_pipeline_id)
+        + r'["\']\)',
         f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
-        content
+        content,
     )
     content = re.sub(
-        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/' + re.escape(current_pipeline_name) + r'["\']\)',
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/'
+        + re.escape(current_pipeline_name)
+        + r'["\']\)',
         f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
-        content
+        content,
     )
-    
+
     # Now update package names (after pipeline URIs are fixed)
     current_package_escaped = re.escape(current_package)
     current_config_package_escaped = re.escape(current_config_package)
@@ -480,7 +487,7 @@ def update_python_file(
     current_config_package_pattern = r"(?<![a-zA-Z0-9_.])" + current_config_package_escaped + r"(?![a-zA-Z0-9_])"
     content = re.sub(current_package_pattern, new_package, content)
     content = re.sub(current_config_package_pattern, new_config_package, content)
-    
+
     # Update app names
     current_app_simple = current_app_name.split(".")[-1].replace("App", "")
     new_app_simple = new_app_name.split(".")[-1].replace("App", "")
@@ -492,9 +499,7 @@ def update_python_file(
     )
     # Fix appName if it contains the full new package name (shouldn't happen, but handle it)
     new_package_escaped = re.escape(new_package)
-    content = re.sub(
-        r'\.appName\(["\']' + new_package_escaped + r'["\']\)', f'.appName("{new_app_simple}")', content
-    )
+    content = re.sub(r'\.appName\(["\']' + new_package_escaped + r'["\']\)', f'.appName("{new_app_simple}")', content)
 
     # Update prophecy_config_instances references
     content = re.sub(
@@ -507,18 +512,22 @@ def update_python_file(
         content = re.sub(
             r"from\s+\." + re.escape(current_pipeline_name) + r"\s+import", f"from .{new_pipeline_name} import", content
         )
-    
+
     # Final cleanup: Fix any pipeline URIs that might have been incorrectly updated during package name replacement
     # This is a safety net in case the order of operations didn't work as expected
     content = re.sub(r'"pipelines/' + new_package_escaped + r'"', f'"{new_pipeline_id}"', content)
     content = re.sub(r"'pipelines/" + new_package_escaped + r"'", f"'{new_pipeline_id}'", content)
     content = re.sub(
-        r'pipelineId\s*=\s*["\']pipelines/' + new_package_escaped + r'["\']', f'pipelineId = "{new_pipeline_id}"', content
+        r'pipelineId\s*=\s*["\']pipelines/' + new_package_escaped + r'["\']',
+        f'pipelineId = "{new_pipeline_id}"',
+        content,
     )
     content = re.sub(
-        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/' + new_package_escaped + r'["\']\)',
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/'
+        + new_package_escaped
+        + r'["\']\)',
         f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
-        content
+        content,
     )
 
     # Update setup.py specific patterns
@@ -607,7 +616,9 @@ def update_python_files_pipeline_id_only(
         for filename in files:
             if filename.endswith(".py"):
                 file_path = os.path.join(root, filename)
-                update_python_file_pipeline_id_only(file_path, current_pipeline_id, new_pipeline_id, current_name, new_name)
+                update_python_file_pipeline_id_only(
+                    file_path, current_pipeline_id, new_pipeline_id, current_name, new_name
+                )
 
 
 def update_python_file_pipeline_id_only(
@@ -630,7 +641,9 @@ def update_python_file_pipeline_id_only(
 
     # Update pipelineId in MetricsCollector.instrument calls
     content = re.sub(
-        r'pipelineId\s*=\s*["\']' + re.escape(current_pipeline_id) + r'["\']', f'pipelineId = "{new_pipeline_id}"', content
+        r'pipelineId\s*=\s*["\']' + re.escape(current_pipeline_id) + r'["\']',
+        f'pipelineId = "{new_pipeline_id}"',
+        content,
     )
 
     # Update .appName() calls - only the pipeline name part
@@ -709,7 +722,7 @@ def update_pbt_project_yml(
             if isinstance(pipeline_data, dict) and pipeline_data.get("name") == current_pipeline_id.split("/")[-1]:
                 current_pipeline_id_found = pid
                 break
-    
+
     if not current_pipeline_id_found:
         raise ValidationError(
             f"Pipeline '{current_pipeline_id}' not found in {PBT_FILE_NAME}.\n"
@@ -739,7 +752,9 @@ def update_pbt_project_yml(
 
     # Write back to file, preserving YAML structure
     try:
-        _write_file_with_retry(pbt_project_file, yaml.dump(project_config, default_flow_style=False, sort_keys=False, allow_unicode=True))
+        _write_file_with_retry(
+            pbt_project_file, yaml.dump(project_config, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        )
         log(f"Updated {PBT_FILE_NAME}: {current_pipeline_id_found} -> {new_pipeline_id}")
     except Exception as e:
         raise FileOperationError(
@@ -749,23 +764,21 @@ def update_pbt_project_yml(
         ) from e
 
 
-def validate_current_name_removed(
-    project_path: str, new_name: str, current_pipeline_id: str
-) -> Tuple[bool, List[str]]:
+def validate_current_name_removed(project_path: str, new_name: str, current_pipeline_id: str) -> Tuple[bool, List[str]]:
     """
     Validate that the current pipeline name is no longer present in the codebase after rename.
     Returns (is_valid, list_of_files_containing_current_name)
     """
     files_with_current_name = []
     current_pipeline_name = current_pipeline_id.split("/")[-1] if "/" in current_pipeline_id else current_pipeline_id
-    
+
     # Search in pipeline code directory (after rename, it's now new_name)
     new_pipeline_code_path = os.path.join(project_path, "pipelines", new_name, "code")
     if os.path.exists(new_pipeline_code_path):
         for root, dirs, files in os.walk(new_pipeline_code_path):
             if "build" in root or "dist" in root or "__pycache__" in root:
                 continue
-            
+
             for filename in files:
                 if filename.endswith((".py", ".json", ".yml", ".yaml")):
                     file_path = os.path.join(root, filename)
@@ -776,14 +789,14 @@ def validate_current_name_removed(
                             files_with_current_name.append(file_path)
                     except Exception:
                         continue
-    
+
     # Search in job directories
     jobs_path = os.path.join(project_path, "jobs")
     if os.path.exists(jobs_path):
         for root, dirs, files in os.walk(jobs_path):
             if "build" in root or "dist" in root or "__pycache__" in root:
                 continue
-            
+
             for filename in files:
                 if filename.endswith((".py", ".json")):
                     file_path = os.path.join(root, filename)
@@ -793,7 +806,7 @@ def validate_current_name_removed(
                             files_with_current_name.append(file_path)
                     except Exception:
                         continue
-    
+
     return len(files_with_current_name) == 0, files_with_current_name
 
 
@@ -834,7 +847,13 @@ def update_job_json_files(
             if filename.endswith(".py"):
                 file_path = os.path.join(root, filename)
                 update_job_python_file(
-                    file_path, current_pipeline_id, new_pipeline_id, current_name, new_name, current_package_name, new_package_name
+                    file_path,
+                    current_pipeline_id,
+                    new_pipeline_id,
+                    current_name,
+                    new_name,
+                    current_package_name,
+                    new_package_name,
                 )
 
 
@@ -870,12 +889,20 @@ def update_job_python_file(
     # Update pipeline package name in dictionaries
     if current_package_name and new_package_name:
         content = re.sub(
-            r'"pipelines/' + re.escape(current_name_to_use) + r'"\s*:\s*["\']' + re.escape(current_package_name) + r'["\']',
+            r'"pipelines/'
+            + re.escape(current_name_to_use)
+            + r'"\s*:\s*["\']'
+            + re.escape(current_package_name)
+            + r'["\']',
             f'"{new_pipeline_id}": "{new_package_name}"',
             content,
         )
         content = re.sub(
-            r"'pipelines/" + re.escape(current_name_to_use) + r"'\s*:\s*['\"]" + re.escape(current_package_name) + r"['\"]",
+            r"'pipelines/"
+            + re.escape(current_name_to_use)
+            + r"'\s*:\s*['\"]"
+            + re.escape(current_package_name)
+            + r"['\"]",
             f"'{new_pipeline_id}': '{new_package_name}'",
             content,
         )
@@ -1061,7 +1088,9 @@ def update_json_file(
                                 if current_package_name and new_package_name:
                                     for key, path_value in packages_path.items():
                                         if current_package_name in path_value:
-                                            packages_path[key] = path_value.replace(current_package_name, new_package_name)
+                                            packages_path[key] = path_value.replace(
+                                                current_package_name, new_package_name
+                                            )
                                             path_updated = True
 
                                 # Update pipeline names in paths
@@ -1079,8 +1108,14 @@ def update_json_file(
                                 if current_pipeline_id in packages_path_str:
                                     packages_path_str = packages_path_str.replace(current_pipeline_id, new_pipeline_id)
                                     updated = True
-                                if current_package_name and new_package_name and current_package_name in packages_path_str:
-                                    packages_path_str = packages_path_str.replace(current_package_name, new_package_name)
+                                if (
+                                    current_package_name
+                                    and new_package_name
+                                    and current_package_name in packages_path_str
+                                ):
+                                    packages_path_str = packages_path_str.replace(
+                                        current_package_name, new_package_name
+                                    )
                                     updated = True
                                 if current_name_to_use in packages_path_str:
                                     packages_path_str = packages_path_str.replace(current_name_to_use, new_name_to_use)
@@ -1152,7 +1187,9 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
 
         try:
             update_workflow_json(new_workflow_path, current_identifiers, new_identifiers)
-            update_python_files(new_pipeline_code_path, current_identifiers, new_identifiers, current_pipeline_id, new_pipeline_id)
+            update_python_files(
+                new_pipeline_code_path, current_identifiers, new_identifiers, current_pipeline_id, new_pipeline_id
+            )
         except (FileOperationError, ValidationError) as e:
             raise ValidationError(str(e)) from e
     else:
@@ -1204,11 +1241,15 @@ def rename_pipeline(project_path: str, current_name: str, new_name: str, unsafe:
     # Validate that current name is no longer present
     is_valid, files_with_current_name = validate_current_name_removed(project_path, new_name, current_pipeline_id)
     if not is_valid:
-        print(f"\n[bold yellow]WARNING: The current pipeline name '{current_name}' still appears in the following files:[/bold yellow]")
+        print(
+            f"\n[bold yellow]WARNING: The current pipeline name '{current_name}' still appears in the following files:[/bold yellow]"
+        )
         for file_path in files_with_current_name[:10]:  # Show first 10 files
             print(f"  - {file_path}")
         if len(files_with_current_name) > 10:
             print(f"  ... and {len(files_with_current_name) - 10} more files")
-        print("[bold yellow]ACTION: Review these files manually to ensure all references are updated correctly.[/bold yellow]\n")
+        print(
+            "[bold yellow]ACTION: Review these files manually to ensure all references are updated correctly.[/bold yellow]\n"
+        )
 
     log(f"Pipeline rename completed successfully: {current_name} -> {new_name}")
