@@ -495,6 +495,71 @@ def tag(path, repo_path, no_push, branch, custom):
     pbt.tag(repo_path, no_push=no_push, branch=branch, custom=custom)
 
 
+@cli.command(name="rename-sync")
+@click.option(
+    "--path",
+    help="Path to the directory containing the pbt_project.yml file (defaults to current directory)",
+    required=False,
+    default=".",
+)
+@click.option(
+    "--pipeline-id",
+    help="Pipeline ID to sync (e.g., 'p1_pipe' - will search for 'pipelines/p1_pipe' in pbt_project.yml)",
+    required=False,
+)
+@click.option(
+    "--pipeline-name",
+    help="Pipeline name to sync (will search for this name in the 'name' field of pbt_project.yml)",
+    required=False,
+)
+@click.option(
+    "--unsafe",
+    help="Unsafe mode: Also rename package names, app names, and all identifiers (not just pipeline name/ID). "
+    "WARNING: This will update all package imports, directory structures, and identifiers throughout the codebase."
+    "It can corrupt the project, please review the changes carefully before pushing.",
+    default=False,
+    is_flag=True,
+    required=False,
+)
+def rename_sync_cmd(path, pipeline_id, pipeline_name, unsafe):
+    import os
+    from .utils.pipeline_rename import (
+        PipelineRenameError,
+        PipelineNotFoundError,
+        PipelineAlreadyExistsError,
+        FileOperationError,
+        ValidationError,
+        sync_pipeline,
+    )
+
+    project_path = os.path.abspath(path)
+    try:
+        sync_pipeline(project_path, pipeline_id, pipeline_name, unsafe=unsafe)
+        identifier = pipeline_id or pipeline_name
+        print(f"[bold green]Successfully synced pipeline: {identifier}[/bold green]")
+    except PipelineNotFoundError as e:
+        print(f"[bold red]Pipeline Not Found:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except PipelineAlreadyExistsError as e:
+        print(f"[bold red]Pipeline Already Exists:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except FileOperationError as e:
+        print(f"[bold red]File Operation Error:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except ValidationError as e:
+        print(f"[bold red]Validation Error:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except PipelineRenameError as e:
+        print(f"[bold red]Pipeline Sync Error:[/bold red]\n{str(e)}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[bold red]Unexpected Error:[/bold red]\n{str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        sys.exit(1)
+
+
 def main():
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"

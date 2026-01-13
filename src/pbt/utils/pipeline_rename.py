@@ -1,0 +1,1433 @@
+import json
+import os
+import re
+import shutil
+import time
+from typing import Dict, List, Optional, Tuple
+import yaml
+
+from rich import print
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+
+from ..utility import custom_print as log, python_pipeline_name
+from ..utils.constants import PBT_FILE_NAME
+
+
+class PipelineRenameError(Exception):
+    pass
+
+
+class PipelineNotFoundError(PipelineRenameError):
+    pass
+
+
+class PipelineAlreadyExistsError(PipelineRenameError):
+    pass
+
+
+class FileOperationError(PipelineRenameError):
+    pass
+
+
+class ValidationError(PipelineRenameError):
+    pass
+
+
+@retry(
+    retry=retry_if_exception_type((IOError, OSError, PermissionError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=5),
+    reraise=True,
+)
+def _read_file_with_retry(file_path: str, mode: str = "r", encoding: str = "utf-8"):
+    try:
+        with open(file_path, mode, encoding=encoding if "b" not in mode else None) as f:
+            return f.read()
+    except (IOError, OSError, PermissionError) as e:
+        raise FileOperationError(
+            f"Failed to read file '{file_path}' after retries. "
+            f"Error: {str(e)}. "
+            f"Please check file permissions and ensure the file is not locked by another process."
+        ) from e
+
+
+@retry(
+    retry=retry_if_exception_type((IOError, OSError, PermissionError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=5),
+    reraise=True,
+)
+def _write_file_with_retry(file_path: str, content: str, mode: str = "w", encoding: str = "utf-8"):
+    try:
+        with open(file_path, mode, encoding=encoding if "b" not in mode else None) as f:
+            f.write(content)
+    except (IOError, OSError, PermissionError) as e:
+        raise FileOperationError(
+            f"Failed to write file '{file_path}' after retries. "
+            f"Error: {str(e)}. "
+            f"Please check file permissions and ensure the file is not locked by another process."
+        ) from e
+
+
+@retry(
+    retry=retry_if_exception_type((IOError, OSError, PermissionError)),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=5),
+    reraise=True,
+)
+def _move_with_retry(old_path: str, new_path: str):
+    try:
+        shutil.move(old_path, new_path)
+    except (IOError, OSError, PermissionError) as e:
+        raise FileOperationError(
+            f"Failed to move '{old_path}' to '{new_path}' after retries. "
+            f"Error: {str(e)}. "
+            f"Please check file permissions and ensure the paths are not locked by another process."
+        ) from e
+
+
+def get_pipeline_identifiers(workflow_path: str) -> Dict[str, str]:
+    if not os.path.exists(workflow_path):
+        raise PipelineNotFoundError(
+            f"Workflow file not found: {workflow_path}\n"
+            f"ACTION: Ensure the pipeline directory exists and contains a '.prophecy/workflow.latest.json' file."
+        )
+
+    try:
+        content = _read_file_with_retry(workflow_path)
+        workflow = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValidationError(
+            f"Invalid JSON in workflow file: {workflow_path}\n"
+            f"Error: {str(e)}\n"
+            f"ACTION: Check if the file is corrupted. You may need to restore it from version control or backup."
+        ) from e
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read workflow file: {workflow_path}\n"
+            f"Error: {str(e)}\n"
+            f"ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    metainfo = workflow.get("metainfo", {})
+    pipeline_settings = metainfo.get("pipelineSettingsInfo", {})
+
+    return {
+        "package_name": metainfo.get("topLevelPackage", ""),
+        "config_package_name": metainfo.get("configTopLevelPackage", ""),
+        "application_name": pipeline_settings.get("applicationName", ""),
+        "uri": metainfo.get("uri", ""),
+    }
+
+
+def derive_new_identifiers(new_pipeline_name: str) -> Dict[str, str]:
+    safe_name = python_pipeline_name(new_pipeline_name)
+    package_suffix = safe_name
+    app_suffix = safe_name if not safe_name.endswith("App") else safe_name[:-3]
+    return {
+        "package_name": f"io.prophecy.pipe.{package_suffix}",
+        "config_package_name": f"io.prophecy.config.{package_suffix}",
+        "application_name": f"io.prophecy.{app_suffix}App",
+        "new_pipeline_id": f"pipelines/{new_pipeline_name}",
+    }
+
+
+def find_pipeline_in_project_config(project_config: dict, pipeline_name: str) -> Optional[str]:
+    pipelines = project_config.get("pipelines", {})
+    pipeline_id = f"pipelines/{pipeline_name}"
+
+    if pipeline_id in pipelines:
+        return pipeline_id
+    for pid, pipeline_data in pipelines.items():
+        if isinstance(pipeline_data, dict) and pipeline_data.get("name") == pipeline_name:
+            return pid
+
+    return None
+
+
+def find_pipeline_by_id_or_name(
+    project_config: dict, pipeline_id: Optional[str] = None, pipeline_name: Optional[str] = None
+) -> Tuple[Optional[str], Optional[str], Optional[dict]]:
+    pipelines = project_config.get("pipelines", {})
+
+    if pipeline_id:
+        full_id = f"pipelines/{pipeline_id}" if not pipeline_id.startswith("pipelines/") else pipeline_id
+        if full_id in pipelines:
+            pipeline_data = pipelines[full_id]
+            pipeline_name_from_config = pipeline_data.get("name") if isinstance(pipeline_data, dict) else None
+            return full_id, pipeline_name_from_config, pipeline_data
+
+    if pipeline_name:
+        for pid, pdata in pipelines.items():
+            if isinstance(pdata, dict) and pdata.get("name") == pipeline_name:
+                return pid, pipeline_name, pdata
+
+    return None, None, None
+
+
+def validate_sync(
+    project_path: str, pipeline_id: Optional[str] = None, pipeline_name: Optional[str] = None
+) -> Tuple[str, str, str]:
+    if not pipeline_id and not pipeline_name:
+        raise ValidationError(
+            "Either --pipeline-id or --pipeline-name must be provided.\n"
+            f"  ACTION: Specify either --pipeline-id <id> or --pipeline-name <name> to identify the pipeline to sync."
+        )
+
+    if pipeline_id and pipeline_name:
+        raise ValidationError(
+            "Cannot specify both --pipeline-id and --pipeline-name.\n"
+            f"  ACTION: Use either --pipeline-id <id> or --pipeline-name <name>, not both."
+        )
+
+    pbt_project_file = os.path.join(project_path, PBT_FILE_NAME)
+    if not os.path.exists(pbt_project_file):
+        raise ValidationError(
+            f"Project file not found: {pbt_project_file}\n"
+            f"  ACTION: Ensure you're running the command from the project root directory containing {PBT_FILE_NAME}."
+        )
+
+    try:
+        content = _read_file_with_retry(pbt_project_file)
+        project_config = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        raise ValidationError(
+            f"Invalid YAML in {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Fix the YAML syntax errors in {pbt_project_file} before syncing."
+        ) from e
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    if not project_config:
+        raise ValidationError(
+            f"Empty or invalid {PBT_FILE_NAME}.\n"
+            f"  ACTION: Ensure {PBT_FILE_NAME} contains valid project configuration."
+        )
+
+    # Find pipeline by ID or name
+    found_id, found_name, pipeline_data = find_pipeline_by_id_or_name(project_config, pipeline_id, pipeline_name)
+
+    if not found_id:
+        pipelines = project_config.get("pipelines", {})
+        if pipeline_id:
+            for pid, pdata in pipelines.items():
+                if isinstance(pdata, dict) and pdata.get("name") == pipeline_id:
+                    raise PipelineNotFoundError(
+                        f"Pipeline ID 'pipelines/{pipeline_id}' not found in {PBT_FILE_NAME}.\n"
+                        f"  However, a pipeline with name '{pipeline_id}' exists with ID '{pid}'.\n"
+                        f"  ACTION: Use --pipeline-name {pipeline_id} instead, or verify the pipeline ID is correct."
+                    )
+        elif pipeline_name:
+            name_as_id = f"pipelines/{pipeline_name}"
+            if name_as_id in pipelines:
+                raise PipelineNotFoundError(
+                    f"Pipeline name '{pipeline_name}' not found in {PBT_FILE_NAME}.\n"
+                    f"  However, a pipeline with ID '{name_as_id}' exists.\n"
+                    f"  ACTION: Use --pipeline-id {pipeline_name} instead, or verify the pipeline name is correct."
+                )
+
+        raise PipelineNotFoundError(
+            f"Pipeline not found in {PBT_FILE_NAME}.\n"
+            f"  Searched for: {'ID' if pipeline_id else 'name'} = '{pipeline_id or pipeline_name}'\n"
+            f"  ACTION: Verify the pipeline exists in {PBT_FILE_NAME} and check both the pipeline ID and 'name' field."
+        )
+
+    target_pipeline_name = found_name
+    if not target_pipeline_name:
+        raise ValidationError(
+            f"Pipeline '{found_id}' found but has no 'name' field in {PBT_FILE_NAME}.\n"
+            f"  ACTION: Ensure the pipeline entry has a 'name' field."
+        )
+
+    current_directory_name = found_id.split("/")[-1] if "/" in found_id else found_id
+
+    if current_directory_name == target_pipeline_name:
+        raise ValidationError(
+            f"Pipeline is already synced.\n"
+            f"  Pipeline ID: {found_id}\n"
+            f"  Directory name: {current_directory_name}\n"
+            f"  Pipeline name: {target_pipeline_name}\n"
+            f"  ACTION: No sync needed - directory name and pipeline name already match."
+        )
+
+    # Check if target directory already exists (different pipeline with target name)
+    target_directory_path = os.path.join(project_path, "pipelines", target_pipeline_name)
+    if os.path.exists(target_directory_path) and current_directory_name != target_pipeline_name:
+        raise PipelineAlreadyExistsError(
+            f"Target directory '{target_pipeline_name}' already exists.\n"
+            f"  Location: {target_directory_path}\n"
+            f"  ACTION: Delete or rename the existing directory first, or choose a different pipeline name."
+        )
+
+    return found_id, current_directory_name, target_pipeline_name
+
+
+def validate_package_scoping(
+    project_path: str, target_pipeline_name: str, old_package_name: str
+) -> Tuple[bool, Optional[str]]:
+    pipelines_dir = os.path.join(project_path, "pipelines")
+
+    if not os.path.exists(pipelines_dir):
+        return True, None
+
+    conflicting_pipelines = []
+
+    for pipeline_dir in os.listdir(pipelines_dir):
+        if pipeline_dir == target_pipeline_name:
+            continue
+
+        pipeline_path = os.path.join(pipelines_dir, pipeline_dir)
+        if not os.path.isdir(pipeline_path):
+            continue
+
+        workflow_path = os.path.join(pipeline_path, "code", ".prophecy", "workflow.latest.json")
+        if os.path.exists(workflow_path):
+            try:
+                identifiers = get_pipeline_identifiers(workflow_path)
+                other_package = identifiers.get("package_name", "")
+                if old_package_name == other_package:
+                    conflicting_pipelines.append(pipeline_dir)
+                elif old_package_name in other_package or other_package in old_package_name:
+                    log(
+                        f"Warning: Package name '{old_package_name}' may overlap with pipeline '{pipeline_dir}' (package: '{other_package}')"
+                    )
+            except Exception:
+                continue
+
+    if conflicting_pipelines:
+        return (
+            False,
+            f"Package name '{old_package_name}' is also used by other pipelines: {', '.join(conflicting_pipelines)}",
+        )
+
+    return True, None
+
+
+def rename_pipeline_directory(project_path: str, current_name: str, new_name: str) -> None:
+    current_path = os.path.join(project_path, "pipelines", current_name)
+    new_path = os.path.join(project_path, "pipelines", new_name)
+
+    if not os.path.exists(current_path):
+        raise PipelineNotFoundError(
+            f"Pipeline directory not found: {current_path}\n"
+            f"  ACTION: Verify the pipeline name is correct and the directory exists."
+        )
+
+    if os.path.exists(new_path):
+        raise PipelineAlreadyExistsError(
+            f"Target directory already exists: {new_path}\n" f"  ACTION: Delete or rename the existing directory first."
+        )
+
+    try:
+        log(f"Renaming directory: {current_path} -> {new_path}")
+        _move_with_retry(current_path, new_path)
+    except PermissionError as e:
+        raise FileOperationError(
+            f"Permission denied while renaming directory.\n"
+            f"  Source: {current_path}\n"
+            f"  Target: {new_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions. On Unix systems, ensure you have write access to the parent directory."
+        ) from e
+
+
+def rename_package_directories(pipeline_code_path: str, current_package_name: str, new_package_name: str) -> None:
+    current_package_path = os.path.join(pipeline_code_path, *current_package_name.split("."))
+    new_package_path = os.path.join(pipeline_code_path, *new_package_name.split("."))
+
+    if os.path.exists(current_package_path):
+        try:
+            log(f"Renaming package directory: {current_package_path} -> {new_package_path}")
+            os.makedirs(os.path.dirname(new_package_path), exist_ok=True)
+            _move_with_retry(current_package_path, new_package_path)
+        except PermissionError as e:
+            raise FileOperationError(
+                f"Permission denied while renaming package directory.\n"
+                f"  Source: {current_package_path}\n"
+                f"  Target: {new_package_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure you have write access."
+            ) from e
+
+    current_config_package = current_package_name.replace("io.prophecy.pipe", "io.prophecy.config")
+    new_config_package = new_package_name.replace("io.prophecy.pipe", "io.prophecy.config")
+
+    configs_path = os.path.join(pipeline_code_path, "configs", "resources")
+    current_config_path = os.path.join(configs_path, *current_config_package.split("."))
+    new_config_path = os.path.join(configs_path, *new_config_package.split("."))
+
+    if os.path.exists(current_config_path):
+        try:
+            log(f"Renaming config package directory: {current_config_path} -> {new_config_path}")
+            os.makedirs(os.path.dirname(new_config_path), exist_ok=True)
+            _move_with_retry(current_config_path, new_config_path)
+
+            if os.path.isdir(new_config_path):
+                for filename in os.listdir(new_config_path):
+                    if filename.endswith(".conf") and current_package_name.split(".")[-1] in filename:
+                        current_file = os.path.join(new_config_path, filename)
+                        new_filename = filename.replace(
+                            current_package_name.split(".")[-1], new_package_name.split(".")[-1]
+                        )
+                        new_file = os.path.join(new_config_path, new_filename)
+                        log(f"Renaming config file: {current_file} -> {new_file}")
+                        _move_with_retry(current_file, new_file)
+        except PermissionError as e:
+            raise FileOperationError(
+                f"Permission denied while renaming config package directory.\n"
+                f"  Source: {current_config_path}\n"
+                f"  Target: {new_config_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure you have write access."
+            ) from e
+
+
+def update_workflow_json(
+    workflow_path: str, current_identifiers: Dict[str, str], new_identifiers: Dict[str, str]
+) -> None:
+    if not os.path.exists(workflow_path):
+        log(f"Workflow file not found: {workflow_path}, skipping update")
+        return
+
+    try:
+        content = _read_file_with_retry(workflow_path)
+        workflow = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValidationError(
+            f"Invalid JSON in workflow file: {workflow_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check if the file is corrupted. You may need to restore it from version control."
+        ) from e
+
+    if "metainfo" in workflow:
+        workflow["metainfo"]["uri"] = new_identifiers["new_pipeline_id"]
+        workflow["metainfo"]["topLevelPackage"] = new_identifiers["package_name"]
+        workflow["metainfo"]["configTopLevelPackage"] = new_identifiers["config_package_name"]
+
+        if "pipelineSettingsInfo" in workflow["metainfo"]:
+            workflow["metainfo"]["pipelineSettingsInfo"]["applicationName"] = new_identifiers["application_name"]
+
+    try:
+        _write_file_with_retry(workflow_path, json.dumps(workflow, indent=2))
+        log(f"Updated workflow.latest.json with new identifiers")
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to write workflow file: {workflow_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is not locked."
+        ) from e
+
+
+def update_workflow_json_uri_only(workflow_path: str, current_pipeline_id: str, new_pipeline_id: str) -> None:
+    if not os.path.exists(workflow_path):
+        log(f"Workflow file not found: {workflow_path}, skipping update")
+        return
+
+    try:
+        content = _read_file_with_retry(workflow_path)
+        workflow = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValidationError(
+            f"Invalid JSON in workflow file: {workflow_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check if the file is corrupted. You may need to restore it from version control."
+        ) from e
+
+    if "metainfo" in workflow:
+        workflow["metainfo"]["uri"] = new_pipeline_id
+
+    try:
+        _write_file_with_retry(workflow_path, json.dumps(workflow, indent=2))
+        log(f"Updated workflow.latest.json URI: {current_pipeline_id} -> {new_pipeline_id}")
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to write workflow file: {workflow_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is not locked."
+        ) from e
+
+
+def update_python_files(
+    pipeline_code_path: str,
+    current_identifiers: Dict[str, str],
+    new_identifiers: Dict[str, str],
+    current_pipeline_id: str,
+    new_pipeline_id: str,
+) -> None:
+    current_package = current_identifiers["package_name"]
+    new_package = new_identifiers["package_name"]
+    current_config_package = current_identifiers["config_package_name"]
+    new_config_package = new_identifiers["config_package_name"]
+    current_app_name = current_identifiers["application_name"]
+    new_app_name = new_identifiers["application_name"]
+
+    for root, dirs, files in os.walk(pipeline_code_path):
+        if "build" in root or "dist" in root or "__pycache__" in root:
+            continue
+
+        for filename in files:
+            if filename.endswith(".py"):
+                file_path = os.path.join(root, filename)
+                update_python_file(
+                    file_path,
+                    current_package,
+                    new_package,
+                    current_config_package,
+                    new_config_package,
+                    current_app_name,
+                    new_app_name,
+                    current_pipeline_id,
+                    new_pipeline_id,
+                )
+
+
+def update_python_file(
+    file_path: str,
+    current_package: str,
+    new_package: str,
+    current_config_package: str,
+    new_config_package: str,
+    current_app_name: str,
+    new_app_name: str,
+    current_pipeline_id: str,
+    new_pipeline_id: str,
+) -> None:
+    try:
+        content = _read_file_with_retry(file_path, encoding="utf-8")
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read Python file: {file_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    original_content = content
+    current_pipeline_name = current_pipeline_id.split("/")[-1]
+    new_pipeline_name = new_pipeline_id.split("/")[-1]
+
+    # IMPORTANT: Update pipeline URIs FIRST, before package name replacement
+    # This prevents pipeline URIs from being incorrectly updated during package name replacement
+    content = re.sub(r'"pipelines/' + re.escape(current_pipeline_name) + r'"', f'"{new_pipeline_id}"', content)
+    content = re.sub(r"'pipelines/" + re.escape(current_pipeline_name) + r"'", f"'{new_pipeline_id}'", content)
+    # Handle cases where pipeline URI might have the full package name (incorrect format)
+    content = re.sub(r'"pipelines/' + re.escape(current_package) + r'"', f'"{new_pipeline_id}"', content)
+    content = re.sub(r"'pipelines/" + re.escape(current_package) + r"'", f"'{new_pipeline_id}'", content)
+    # Handle unquoted pipeline ID references
+    content = re.sub(r"\b" + re.escape(f"pipelines/{current_pipeline_name}") + r"\b", new_pipeline_id, content)
+    content = re.sub(r"\b" + re.escape(f"pipelines/{current_package}") + r"\b", new_pipeline_id, content)
+
+    # Update pipelineId in MetricsCollector.instrument calls
+    content = re.sub(
+        r'pipelineId\s*=\s*["\']' + re.escape(current_pipeline_id) + r'["\']',
+        f'pipelineId = "{new_pipeline_id}"',
+        content,
+    )
+    # Also handle spark.conf.set patterns
+    content = re.sub(
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']'
+        + re.escape(current_pipeline_id)
+        + r'["\']\)',
+        f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
+        content,
+    )
+    content = re.sub(
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/'
+        + re.escape(current_pipeline_name)
+        + r'["\']\)',
+        f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
+        content,
+    )
+
+    # Now update package names (after pipeline URIs are fixed)
+    current_package_escaped = re.escape(current_package)
+    current_config_package_escaped = re.escape(current_config_package)
+    current_package_pattern = r"(?<![a-zA-Z0-9_.])" + current_package_escaped + r"(?![a-zA-Z0-9_])"
+    current_config_package_pattern = r"(?<![a-zA-Z0-9_.])" + current_config_package_escaped + r"(?![a-zA-Z0-9_])"
+    content = re.sub(current_package_pattern, new_package, content)
+    content = re.sub(current_config_package_pattern, new_config_package, content)
+
+    # Update app names
+    current_app_simple = current_app_name.split(".")[-1].replace("App", "")
+    new_app_simple = new_app_name.split(".")[-1].replace("App", "")
+    content = re.sub(
+        r'\.appName\(["\']' + re.escape(current_app_simple) + r'["\']\)', f'.appName("{new_app_simple}")', content
+    )
+    content = re.sub(
+        r'\.appName\(["\']' + re.escape(current_package) + r'["\']\)', f'.appName("{new_app_simple}")', content
+    )
+    # Fix appName if it contains the full new package name (shouldn't happen, but handle it)
+    new_package_escaped = re.escape(new_package)
+    content = re.sub(r'\.appName\(["\']' + new_package_escaped + r'["\']\)', f'.appName("{new_app_simple}")', content)
+
+    # Update prophecy_config_instances references
+    content = re.sub(
+        r"prophecy_config_instances\." + re.escape(current_pipeline_name) + r"(?![a-zA-Z0-9_])",
+        f"prophecy_config_instances.{new_pipeline_name}",
+        content,
+    )
+
+    if os.path.basename(file_path) == "__init__.py":
+        content = re.sub(
+            r"from\s+\." + re.escape(current_pipeline_name) + r"\s+import", f"from .{new_pipeline_name} import", content
+        )
+
+    # Final cleanup: Fix any pipeline URIs that might have been incorrectly updated during package name replacement
+    # This is a safety net in case the order of operations didn't work as expected
+    content = re.sub(r'"pipelines/' + new_package_escaped + r'"', f'"{new_pipeline_id}"', content)
+    content = re.sub(r"'pipelines/" + new_package_escaped + r"'", f"'{new_pipeline_id}'", content)
+    content = re.sub(
+        r'pipelineId\s*=\s*["\']pipelines/' + new_package_escaped + r'["\']',
+        f'pipelineId = "{new_pipeline_id}"',
+        content,
+    )
+    content = re.sub(
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/'
+        + new_package_escaped
+        + r'["\']\)',
+        f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
+        content,
+    )
+
+    # Update setup.py specific patterns
+    if os.path.basename(file_path) == "setup.py":
+        # Update package name
+        content = re.sub(
+            r"name\s*=\s*['\"]" + re.escape(current_pipeline_name) + r"['\"]",
+            f'name = "{new_pipeline_id.split("/")[-1]}"',
+            content,
+        )
+
+        # Update find_packages
+        content = re.sub(
+            r"find_packages\(include\s*=\s*\('" + re.escape(current_package) + r"\*'",
+            f"find_packages(include = ('{new_package}*'",
+            content,
+        )
+
+        # Update package_dir - handle both package names and prophecy_config_instances
+        content = re.sub(
+            r"['\"]" + re.escape(current_package) + r"['\"]\s*:\s*['\"][^'\"]+['\"]",
+            lambda m: m.group(0).replace(current_package, new_package),
+            content,
+        )
+        content = re.sub(
+            r"['\"]prophecy_config_instances\." + re.escape(current_pipeline_name) + r"['\"]\s*:\s*['\"][^'\"]+['\"]",
+            lambda m: m.group(0).replace(
+                f"prophecy_config_instances.{current_pipeline_name}", f"prophecy_config_instances.{new_pipeline_name}"
+            ),
+            content,
+        )
+
+        # Update package_data - handle both package names and prophecy_config_instances
+        content = re.sub(
+            r"['\"]" + re.escape(current_package) + r"['\"]\s*:\s*\[[^\]]+\]",
+            lambda m: m.group(0).replace(current_package, new_package),
+            content,
+        )
+        content = re.sub(
+            r"['\"]prophecy_config_instances\." + re.escape(current_pipeline_name) + r"['\"]\s*:\s*\[[^\]]+\]",
+            lambda m: m.group(0).replace(
+                f"prophecy_config_instances.{current_pipeline_name}", f"prophecy_config_instances.{new_pipeline_name}"
+            ),
+            content,
+        )
+
+        # Update packages list - handle prophecy_config_instances.{current_name}
+        content = re.sub(
+            r"\['prophecy_config_instances\." + re.escape(current_pipeline_name) + r"'\]",
+            f"['prophecy_config_instances.{new_pipeline_name}']",
+            content,
+        )
+        content = re.sub(
+            r'\["prophecy_config_instances\.' + re.escape(current_pipeline_name) + r'"\]',
+            f'["prophecy_config_instances.{new_pipeline_name}"]',
+            content,
+        )
+
+        # Update entry points
+        content = re.sub(
+            r"['\"]main\s*=\s*" + re.escape(current_package) + r"\.pipeline:main['\"]",
+            f"'main = {new_package}.pipeline:main'",
+            content,
+        )
+
+    if content != original_content:
+        try:
+            _write_file_with_retry(file_path, content, encoding="utf-8")
+            log(f"Updated Python file: {file_path}")
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to write Python file: {file_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure the file is not locked."
+            ) from e
+
+
+def update_python_files_pipeline_id_only(
+    pipeline_code_path: str, current_pipeline_id: str, new_pipeline_id: str, current_name: str, new_name: str
+) -> None:
+    for root, dirs, files in os.walk(pipeline_code_path):
+        # Skip build and dist directories
+        if "build" in root or "dist" in root or "__pycache__" in root:
+            continue
+
+        for filename in files:
+            if filename.endswith(".py"):
+                file_path = os.path.join(root, filename)
+                update_python_file_pipeline_id_only(
+                    file_path, current_pipeline_id, new_pipeline_id, current_name, new_name
+                )
+
+
+def update_python_file_pipeline_id_only(
+    file_path: str, current_pipeline_id: str, new_pipeline_id: str, current_name: str, new_name: str
+) -> None:
+    try:
+        content = _read_file_with_retry(file_path, encoding="utf-8")
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read Python file: {file_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    original_content = content
+    content = re.sub(r'"pipelines/' + re.escape(current_name) + r'"', f'"{new_pipeline_id}"', content)
+    content = re.sub(r"'pipelines/" + re.escape(current_name) + r"'", f"'{new_pipeline_id}'", content)
+    # Then handle unquoted references (with word boundary to avoid substring matches)
+    content = re.sub(r"\b" + re.escape(f"pipelines/{current_name}") + r"\b", new_pipeline_id, content)
+
+    # Update pipelineId in MetricsCollector.instrument calls
+    content = re.sub(
+        r'pipelineId\s*=\s*["\']' + re.escape(current_pipeline_id) + r'["\']',
+        f'pipelineId = "{new_pipeline_id}"',
+        content,
+    )
+
+    # Update .appName() calls - only the pipeline name part
+    content = re.sub(r'\.appName\(["\']' + re.escape(current_name) + r'["\']\)', f'.appName("{new_name}")', content)
+
+    # Update spark.conf.set for pipeline URI
+    content = re.sub(
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']'
+        + re.escape(current_pipeline_id)
+        + r'["\']\)',
+        f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
+        content,
+    )
+    # Also handle cases where URI might use just the pipeline name
+    content = re.sub(
+        r'spark\.conf\.set\(["\']prophecy\.metadata\.pipeline\.uri["\'],\s*["\']pipelines/'
+        + re.escape(current_name)
+        + r'["\']\)',
+        f'spark.conf.set("prophecy.metadata.pipeline.uri", "{new_pipeline_id}")',
+        content,
+    )
+
+    if content != original_content:
+        try:
+            _write_file_with_retry(file_path, content, encoding="utf-8")
+            log(f"Updated Python file: {file_path}")
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to write Python file: {file_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure the file is not locked."
+            ) from e
+
+
+def update_pbt_project_yml(
+    project_path: str, current_pipeline_id: str, new_pipeline_id: str, new_pipeline_name: str
+) -> None:
+    pbt_project_file = os.path.join(project_path, PBT_FILE_NAME)
+
+    if not os.path.exists(pbt_project_file):
+        raise ValidationError(
+            f"Project file not found: {pbt_project_file}\n"
+            f"  ACTION: Ensure you're running the command from the project root directory containing {PBT_FILE_NAME}."
+        )
+
+    # Read and parse YAML
+    try:
+        content = _read_file_with_retry(pbt_project_file)
+        project_config = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        raise ValidationError(
+            f"Invalid YAML in {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Fix the YAML syntax errors in {pbt_project_file} before renaming."
+        ) from e
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    if not project_config:
+        raise ValidationError(
+            f"Empty or invalid {PBT_FILE_NAME}.\n"
+            f"  ACTION: Ensure {PBT_FILE_NAME} contains valid project configuration."
+        )
+
+    # Update pipeline entry - only update the specific pipeline
+    pipelines = project_config.get("pipelines", {})
+    # Try to find by ID first, then by name
+    current_pipeline_id_found = current_pipeline_id if current_pipeline_id in pipelines else None
+    if not current_pipeline_id_found:
+        # Search by name field
+        for pid, pipeline_data in pipelines.items():
+            if isinstance(pipeline_data, dict) and pipeline_data.get("name") == current_pipeline_id.split("/")[-1]:
+                current_pipeline_id_found = pid
+                break
+
+    if not current_pipeline_id_found:
+        raise ValidationError(
+            f"Pipeline '{current_pipeline_id}' not found in {PBT_FILE_NAME}.\n"
+            f"  ACTION: Ensure the pipeline is registered in {PBT_FILE_NAME}. "
+            f"Check both the pipeline ID and the 'name' field."
+        )
+
+    # Move pipeline entry to new key
+    pipeline_data = pipelines[current_pipeline_id_found]
+    del pipelines[current_pipeline_id_found]
+    pipelines[new_pipeline_id] = pipeline_data
+
+    # Update pipeline name field
+    if isinstance(pipeline_data, dict):
+        pipeline_data["name"] = new_pipeline_name
+
+    # Update job references - only update references to this specific pipeline
+    jobs = project_config.get("jobs", {})
+    for job_id, job_data in jobs.items():
+        if isinstance(job_data, dict):
+            # Update pipelines list if it exists
+            if "pipelines" in job_data and isinstance(job_data["pipelines"], list):
+                job_data["pipelines"] = [
+                    new_pipeline_id if pipeline_id == current_pipeline_id_found else pipeline_id
+                    for pipeline_id in job_data["pipelines"]
+                ]
+
+    # Write back to file, preserving YAML structure
+    try:
+        _write_file_with_retry(
+            pbt_project_file, yaml.dump(project_config, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        )
+        log(f"Updated {PBT_FILE_NAME}: {current_pipeline_id_found} -> {new_pipeline_id}")
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to write {PBT_FILE_NAME}.\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is not locked."
+        ) from e
+
+
+def validate_current_name_removed(project_path: str, new_name: str, current_pipeline_id: str) -> Tuple[bool, List[str]]:
+    """
+    Validate that the current pipeline name is no longer present in the codebase after rename.
+    Returns (is_valid, list_of_files_containing_current_name)
+    """
+    files_with_current_name = []
+    current_pipeline_name = current_pipeline_id.split("/")[-1] if "/" in current_pipeline_id else current_pipeline_id
+
+    # Search in pipeline code directory (after rename, it's now new_name)
+    new_pipeline_code_path = os.path.join(project_path, "pipelines", new_name, "code")
+    if os.path.exists(new_pipeline_code_path):
+        for root, dirs, files in os.walk(new_pipeline_code_path):
+            if "build" in root or "dist" in root or "__pycache__" in root:
+                continue
+
+            for filename in files:
+                if filename.endswith((".py", ".json", ".yml", ".yaml")):
+                    file_path = os.path.join(root, filename)
+                    try:
+                        content = _read_file_with_retry(file_path)
+                        # Check for pipeline ID references
+                        if current_pipeline_id in content or f"pipelines/{current_pipeline_name}" in content:
+                            files_with_current_name.append(file_path)
+                    except Exception:
+                        continue
+
+    # Search in job directories
+    jobs_path = os.path.join(project_path, "jobs")
+    if os.path.exists(jobs_path):
+        for root, dirs, files in os.walk(jobs_path):
+            if "build" in root or "dist" in root or "__pycache__" in root:
+                continue
+
+            for filename in files:
+                if filename.endswith((".py", ".json")):
+                    file_path = os.path.join(root, filename)
+                    try:
+                        content = _read_file_with_retry(file_path)
+                        if current_pipeline_id in content or current_pipeline_name in content:
+                            files_with_current_name.append(file_path)
+                    except Exception:
+                        continue
+
+    return len(files_with_current_name) == 0, files_with_current_name
+
+
+def update_job_json_files(
+    project_path: str,
+    current_pipeline_id: str,
+    new_pipeline_id: str,
+    current_name: str = None,
+    new_name: str = None,
+    current_package_name: str = None,
+    new_package_name: str = None,
+) -> None:
+    jobs_path = os.path.join(project_path, "jobs")
+
+    if not os.path.exists(jobs_path):
+        return
+
+    # Find all prophecy-job.json and databricks-job.json files
+    for root, dirs, files in os.walk(jobs_path):
+        for filename in files:
+            if filename in ["prophecy-job.json", "databricks-job.json"]:
+                json_file_path = os.path.join(root, filename)
+                update_json_file(
+                    json_file_path,
+                    current_pipeline_id,
+                    new_pipeline_id,
+                    current_name,
+                    new_name,
+                    current_package_name,
+                    new_package_name,
+                )
+
+    for root, dirs, files in os.walk(jobs_path):
+        if "build" in root or "dist" in root or "__pycache__" in root:
+            continue
+
+        for filename in files:
+            if filename.endswith(".py"):
+                file_path = os.path.join(root, filename)
+                update_job_python_file(
+                    file_path,
+                    current_pipeline_id,
+                    new_pipeline_id,
+                    current_name,
+                    new_name,
+                    current_package_name,
+                    new_package_name,
+                )
+
+
+def update_job_python_file(
+    file_path: str,
+    current_pipeline_id: str,
+    new_pipeline_id: str,
+    current_name: str = None,
+    new_name: str = None,
+    current_package_name: str = None,
+    new_package_name: str = None,
+) -> None:
+    try:
+        content = _read_file_with_retry(file_path, encoding="utf-8")
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read job Python file: {file_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    original_content = content
+
+    current_pipeline_name = current_pipeline_id.split("/")[-1] if "/" in current_pipeline_id else current_pipeline_id
+    new_pipeline_name = new_pipeline_id.split("/")[-1] if "/" in new_pipeline_id else new_pipeline_id
+
+    current_name_to_use = current_name if current_name else current_pipeline_name
+    new_name_to_use = new_name if new_name else new_pipeline_name
+
+    content = re.sub(r'"pipelines/' + re.escape(current_name_to_use) + r'":', f'"{new_pipeline_id}":', content)
+    content = re.sub(r"'pipelines/" + re.escape(current_name_to_use) + r"':", f"'{new_pipeline_id}':", content)
+
+    # Update pipeline package name in dictionaries
+    if current_package_name and new_package_name:
+        content = re.sub(
+            r'"pipelines/'
+            + re.escape(current_name_to_use)
+            + r'"\s*:\s*["\']'
+            + re.escape(current_package_name)
+            + r'["\']',
+            f'"{new_pipeline_id}": "{new_package_name}"',
+            content,
+        )
+        content = re.sub(
+            r"'pipelines/"
+            + re.escape(current_name_to_use)
+            + r"'\s*:\s*['\"]"
+            + re.escape(current_package_name)
+            + r"['\"]",
+            f"'{new_pipeline_id}': '{new_package_name}'",
+            content,
+        )
+
+    # Update wheel file paths
+    if current_package_name and new_package_name:
+        content = re.sub(
+            r'dbfs:/[^"\']*' + re.escape(current_package_name) + r'[^"\']*\.whl',
+            lambda m: m.group(0).replace(current_package_name, new_package_name),
+            content,
+        )
+    # Also update if path contains current pipeline name
+    content = re.sub(
+        r'dbfs:/[^"\']*' + re.escape(current_name_to_use) + r'[^"\']*\.whl',
+        lambda m: m.group(0).replace(current_name_to_use, new_name_to_use),
+        content,
+    )
+
+    content = re.sub(
+        r'["\']' + re.escape(current_pipeline_id) + r'["\']',
+        f'"{new_pipeline_id}"',
+        content,
+    )
+    content = re.sub(
+        r'["\']' + re.escape(f"pipelines/{current_name_to_use}") + r'["\']',
+        f'"{new_pipeline_id}"',
+        content,
+    )
+
+    content = re.sub(
+        r'["\']' + re.escape(current_name_to_use) + r'["\']',
+        f'"{new_name_to_use}"',
+        content,
+    )
+
+    content = re.sub(
+        r"\b" + re.escape(current_name_to_use) + r"\b",
+        new_name_to_use,
+        content,
+    )
+
+    if content != original_content:
+        try:
+            _write_file_with_retry(file_path, content, encoding="utf-8")
+            log(f"Updated job Python file: {file_path}")
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to write job Python file: {file_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure the file is not locked."
+            ) from e
+
+
+def update_json_file(
+    json_file_path: str,
+    current_pipeline_id: str,
+    new_pipeline_id: str,
+    current_name: str = None,
+    new_name: str = None,
+    current_package_name: str = None,
+    new_package_name: str = None,
+) -> None:
+    try:
+        content = _read_file_with_retry(json_file_path)
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValidationError(
+            f"Invalid JSON in file: {json_file_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check if the file is corrupted. You may need to restore it from version control."
+        ) from e
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to read JSON file: {json_file_path}\n"
+            f"  Error: {str(e)}\n"
+            f"  ACTION: Check file permissions and ensure the file is accessible."
+        ) from e
+
+    updated = False
+    current_pipeline_name = current_pipeline_id.split("/")[-1] if "/" in current_pipeline_id else current_pipeline_id
+    new_pipeline_name = new_pipeline_id.split("/")[-1] if "/" in new_pipeline_id else new_pipeline_id
+
+    # Use provided names if available, otherwise derive from pipeline ID
+    current_name_to_use = current_name if current_name else current_pipeline_name
+    new_name_to_use = new_name if new_name else new_pipeline_name
+
+    # Update prophecy-job.json structure
+    if "processes" in data:
+        for process_key, process_value in data["processes"].items():
+            if isinstance(process_value, dict):
+                # Update pipelineId (can be a string or a dict with "value" field)
+                if "properties" in process_value:
+                    if "pipelineId" in process_value["properties"]:
+                        pipeline_id_obj = process_value["properties"]["pipelineId"]
+                        # Handle case where pipelineId is a dict with "value" field
+                        if isinstance(pipeline_id_obj, dict) and "value" in pipeline_id_obj:
+                            if pipeline_id_obj["value"] == current_pipeline_id:
+                                pipeline_id_obj["value"] = new_pipeline_id
+                                updated = True
+                            elif (
+                                isinstance(pipeline_id_obj["value"], str)
+                                and current_pipeline_id in pipeline_id_obj["value"]
+                            ):
+                                pipeline_id_obj["value"] = pipeline_id_obj["value"].replace(
+                                    current_pipeline_id, new_pipeline_id
+                                )
+                                updated = True
+                        # Handle case where pipelineId is a direct string
+                        elif isinstance(pipeline_id_obj, str):
+                            if pipeline_id_obj == current_pipeline_id:
+                                process_value["properties"]["pipelineId"] = new_pipeline_id
+                                updated = True
+                            elif current_pipeline_id in pipeline_id_obj:
+                                process_value["properties"]["pipelineId"] = pipeline_id_obj.replace(
+                                    current_pipeline_id, new_pipeline_id
+                                )
+                                updated = True
+
+                # Update metadata label and slug
+                if "metadata" in process_value:
+                    metadata = process_value["metadata"]
+                    if "label" in metadata and metadata["label"] == current_name_to_use:
+                        metadata["label"] = new_name_to_use
+                        updated = True
+                    if "slug" in metadata and metadata["slug"] == current_name_to_use:
+                        metadata["slug"] = new_name_to_use
+                        updated = True
+
+    # Update databricks-job.json structure
+    if "components" in data:
+        for component in data["components"]:
+            if "PipelineComponent" in component:
+                pc = component["PipelineComponent"]
+                # Update pipelineId
+                if "pipelineId" in pc:
+                    if pc["pipelineId"] == current_pipeline_id:
+                        pc["pipelineId"] = new_pipeline_id
+                        updated = True
+
+                # Update nodeName
+                if "nodeName" in pc and pc["nodeName"] == current_name_to_use:
+                    pc["nodeName"] = new_name_to_use
+                    updated = True
+
+                # Update path (wheel file path)
+                if "path" in pc and current_package_name and new_package_name:
+                    if current_package_name in pc["path"]:
+                        pc["path"] = pc["path"].replace(current_package_name, new_package_name)
+                        updated = True
+
+                # Also update path if it contains current pipeline name
+                if "path" in pc and current_name_to_use in pc["path"]:
+                    pc["path"] = pc["path"].replace(current_name_to_use, new_name_to_use)
+                    updated = True
+
+    # Update request/tasks structure for databricks-job.json
+    if "request" in data:
+        request = data["request"]
+        if "CreateNewJobRequest" in request:
+            request = request["CreateNewJobRequest"]
+
+        # Update tasks
+        if "tasks" in request:
+            for task in request["tasks"]:
+                # Update task_key
+                if "task_key" in task and task["task_key"] == current_name_to_use:
+                    task["task_key"] = new_name_to_use
+                    updated = True
+
+                # Update python_wheel_task.package_name
+                if "python_wheel_task" in task:
+                    pwt = task["python_wheel_task"]
+                    if "package_name" in pwt:
+                        if current_package_name and new_package_name and current_package_name in pwt["package_name"]:
+                            pwt["package_name"] = pwt["package_name"].replace(current_package_name, new_package_name)
+                            updated = True
+                        elif current_name_to_use in pwt["package_name"]:
+                            pwt["package_name"] = pwt["package_name"].replace(current_name_to_use, new_name_to_use)
+                            updated = True
+
+                # Update libraries (wheel paths)
+                if "libraries" in task:
+                    for library in task["libraries"]:
+                        # Update PipelineComponent.pipelineId in libraries
+                        if "PipelineComponent" in library:
+                            if "pipelineId" in library["PipelineComponent"]:
+                                if library["PipelineComponent"]["pipelineId"] == current_pipeline_id:
+                                    library["PipelineComponent"]["pipelineId"] = new_pipeline_id
+                                    updated = True
+
+                        # Update whl path
+                        if "whl" in library:
+                            if current_package_name and new_package_name and current_package_name in library["whl"]:
+                                library["whl"] = library["whl"].replace(current_package_name, new_package_name)
+                                updated = True
+                            elif current_name_to_use in library["whl"]:
+                                library["whl"] = library["whl"].replace(current_name_to_use, new_name_to_use)
+                                updated = True
+
+                # Update depends_on task_key references
+                if "depends_on" in task:
+                    for dep in task["depends_on"]:
+                        if isinstance(dep, dict) and "task_key" in dep:
+                            if dep["task_key"] == current_name_to_use:
+                                dep["task_key"] = new_name_to_use
+                                updated = True
+
+        # Update job_clusters spark_conf prophecy.packages.path
+        if "job_clusters" in request:
+            for cluster in request["job_clusters"]:
+                if "new_cluster" in cluster:
+                    nc = cluster["new_cluster"]
+                    if "spark_conf" in nc:
+                        spark_conf = nc["spark_conf"]
+                        if "prophecy.packages.path" in spark_conf:
+                            # This is a JSON string, so we need to parse it, update, and stringify
+                            try:
+                                packages_path = json.loads(spark_conf["prophecy.packages.path"])
+                                path_updated = False
+
+                                # Update pipeline ID keys
+                                if current_pipeline_id in packages_path:
+                                    packages_path[new_pipeline_id] = packages_path.pop(current_pipeline_id)
+                                    path_updated = True
+
+                                # Update package names in paths
+                                if current_package_name and new_package_name:
+                                    for key, path_value in packages_path.items():
+                                        if current_package_name in path_value:
+                                            packages_path[key] = path_value.replace(
+                                                current_package_name, new_package_name
+                                            )
+                                            path_updated = True
+
+                                # Update pipeline names in paths
+                                for key, path_value in packages_path.items():
+                                    if current_name_to_use in path_value:
+                                        packages_path[key] = path_value.replace(current_name_to_use, new_name_to_use)
+                                        path_updated = True
+
+                                if path_updated:
+                                    spark_conf["prophecy.packages.path"] = json.dumps(packages_path)
+                                    updated = True
+                            except (json.JSONDecodeError, TypeError):
+                                # Fallback: simple string replacement if JSON parsing fails
+                                packages_path_str = spark_conf["prophecy.packages.path"]
+                                if current_pipeline_id in packages_path_str:
+                                    packages_path_str = packages_path_str.replace(current_pipeline_id, new_pipeline_id)
+                                    updated = True
+                                if (
+                                    current_package_name
+                                    and new_package_name
+                                    and current_package_name in packages_path_str
+                                ):
+                                    packages_path_str = packages_path_str.replace(
+                                        current_package_name, new_package_name
+                                    )
+                                    updated = True
+                                if current_name_to_use in packages_path_str:
+                                    packages_path_str = packages_path_str.replace(current_name_to_use, new_name_to_use)
+                                    updated = True
+                                if updated:
+                                    spark_conf["prophecy.packages.path"] = packages_path_str
+
+    def update_strings_recursively(obj):
+        nonlocal updated
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if isinstance(value, str):
+                    if current_pipeline_id in value:
+                        new_value = value.replace(current_pipeline_id, new_pipeline_id)
+                        if new_value != value:
+                            obj[key] = new_value
+                            updated = True
+                    if current_name_to_use == value:
+                        obj[key] = new_name_to_use
+                        updated = True
+                    elif current_name_to_use in value:
+                        if (
+                            "/" in value
+                            or value.startswith("pipelines/")
+                            or "_" in value
+                            or value.startswith(current_name_to_use)
+                            or value.endswith(current_name_to_use)
+                            or current_name_to_use in value
+                        ):
+                            new_value = value.replace(current_name_to_use, new_name_to_use)
+                            if new_value != value:
+                                obj[key] = new_value
+                                updated = True
+                elif isinstance(value, (dict, list)):
+                    update_strings_recursively(value)
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                if isinstance(item, str):
+                    # Update pipeline ID
+                    if current_pipeline_id in item:
+                        new_item = item.replace(current_pipeline_id, new_pipeline_id)
+                        if new_item != item:
+                            obj[i] = new_item
+                            updated = True
+                    # Update pipeline name
+                    if current_name_to_use == item:
+                        obj[i] = new_name_to_use
+                        updated = True
+                    elif current_name_to_use in item:
+                        if (
+                            "/" in item
+                            or item.startswith("pipelines/")
+                            or "_" in item
+                            or item.startswith(current_name_to_use)
+                            or item.endswith(current_name_to_use)
+                        ):
+                            new_item = item.replace(current_name_to_use, new_name_to_use)
+                            if new_item != item:
+                                obj[i] = new_item
+                                updated = True
+                else:
+                    update_strings_recursively(item)
+
+    # Do recursive update as a safety net for any missed patterns
+    update_strings_recursively(data)
+
+    if updated:
+        try:
+            _write_file_with_retry(json_file_path, json.dumps(data, indent=2))
+            log(f"Updated JSON file: {json_file_path}")
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to write JSON file: {json_file_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure the file is not locked."
+            ) from e
+
+
+def sync_pipeline(
+    project_path: str, pipeline_id: Optional[str] = None, pipeline_name: Optional[str] = None, unsafe: bool = False
+) -> None:
+    current_pipeline_id, current_directory_name, target_pipeline_name = validate_sync(
+        project_path, pipeline_id, pipeline_name
+    )
+
+    log(f"Starting pipeline sync: {current_pipeline_id} (dir: {current_directory_name}) -> {target_pipeline_name}")
+
+    if unsafe:
+        log("UNSAFE MODE: Will rename package names, app names, and all identifiers.")
+        print(
+            "WARNING: This will update all package imports, directory structures, and identifiers throughout the codebase."
+        )
+        print("It can corrupt the project, please review the changes carefully before pushing")
+    else:
+        log("SAFE MODE: Only pipeline name/ID will be changed. Package names and app names remain unchanged.")
+
+    new_pipeline_id = f"pipelines/{target_pipeline_name}"
+
+    try:
+        rename_pipeline_directory(project_path, current_directory_name, target_pipeline_name)
+    except (FileNotFoundError, PermissionError) as e:
+        raise FileOperationError(str(e)) from e
+
+    new_pipeline_code_path = os.path.join(project_path, "pipelines", target_pipeline_name, "code")
+    new_workflow_path = os.path.join(new_pipeline_code_path, ".prophecy", "workflow.latest.json")
+
+    if unsafe:
+        try:
+            current_identifiers = get_pipeline_identifiers(new_workflow_path)
+        except (FileNotFoundError, ValidationError) as e:
+            raise ValidationError(str(e)) from e
+
+        is_valid, warning = validate_package_scoping(
+            project_path, target_pipeline_name, current_identifiers["package_name"]
+        )
+        if not is_valid:
+            raise ValidationError(f"Package scoping validation failed: {warning}")
+        if warning:
+            log(f"Warning: {warning}")
+
+        new_identifiers = derive_new_identifiers(target_pipeline_name)
+
+        log(f"Current package: {current_identifiers['package_name']}")
+        log(f"New package: {new_identifiers['package_name']}")
+
+        try:
+            rename_package_directories(
+                new_pipeline_code_path, current_identifiers["package_name"], new_identifiers["package_name"]
+            )
+        except PermissionError as e:
+            raise FileOperationError(str(e)) from e
+
+        try:
+            update_workflow_json(new_workflow_path, current_identifiers, new_identifiers)
+            update_python_files(
+                new_pipeline_code_path, current_identifiers, new_identifiers, current_pipeline_id, new_pipeline_id
+            )
+        except (FileOperationError, ValidationError) as e:
+            raise ValidationError(str(e)) from e
+    else:
+        try:
+            update_workflow_json_uri_only(new_workflow_path, current_pipeline_id, new_pipeline_id)
+            update_python_files_pipeline_id_only(
+                new_pipeline_code_path,
+                current_pipeline_id,
+                new_pipeline_id,
+                current_directory_name,
+                target_pipeline_name,
+            )
+        except (FileOperationError, ValidationError) as e:
+            raise ValidationError(str(e)) from e
+
+    try:
+        update_pbt_project_yml(project_path, current_pipeline_id, new_pipeline_id, target_pipeline_name)
+    except (FileNotFoundError, ValidationError, FileOperationError) as e:
+        raise ValidationError(str(e)) from e
+
+    current_package_name_for_jobs = None
+    new_package_name_for_jobs = None
+
+    if unsafe:
+        current_package_name_for_jobs = current_identifiers["package_name"].split(".")[-1]
+        new_package_name_for_jobs = new_identifiers["package_name"].split(".")[-1]
+    else:
+        setup_py_path = os.path.join(new_pipeline_code_path, "setup.py")
+        if os.path.exists(setup_py_path):
+            try:
+                setup_content = _read_file_with_retry(setup_py_path)
+                name_match = re.search(r"name\s*=\s*['\"]([^'\"]+)['\"]", setup_content)
+                if name_match:
+                    package_name = name_match.group(1)
+                    current_package_name_for_jobs = package_name
+                    new_package_name_for_jobs = package_name
+            except Exception:
+                pass
+
+    try:
+        update_job_json_files(
+            project_path,
+            current_pipeline_id,
+            new_pipeline_id,
+            current_directory_name,
+            target_pipeline_name,
+            current_package_name_for_jobs,
+            new_package_name_for_jobs,
+        )
+    except (FileOperationError, ValidationError) as e:
+        raise ValidationError(str(e)) from e
+
+    # Validate that current name is no longer present
+    is_valid, files_with_current_name = validate_current_name_removed(
+        project_path, target_pipeline_name, current_pipeline_id
+    )
+    if not is_valid:
+        print(
+            f"\n[bold yellow]WARNING: The current pipeline name '{current_directory_name}' still appears in the following files:[/bold yellow]"
+        )
+        for file_path in files_with_current_name[:10]:  # Show first 10 files
+            print(f"  - {file_path}")
+        if len(files_with_current_name) > 10:
+            print(f"  ... and {len(files_with_current_name) - 10} more files")
+        print(
+            "[bold yellow]ACTION: Review these files manually to ensure all references are updated correctly.[/bold yellow]\n"
+        )
+
+    log(
+        f"Pipeline sync completed successfully: {current_pipeline_id} -> {new_pipeline_id} (name: {target_pipeline_name})"
+    )
