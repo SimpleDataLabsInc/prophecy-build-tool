@@ -47,7 +47,7 @@ def _detect_line_ending(content: str) -> str:
 def _detect_json_indent(original_content: str) -> int:
     if not original_content.strip():
         return 2
-    
+
     lines = original_content.split("\n")
     for line in lines[:20]:
         if line.strip() and not line.strip().startswith(("}", "]", ",")):
@@ -56,7 +56,7 @@ def _detect_json_indent(original_content: str) -> int:
             indent = len(indent_str.replace("\t", "    "))
             if indent > 0:
                 return indent
-    return 2 
+    return 2
 
 
 @retry(
@@ -102,7 +102,7 @@ def _write_file_with_retry(
             content = content_normalized.replace("\n", line_ending)
         else:
             content = content_normalized
-        
+
         with open(file_path, mode, encoding=encoding if "b" not in mode else None, newline="") as f:
             f.write(content)
     except (IOError, OSError, PermissionError) as e:
@@ -1250,16 +1250,12 @@ def update_json_file(
                             metadata["slug"] = new_name_to_use
                             updated = True
                         elif (
-                            current_name_to_use in slug
-                            and new_name_to_use not in slug
-                            and new_pipeline_id not in slug
+                            current_name_to_use in slug and new_name_to_use not in slug and new_pipeline_id not in slug
                         ):
                             metadata["slug"] = slug.replace(current_name_to_use, new_name_to_use)
                             updated = True
                         elif (
-                            current_pipeline_id in slug
-                            and new_pipeline_id not in slug
-                            and new_name_to_use not in slug
+                            current_pipeline_id in slug and new_pipeline_id not in slug and new_name_to_use not in slug
                         ):
                             metadata["slug"] = slug.replace(current_pipeline_id, new_pipeline_id)
                             updated = True
