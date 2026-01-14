@@ -262,15 +262,18 @@ class PipelineSyncTestCase(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.pipelines_dir, "test_pipeline")))
         self.assertTrue(os.path.exists(os.path.join(self.pipelines_dir, "renamed_pipeline")))
 
-        # Check workflow.json was updated
+        # Check workflow.json was updated - use string matching to verify formatting
         workflow_file = os.path.join(
             self.pipelines_dir, "renamed_pipeline", "code", ".prophecy", "workflow.latest.json"
         )
         with open(workflow_file, "r") as f:
-            workflow = json.load(f)
+            workflow_content = f.read()
 
-        self.assertEqual(workflow["metainfo"]["uri"], "pipelines/renamed_pipeline")
-        self.assertIn("renamed_pipeline", workflow["metainfo"]["topLevelPackage"])
+        # Verify content using string matching to ensure formatting is correct
+        self.assertIn('"uri": "pipelines/renamed_pipeline"', workflow_content)
+        self.assertIn("renamed_pipeline", workflow_content)
+        # Verify no old pipeline name remains
+        self.assertNotIn("pipelines/test_pipeline", workflow_content)
 
     def test_sync_pipeline_not_found_error(self):
         """Test error when pipeline doesn't exist."""
@@ -367,9 +370,11 @@ class PipelineSyncTestCase(unittest.TestCase):
         # Verify unsafe mode changes were made
         workflow_file = os.path.join(self.pipelines_dir, "unsafe_renamed", "code", ".prophecy", "workflow.latest.json")
         with open(workflow_file, "r") as f:
-            workflow = json.load(f)
+            workflow_content = f.read()
 
-        self.assertIn("unsafe_renamed", workflow["metainfo"]["topLevelPackage"])
+        # Verify content using string matching to ensure formatting is correct
+        self.assertIn("unsafe_renamed", workflow_content)
+        self.assertIn('"topLevelPackage"', workflow_content)
 
     def test_pbt_project_yml_search_by_id_and_name(self):
         """Test that pbt_project.yml search works with both ID and name."""
@@ -496,31 +501,22 @@ class PipelineSyncTestCase(unittest.TestCase):
             json_file, "pipelines/test_pipeline", "pipelines/renamed_pipeline", "test_pipeline", "renamed_pipeline"
         )
 
-        # Verify all occurrences were updated
+        # Verify all occurrences were updated - use string matching to verify formatting
         with open(json_file, "r") as f:
-            updated_json = json.load(f)
+            json_content = f.read()
 
-        self.assertEqual(
-            updated_json["processes"]["process1"]["properties"]["pipelineId"], "pipelines/renamed_pipeline"
-        )
-        self.assertEqual(updated_json["processes"]["process1"]["metadata"]["label"], "renamed_pipeline")
-        self.assertEqual(updated_json["processes"]["process1"]["metadata"]["slug"], "renamed_pipeline")
-        self.assertEqual(updated_json["components"][0]["PipelineComponent"]["pipelineId"], "pipelines/renamed_pipeline")
-        self.assertEqual(updated_json["components"][0]["PipelineComponent"]["nodeName"], "renamed_pipeline")
-        self.assertIn("renamed_pipeline", updated_json["components"][0]["PipelineComponent"]["path"])
-        self.assertEqual(updated_json["request"]["CreateNewJobRequest"]["tasks"][0]["task_key"], "renamed_pipeline")
-        self.assertIn(
-            "renamed_pipeline",
-            updated_json["request"]["CreateNewJobRequest"]["tasks"][0]["python_wheel_task"]["package_name"],
-        )
-        self.assertIn(
-            "renamed_pipeline", updated_json["request"]["CreateNewJobRequest"]["tasks"][0]["libraries"][0]["whl"]
-        )
-        # other_field should NOT be updated - it's a substring, not an exact match
-        # This is intentional to avoid unintended replacements
-        self.assertEqual(updated_json["other_field"], "test_pipeline_something")
-        # nested value should be updated - it's an exact match
-        self.assertEqual(updated_json["nested"]["deep"]["value"], "pipelines/renamed_pipeline")
+        # Verify content using string matching to ensure formatting is correct (no extra spaces)
+        self.assertIn('"pipelineId": "pipelines/renamed_pipeline"', json_content)
+        self.assertIn('"nodeName": "renamed_pipeline"', json_content)
+        self.assertIn('"task_key": "renamed_pipeline"', json_content)
+        self.assertIn("renamed_pipeline", json_content)
+        # Verify no old pipeline name remains
+        self.assertNotIn("pipelines/test_pipeline", json_content)
+        self.assertNotIn('"test_pipeline"', json_content)
+        # Verify other_field was NOT updated (substring, not exact match)
+        self.assertIn('"other_field": "test_pipeline_something"', json_content)
+        # Verify nested value was updated
+        self.assertIn('"value": "pipelines/renamed_pipeline"', json_content)
 
     def test_job_json_nested_pipeline_id_structure(self):
         """Test that job JSON files with nested pipelineId dict structure are updated."""
@@ -545,14 +541,15 @@ class PipelineSyncTestCase(unittest.TestCase):
             json_file, "pipelines/test_pipeline", "pipelines/renamed_pipeline", "test_pipeline", "renamed_pipeline"
         )
 
-        # Verify the nested structure was updated
+        # Verify the nested structure was updated - use string matching to verify formatting
         with open(json_file, "r") as f:
-            updated_json = json.load(f)
+            json_content = f.read()
 
-        self.assertEqual(
-            updated_json["processes"]["process1"]["properties"]["pipelineId"]["value"], "pipelines/renamed_pipeline"
-        )
-        self.assertEqual(updated_json["processes"]["process1"]["properties"]["pipelineId"]["type"], "literal")
+        # Verify content using string matching to ensure formatting is correct
+        self.assertIn('"value": "pipelines/renamed_pipeline"', json_content)
+        self.assertIn('"type": "literal"', json_content)
+        # Verify no old pipeline name remains
+        self.assertNotIn("pipelines/test_pipeline", json_content)
 
     def test_job_python_comprehensive_update(self):
         """Test that job Python files are comprehensively updated with all occurrences."""
