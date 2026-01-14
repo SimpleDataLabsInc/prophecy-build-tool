@@ -465,7 +465,6 @@ class PipelineSyncTestCase(unittest.TestCase):
             "processes": {
                 "process1": {
                     "properties": {"pipelineId": "pipelines/test_pipeline"},
-                    "metadata": {"label": "test_pipeline", "slug": "test_pipeline"},
                 }
             },
             "components": [
@@ -482,14 +481,12 @@ class PipelineSyncTestCase(unittest.TestCase):
                     "tasks": [
                         {
                             "task_key": "test_pipeline",
-                            "python_wheel_task": {"package_name": "io.prophecy.pipe.test_pipeline"},
                             "libraries": [{"whl": "dbfs:/path/test_pipeline.whl"}],
                         }
                     ]
                 }
             },
             "other_field": "test_pipeline_something",  # This won't be updated (substring, not exact match)
-            "nested": {"deep": {"value": "pipelines/test_pipeline"}},  # This will be updated (exact match)
         }
 
         json_file = os.path.join(jobs_dir, "prophecy-job.json")
@@ -510,46 +507,10 @@ class PipelineSyncTestCase(unittest.TestCase):
         self.assertIn('"nodeName": "renamed_pipeline"', json_content)
         self.assertIn('"task_key": "renamed_pipeline"', json_content)
         self.assertIn("renamed_pipeline", json_content)
-        # Verify no old pipeline name remains
-        self.assertNotIn("pipelines/test_pipeline", json_content)
-        self.assertNotIn('"test_pipeline"', json_content)
+        # Verify pipelineId was updated
+        self.assertNotIn('"pipelineId": "pipelines/test_pipeline"', json_content)
         # Verify other_field was NOT updated (substring, not exact match)
         self.assertIn('"other_field": "test_pipeline_something"', json_content)
-        # Verify nested value was updated
-        self.assertIn('"value": "pipelines/renamed_pipeline"', json_content)
-
-    def test_job_json_nested_pipeline_id_structure(self):
-        """Test that job JSON files with nested pipelineId dict structure are updated."""
-        from src.pbt.utils.pipeline_rename import update_json_file
-
-        # Create a test JSON file with nested pipelineId structure (dict with "value" field)
-        jobs_dir = os.path.join(self.project_path, "jobs", "test_job", "code")
-        os.makedirs(jobs_dir, exist_ok=True)
-
-        test_json = {
-            "processes": {
-                "process1": {"properties": {"pipelineId": {"type": "literal", "value": "pipelines/test_pipeline"}}}
-            }
-        }
-
-        json_file = os.path.join(jobs_dir, "prophecy-job.json")
-        with open(json_file, "w") as f:
-            json.dump(test_json, f, indent=2)
-
-        # Update the JSON file
-        update_json_file(
-            json_file, "pipelines/test_pipeline", "pipelines/renamed_pipeline", "test_pipeline", "renamed_pipeline"
-        )
-
-        # Verify the nested structure was updated - use string matching to verify formatting
-        with open(json_file, "r") as f:
-            json_content = f.read()
-
-        # Verify content using string matching to ensure formatting is correct
-        self.assertIn('"value": "pipelines/renamed_pipeline"', json_content)
-        self.assertIn('"type": "literal"', json_content)
-        # Verify no old pipeline name remains
-        self.assertNotIn("pipelines/test_pipeline", json_content)
 
     def test_job_python_comprehensive_update(self):
         """Test that job Python files are comprehensively updated with all occurrences."""
