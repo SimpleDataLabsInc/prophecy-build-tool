@@ -483,8 +483,8 @@ class PipelineSyncTestCase(unittest.TestCase):
                     ]
                 }
             },
-            "other_field": "test_pipeline_something",
-            "nested": {"deep": {"value": "pipelines/test_pipeline"}},
+            "other_field": "test_pipeline_something",  # This won't be updated (substring, not exact match)
+            "nested": {"deep": {"value": "pipelines/test_pipeline"}},  # This will be updated (exact match)
         }
 
         json_file = os.path.join(jobs_dir, "prophecy-job.json")
@@ -516,7 +516,10 @@ class PipelineSyncTestCase(unittest.TestCase):
         self.assertIn(
             "renamed_pipeline", updated_json["request"]["CreateNewJobRequest"]["tasks"][0]["libraries"][0]["whl"]
         )
-        self.assertIn("renamed_pipeline", updated_json["other_field"])
+        # other_field should NOT be updated - it's a substring, not an exact match
+        # This is intentional to avoid unintended replacements
+        self.assertEqual(updated_json["other_field"], "test_pipeline_something")
+        # nested value should be updated - it's an exact match
         self.assertEqual(updated_json["nested"]["deep"]["value"], "pipelines/renamed_pipeline")
 
     def test_job_json_nested_pipeline_id_structure(self):
