@@ -549,7 +549,7 @@ def update_workflow_json(
 
     try:
         original_content = _read_file_with_retry(workflow_path)
-        workflow = json.loads(original_content)
+        json.loads(original_content)
         original_line_ending = _detect_line_ending(original_content)
     except json.JSONDecodeError as e:
         raise ValidationError(
@@ -558,34 +558,52 @@ def update_workflow_json(
             f"  ACTION: Check if the file is corrupted. You may need to restore it from version control."
         ) from e
 
-    if "metainfo" in workflow:
-        workflow["metainfo"]["uri"] = new_identifiers["new_pipeline_id"]
-        workflow["metainfo"]["topLevelPackage"] = new_identifiers["package_name"]
-        workflow["metainfo"]["configTopLevelPackage"] = new_identifiers["config_package_name"]
+    content = original_content
+    content = re.sub(
+        r'("uri"\s*:\s*)"[^"]*"',
+        rf'\1"{new_identifiers["new_pipeline_id"]}"',
+        content,
+    )
 
-        if "pipelineSettingsInfo" in workflow["metainfo"]:
-            workflow["metainfo"]["pipelineSettingsInfo"]["applicationName"] = new_identifiers["application_name"]
+    content = re.sub(
+        r'("topLevelPackage"\s*:\s*)"[^"]*"',
+        rf'\1"{new_identifiers["package_name"]}"',
+        content,
+    )
 
-    try:
-        json_content = _format_json(workflow, indent=2)
-        _write_file_with_retry(workflow_path, json_content, preserve_line_ending=original_line_ending)
-        log(f"Updated workflow.latest.json with new identifiers")
-    except Exception as e:
-        raise FileOperationError(
-            f"Failed to write workflow file: {workflow_path}\n"
-            f"  Error: {str(e)}\n"
-            f"  ACTION: Check file permissions and ensure the file is not locked."
-        ) from e
+    content = re.sub(
+        r'("configTopLevelPackage"\s*:\s*)"[^"]*"',
+        rf'\1"{new_identifiers["config_package_name"]}"',
+        content,
+    )
+
+    content = re.sub(
+        r'("applicationName"\s*:\s*)"[^"]*"',
+        rf'\1"{new_identifiers["application_name"]}"',
+        content,
+    )
+
+    if content != original_content:
+        try:
+            _write_file_with_retry(workflow_path, content, preserve_line_ending=original_line_ending)
+            log(f"Updated workflow.latest.json with new identifiers")
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to write workflow file: {workflow_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure the file is not locked."
+            ) from e
 
 
 def update_workflow_json_uri_only(workflow_path: str, current_pipeline_id: str, new_pipeline_id: str) -> None:
+    """Update workflow.latest.json URI only using string replacement to preserve formatting."""
     if not os.path.exists(workflow_path):
         log(f"Workflow file not found: {workflow_path}, skipping update")
         return
 
     try:
         original_content = _read_file_with_retry(workflow_path)
-        workflow = json.loads(original_content)
+        json.loads(original_content)
         original_line_ending = _detect_line_ending(original_content)
     except json.JSONDecodeError as e:
         raise ValidationError(
@@ -594,19 +612,25 @@ def update_workflow_json_uri_only(workflow_path: str, current_pipeline_id: str, 
             f"  ACTION: Check if the file is corrupted. You may need to restore it from version control."
         ) from e
 
-    if "metainfo" in workflow:
-        workflow["metainfo"]["uri"] = new_pipeline_id
+    content = original_content
 
-    try:
-        json_content = _format_json(workflow, indent=2)
-        _write_file_with_retry(workflow_path, json_content, preserve_line_ending=original_line_ending)
-        log(f"Updated workflow.latest.json URI: {current_pipeline_id} -> {new_pipeline_id}")
-    except Exception as e:
-        raise FileOperationError(
-            f"Failed to write workflow file: {workflow_path}\n"
-            f"  Error: {str(e)}\n"
-            f"  ACTION: Check file permissions and ensure the file is not locked."
-        ) from e
+    # Update uri - preserve the original spacing around colon
+    content = re.sub(
+        r'"uri"\s*:\s*"' + re.escape(current_pipeline_id) + r'"',
+        lambda m: m.group(0).replace(current_pipeline_id, new_pipeline_id),
+        content,
+    )
+
+    if content != original_content:
+        try:
+            _write_file_with_retry(workflow_path, content, preserve_line_ending=original_line_ending)
+            log(f"Updated workflow.latest.json URI: {current_pipeline_id} -> {new_pipeline_id}")
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to write workflow file: {workflow_path}\n"
+                f"  Error: {str(e)}\n"
+                f"  ACTION: Check file permissions and ensure the file is not locked."
+            ) from e
 
 
 def update_python_files(
