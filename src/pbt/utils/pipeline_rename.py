@@ -33,6 +33,32 @@ class ValidationError(PipelineRenameError):
     pass
 
 
+def _detect_line_ending(content: str) -> str:
+    if not content:
+        return "\n"
+    if "\r\n" in content:
+        return "\r\n"
+    elif "\r" in content:
+        return "\r"
+    else:
+        return "\n"
+
+
+def _detect_json_indent(original_content: str) -> int:
+    if not original_content.strip():
+        return 2
+    
+    lines = original_content.split("\n")
+    for line in lines[:20]:
+        if line.strip() and not line.strip().startswith(("}", "]", ",")):
+            stripped = line.lstrip(" \t")
+            indent_str = line[: len(line) - len(stripped)]
+            indent = len(indent_str.replace("\t", "    "))
+            if indent > 0:
+                return indent
+    return 2 
+
+
 @retry(
     retry=retry_if_exception_type((IOError, OSError, PermissionError)),
     stop=stop_after_attempt(3),
@@ -57,9 +83,27 @@ def _read_file_with_retry(file_path: str, mode: str = "r", encoding: str = "utf-
     wait=wait_exponential(multiplier=1, min=1, max=5),
     reraise=True,
 )
-def _write_file_with_retry(file_path: str, content: str, mode: str = "w", encoding: str = "utf-8"):
+def _write_file_with_retry(
+    file_path: str, content: str, mode: str = "w", encoding: str = "utf-8", preserve_line_ending: Optional[str] = None
+):
     try:
-        with open(file_path, mode, encoding=encoding if "b" not in mode else None) as f:
+        if preserve_line_ending is None and os.path.exists(file_path):
+            try:
+                original_content = _read_file_with_retry(file_path, mode="r", encoding=encoding)
+                line_ending = _detect_line_ending(original_content)
+            except Exception:
+                line_ending = "\n"
+        elif preserve_line_ending is not None:
+            line_ending = preserve_line_ending
+        else:
+            line_ending = "\n"
+        content_normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+        if line_ending != "\n":
+            content = content_normalized.replace("\n", line_ending)
+        else:
+            content = content_normalized
+        
+        with open(file_path, mode, encoding=encoding if "b" not in mode else None, newline="") as f:
             f.write(content)
     except (IOError, OSError, PermissionError) as e:
         raise FileOperationError(
@@ -395,8 +439,10 @@ def update_workflow_json(
         return
 
     try:
-        content = _read_file_with_retry(workflow_path)
-        workflow = json.loads(content)
+        original_content = _read_file_with_retry(workflow_path)
+        workflow = json.loads(original_content)
+        original_indent = _detect_json_indent(original_content)
+        original_line_ending = _detect_line_ending(original_content)
     except json.JSONDecodeError as e:
         raise ValidationError(
             f"Invalid JSON in workflow file: {workflow_path}\n"
@@ -413,7 +459,8 @@ def update_workflow_json(
             workflow["metainfo"]["pipelineSettingsInfo"]["applicationName"] = new_identifiers["application_name"]
 
     try:
-        _write_file_with_retry(workflow_path, json.dumps(workflow, indent=2))
+        json_content = json.dumps(workflow, indent=original_indent, ensure_ascii=False)
+        _write_file_with_retry(workflow_path, json_content, preserve_line_ending=original_line_ending)
         log(f"Updated workflow.latest.json with new identifiers")
     except Exception as e:
         raise FileOperationError(
@@ -429,8 +476,10 @@ def update_workflow_json_uri_only(workflow_path: str, current_pipeline_id: str, 
         return
 
     try:
-        content = _read_file_with_retry(workflow_path)
-        workflow = json.loads(content)
+        original_content = _read_file_with_retry(workflow_path)
+        workflow = json.loads(original_content)
+        original_indent = _detect_json_indent(original_content)
+        original_line_ending = _detect_line_ending(original_content)
     except json.JSONDecodeError as e:
         raise ValidationError(
             f"Invalid JSON in workflow file: {workflow_path}\n"
@@ -442,7 +491,8 @@ def update_workflow_json_uri_only(workflow_path: str, current_pipeline_id: str, 
         workflow["metainfo"]["uri"] = new_pipeline_id
 
     try:
-        _write_file_with_retry(workflow_path, json.dumps(workflow, indent=2))
+        json_content = json.dumps(workflow, indent=original_indent, ensure_ascii=False)
+        _write_file_with_retry(workflow_path, json_content, preserve_line_ending=original_line_ending)
         log(f"Updated workflow.latest.json URI: {current_pipeline_id} -> {new_pipeline_id}")
     except Exception as e:
         raise FileOperationError(
@@ -754,8 +804,9 @@ def update_pbt_project_yml(
 
     # Read and parse YAML
     try:
-        content = _read_file_with_retry(pbt_project_file)
-        project_config = yaml.safe_load(content)
+        original_content = _read_file_with_retry(pbt_project_file)
+        project_config = yaml.safe_load(original_content)
+        original_line_ending = _detect_line_ending(original_content)
     except yaml.YAMLError as e:
         raise ValidationError(
             f"Invalid YAML in {PBT_FILE_NAME}.\n"
@@ -813,11 +864,12 @@ def update_pbt_project_yml(
                     for pipeline_id in job_data["pipelines"]
                 ]
 
-    # Write back to file, preserving YAML structure
+    # Write back to file, preserving YAML structure and formatting
     try:
-        _write_file_with_retry(
-            pbt_project_file, yaml.dump(project_config, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        yaml_content = yaml.dump(
+            project_config, default_flow_style=False, sort_keys=False, allow_unicode=True, width=float("inf")
         )
+        _write_file_with_retry(pbt_project_file, yaml_content, preserve_line_ending=original_line_ending)
         log(f"Updated {PBT_FILE_NAME}: {current_pipeline_id_found} -> {new_pipeline_id}")
     except Exception as e:
         raise FileOperationError(
@@ -1112,8 +1164,10 @@ def update_json_file(
     new_package_name: str = None,
 ) -> None:
     try:
-        content = _read_file_with_retry(json_file_path)
-        data = json.loads(content)
+        original_content = _read_file_with_retry(json_file_path)
+        data = json.loads(original_content)
+        original_indent = _detect_json_indent(original_content)
+        original_line_ending = _detect_line_ending(original_content)
     except json.JSONDecodeError as e:
         raise ValidationError(
             f"Invalid JSON in file: {json_file_path}\n"
@@ -1171,12 +1225,44 @@ def update_json_file(
                 # Update metadata label and slug
                 if "metadata" in process_value:
                     metadata = process_value["metadata"]
-                    if "label" in metadata and metadata["label"] == current_name_to_use:
-                        metadata["label"] = new_name_to_use
-                        updated = True
-                    if "slug" in metadata and metadata["slug"] == current_name_to_use:
-                        metadata["slug"] = new_name_to_use
-                        updated = True
+                    if "label" in metadata and isinstance(metadata["label"], str):
+                        label = metadata["label"]
+                        if label == current_name_to_use:
+                            metadata["label"] = new_name_to_use
+                            updated = True
+                        elif (
+                            current_name_to_use in label
+                            and new_name_to_use not in label
+                            and new_pipeline_id not in label
+                        ):
+                            metadata["label"] = label.replace(current_name_to_use, new_name_to_use)
+                            updated = True
+                        elif (
+                            current_pipeline_id in label
+                            and new_pipeline_id not in label
+                            and new_name_to_use not in label
+                        ):
+                            metadata["label"] = label.replace(current_pipeline_id, new_pipeline_id)
+                            updated = True
+                    if "slug" in metadata and isinstance(metadata["slug"], str):
+                        slug = metadata["slug"]
+                        if slug == current_name_to_use:
+                            metadata["slug"] = new_name_to_use
+                            updated = True
+                        elif (
+                            current_name_to_use in slug
+                            and new_name_to_use not in slug
+                            and new_pipeline_id not in slug
+                        ):
+                            metadata["slug"] = slug.replace(current_name_to_use, new_name_to_use)
+                            updated = True
+                        elif (
+                            current_pipeline_id in slug
+                            and new_pipeline_id not in slug
+                            and new_name_to_use not in slug
+                        ):
+                            metadata["slug"] = slug.replace(current_pipeline_id, new_pipeline_id)
+                            updated = True
 
     # Update databricks-job.json structure
     if "components" in data:
@@ -1192,10 +1278,25 @@ def update_json_file(
                         pc["pipelineId"] = pc["pipelineId"].replace(current_pipeline_id, new_pipeline_id)
                         updated = True
 
-                # Update nodeName
-                if "nodeName" in pc and pc["nodeName"] == current_name_to_use:
-                    pc["nodeName"] = new_name_to_use
-                    updated = True
+                if "nodeName" in pc and isinstance(pc["nodeName"], str):
+                    node_name = pc["nodeName"]
+                    if node_name == current_name_to_use:
+                        pc["nodeName"] = new_name_to_use
+                        updated = True
+                    elif (
+                        current_name_to_use in node_name
+                        and new_name_to_use not in node_name
+                        and new_pipeline_id not in node_name
+                    ):
+                        pc["nodeName"] = node_name.replace(current_name_to_use, new_name_to_use)
+                        updated = True
+                    elif (
+                        current_pipeline_id in node_name
+                        and new_pipeline_id not in node_name
+                        and new_name_to_use not in node_name
+                    ):
+                        pc["nodeName"] = node_name.replace(current_pipeline_id, new_pipeline_id)
+                        updated = True
 
                 # Update path (wheel file path)
                 if "path" in pc and current_package_name and new_package_name:
@@ -1217,10 +1318,25 @@ def update_json_file(
         # Update tasks
         if "tasks" in request:
             for task in request["tasks"]:
-                # Update task_key
-                if "task_key" in task and task["task_key"] == current_name_to_use:
-                    task["task_key"] = new_name_to_use
-                    updated = True
+                if "task_key" in task and isinstance(task["task_key"], str):
+                    task_key = task["task_key"]
+                    if task_key == current_name_to_use:
+                        task["task_key"] = new_name_to_use
+                        updated = True
+                    elif (
+                        current_name_to_use in task_key
+                        and new_name_to_use not in task_key
+                        and new_pipeline_id not in task_key
+                    ):
+                        task["task_key"] = task_key.replace(current_name_to_use, new_name_to_use)
+                        updated = True
+                    elif (
+                        current_pipeline_id in task_key
+                        and new_pipeline_id not in task_key
+                        and new_name_to_use not in task_key
+                    ):
+                        task["task_key"] = task_key.replace(current_pipeline_id, new_pipeline_id)
+                        updated = True
 
                 # Update python_wheel_task.package_name
                 if "python_wheel_task" in task:
@@ -1261,9 +1377,26 @@ def update_json_file(
                 # Update depends_on task_key references
                 if "depends_on" in task:
                     for dep in task["depends_on"]:
-                        if isinstance(dep, dict) and "task_key" in dep:
-                            if dep["task_key"] == current_name_to_use:
+                        if isinstance(dep, dict) and "task_key" in dep and isinstance(dep["task_key"], str):
+                            dep_task_key = dep["task_key"]
+                            if dep_task_key == current_name_to_use:
                                 dep["task_key"] = new_name_to_use
+                                updated = True
+                            elif (
+                                current_name_to_use in dep_task_key
+                                and new_name_to_use not in dep_task_key
+                                and new_pipeline_id not in dep_task_key
+                            ):
+                                # Replace current name in depends_on task_key
+                                dep["task_key"] = dep_task_key.replace(current_name_to_use, new_name_to_use)
+                                updated = True
+                            elif (
+                                current_pipeline_id in dep_task_key
+                                and new_pipeline_id not in dep_task_key
+                                and new_name_to_use not in dep_task_key
+                            ):
+                                # Replace pipeline ID in depends_on task_key
+                                dep["task_key"] = dep_task_key.replace(current_pipeline_id, new_pipeline_id)
                                 updated = True
 
         # Update job_clusters spark_conf prophecy.packages.path
@@ -1380,7 +1513,8 @@ def update_json_file(
 
     if updated:
         try:
-            _write_file_with_retry(json_file_path, json.dumps(data, indent=2))
+            json_content = json.dumps(data, indent=original_indent, ensure_ascii=False)
+            _write_file_with_retry(json_file_path, json_content, preserve_line_ending=original_line_ending)
             log(f"Updated JSON file: {json_file_path}")
         except Exception as e:
             raise FileOperationError(
