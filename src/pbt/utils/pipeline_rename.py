@@ -828,12 +828,9 @@ def update_pbt_project_yml(
 
 
 def validate_current_name_removed(project_path: str, new_name: str, current_pipeline_id: str) -> Tuple[bool, List[str]]:
-    """
-    Validate that the current pipeline name is no longer present in the codebase after rename.
-    Returns (is_valid, list_of_files_containing_current_name)
-    """
     files_with_current_name = []
     current_pipeline_name = current_pipeline_id.split("/")[-1] if "/" in current_pipeline_id else current_pipeline_id
+    new_pipeline_id = f"pipelines/{new_name}"
 
     # Search in pipeline code directory (after rename, it's now new_name)
     new_pipeline_code_path = os.path.join(project_path, "pipelines", new_name, "code")
@@ -847,9 +844,37 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                     file_path = os.path.join(root, filename)
                     try:
                         content = _read_file_with_retry(file_path)
-                        # Check for pipeline ID references
-                        if current_pipeline_id in content or f"pipelines/{current_pipeline_name}" in content:
-                            files_with_current_name.append(file_path)
+                        # Only flag if we find the exact pipeline ID or "pipelines/{name}" pattern that's NOT part of the new ID
+                        # Exclude package names (like "from initial_pipe" or "topLevelPackage": "initial_pipe")
+                        if filename == "workflow.latest.json":
+                            # In workflow.latest.json, check for pipeline ID references but ignore package names
+                            import json
+                            try:
+                                data = json.loads(content)
+                                metainfo = data.get("metainfo", {})
+                                uri = metainfo.get("uri", "")
+                                # Only flag if URI is wrong
+                                if uri == current_pipeline_id or (current_pipeline_id in uri and new_pipeline_id not in uri):
+                                    files_with_current_name.append(file_path)
+                            except Exception:
+                                # Fallback to simple check
+                                if current_pipeline_id in content and new_pipeline_id not in content:
+                                    files_with_current_name.append(file_path)
+                        elif filename.endswith(".py"):
+                            # In Python files, check for pipeline ID references (quoted strings with "pipelines/")
+                            # but ignore package imports (from initial_pipe or import initial_pipe)
+                            import re
+                            # Look for pipeline ID patterns but exclude package imports
+                            pipeline_id_pattern = re.compile(r'["\']pipelines/' + re.escape(current_pipeline_name) + r'["\']')
+                            if pipeline_id_pattern.search(content) and new_pipeline_id not in content:
+                                files_with_current_name.append(file_path)
+                            # Also check for unquoted pipeline ID references
+                            elif re.search(r'\b' + re.escape(current_pipeline_id) + r'\b', content) and new_pipeline_id not in content:
+                                files_with_current_name.append(file_path)
+                        else:
+                            # For other files, check for pipeline ID references
+                            if current_pipeline_id in content and new_pipeline_id not in content:
+                                files_with_current_name.append(file_path)
                     except Exception:
                         continue
 
@@ -865,8 +890,70 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                     file_path = os.path.join(root, filename)
                     try:
                         content = _read_file_with_retry(file_path)
-                        if current_pipeline_id in content or current_pipeline_name in content:
-                            files_with_current_name.append(file_path)
+                        if filename.endswith(".json"):
+                            # For JSON files, parse and check specific fields
+                            try:
+                                data = json.loads(content)
+                                has_old_reference = False
+                                
+                                # Check prophecy-job.json structure
+                                if "processes" in data:
+                                    for process_value in data["processes"].values():
+                                        if isinstance(process_value, dict) and "properties" in process_value:
+                                            pipeline_id = process_value["properties"].get("pipelineId")
+                                            if isinstance(pipeline_id, dict) and "value" in pipeline_id:
+                                                pipeline_id = pipeline_id["value"]
+                                            if isinstance(pipeline_id, str):
+                                                if pipeline_id == current_pipeline_id or (
+                                                    current_pipeline_id in pipeline_id and new_pipeline_id not in pipeline_id
+                                                ):
+                                                    has_old_reference = True
+                                                    break
+                                
+                                # Check databricks-job.json structure
+                                if "components" in data:
+                                    for component in data["components"]:
+                                        if "PipelineComponent" in component:
+                                            pc = component["PipelineComponent"]
+                                            pipeline_id = pc.get("pipelineId")
+                                            if isinstance(pipeline_id, str):
+                                                if pipeline_id == current_pipeline_id or (
+                                                    current_pipeline_id in pipeline_id and new_pipeline_id not in pipeline_id
+                                                ):
+                                                    has_old_reference = True
+                                                    break
+                                    
+                                    # Check libraries in tasks
+                                    if "request" in data:
+                                        request = data["request"]
+                                        if "CreateNewJobRequest" in request:
+                                            request = request["CreateNewJobRequest"]
+                                        if "tasks" in request:
+                                            for task in request["tasks"]:
+                                                if "libraries" in task:
+                                                    for library in task["libraries"]:
+                                                        if "PipelineComponent" in library:
+                                                            pipeline_id = library["PipelineComponent"].get("pipelineId")
+                                                            if isinstance(pipeline_id, str):
+                                                                if pipeline_id == current_pipeline_id or (
+                                                                    current_pipeline_id in pipeline_id and new_pipeline_id not in pipeline_id
+                                                                ):
+                                                                    has_old_reference = True
+                                                                    break
+                                
+                                if has_old_reference:
+                                    files_with_current_name.append(file_path)
+                            except (json.JSONDecodeError, Exception):
+                                # Fallback to simple check if JSON parsing fails
+                                if current_pipeline_id in content and new_pipeline_id not in content:
+                                    files_with_current_name.append(file_path)
+                        else:
+                            # For Python files, check for pipeline ID references
+                            import re
+                            # Look for quoted pipeline ID patterns
+                            pipeline_id_pattern = re.compile(r'["\']' + re.escape(current_pipeline_id) + r'["\']')
+                            if pipeline_id_pattern.search(content) and new_pipeline_id not in content:
+                                files_with_current_name.append(file_path)
                     except Exception:
                         continue
 
@@ -1068,6 +1155,7 @@ def update_json_file(
                             elif (
                                 isinstance(pipeline_id_obj["value"], str)
                                 and current_pipeline_id in pipeline_id_obj["value"]
+                                and new_pipeline_id not in pipeline_id_obj["value"]
                             ):
                                 pipeline_id_obj["value"] = pipeline_id_obj["value"].replace(
                                     current_pipeline_id, new_pipeline_id
@@ -1078,7 +1166,7 @@ def update_json_file(
                             if pipeline_id_obj == current_pipeline_id:
                                 process_value["properties"]["pipelineId"] = new_pipeline_id
                                 updated = True
-                            elif current_pipeline_id in pipeline_id_obj:
+                            elif current_pipeline_id in pipeline_id_obj and new_pipeline_id not in pipeline_id_obj:
                                 process_value["properties"]["pipelineId"] = pipeline_id_obj.replace(
                                     current_pipeline_id, new_pipeline_id
                                 )
@@ -1103,6 +1191,9 @@ def update_json_file(
                 if "pipelineId" in pc:
                     if pc["pipelineId"] == current_pipeline_id:
                         pc["pipelineId"] = new_pipeline_id
+                        updated = True
+                    elif current_pipeline_id in pc["pipelineId"] and new_pipeline_id not in pc["pipelineId"]:
+                        pc["pipelineId"] = pc["pipelineId"].replace(current_pipeline_id, new_pipeline_id)
                         updated = True
 
                 # Update nodeName
@@ -1152,8 +1243,14 @@ def update_json_file(
                         # Update PipelineComponent.pipelineId in libraries
                         if "PipelineComponent" in library:
                             if "pipelineId" in library["PipelineComponent"]:
-                                if library["PipelineComponent"]["pipelineId"] == current_pipeline_id:
+                                lib_pipeline_id = library["PipelineComponent"]["pipelineId"]
+                                if lib_pipeline_id == current_pipeline_id:
                                     library["PipelineComponent"]["pipelineId"] = new_pipeline_id
+                                    updated = True
+                                elif current_pipeline_id in lib_pipeline_id and new_pipeline_id not in lib_pipeline_id:
+                                    library["PipelineComponent"]["pipelineId"] = lib_pipeline_id.replace(
+                                        current_pipeline_id, new_pipeline_id
+                                    )
                                     updated = True
 
                         # Update whl path
@@ -1187,7 +1284,7 @@ def update_json_file(
                                 path_updated = False
 
                                 # Update pipeline ID keys
-                                if current_pipeline_id in packages_path:
+                                if current_pipeline_id in packages_path and new_pipeline_id not in packages_path:
                                     packages_path[new_pipeline_id] = packages_path.pop(current_pipeline_id)
                                     path_updated = True
 
@@ -1202,7 +1299,11 @@ def update_json_file(
 
                                 # Update pipeline names in paths
                                 for key, path_value in packages_path.items():
-                                    if current_name_to_use in path_value:
+                                    if (
+                                        current_name_to_use in path_value
+                                        and new_name_to_use not in path_value
+                                        and new_pipeline_id not in path_value
+                                    ):
                                         packages_path[key] = path_value.replace(current_name_to_use, new_name_to_use)
                                         path_updated = True
 
@@ -1212,19 +1313,24 @@ def update_json_file(
                             except (json.JSONDecodeError, TypeError):
                                 # Fallback: simple string replacement if JSON parsing fails
                                 packages_path_str = spark_conf["prophecy.packages.path"]
-                                if current_pipeline_id in packages_path_str:
+                                if current_pipeline_id in packages_path_str and new_pipeline_id not in packages_path_str:
                                     packages_path_str = packages_path_str.replace(current_pipeline_id, new_pipeline_id)
                                     updated = True
                                 if (
                                     current_package_name
                                     and new_package_name
                                     and current_package_name in packages_path_str
+                                    and new_package_name not in packages_path_str
                                 ):
                                     packages_path_str = packages_path_str.replace(
                                         current_package_name, new_package_name
                                     )
                                     updated = True
-                                if current_name_to_use in packages_path_str:
+                                if (
+                                    current_name_to_use in packages_path_str
+                                    and new_name_to_use not in packages_path_str
+                                    and new_pipeline_id not in packages_path_str
+                                ):
                                     packages_path_str = packages_path_str.replace(current_name_to_use, new_name_to_use)
                                     updated = True
                                 if updated:
@@ -1235,54 +1341,38 @@ def update_json_file(
         if isinstance(obj, dict):
             for key, value in obj.items():
                 if isinstance(value, str):
-                    if current_pipeline_id in value:
-                        new_value = value.replace(current_pipeline_id, new_pipeline_id)
-                        if new_value != value:
-                            obj[key] = new_value
-                            updated = True
-                    if current_name_to_use == value:
+                    # Skip if already correct
+                    if value == new_pipeline_id or new_name_to_use in value:
+                        continue
+                    # First, update pipeline ID (full ID takes precedence)
+                    # Only replace if value is exactly current_pipeline_id
+                    if value == current_pipeline_id:
+                        obj[key] = new_pipeline_id
+                        updated = True
+                        continue
+                    # Only update name if value is exactly the current name
+                    if value == current_name_to_use:
                         obj[key] = new_name_to_use
                         updated = True
-                    elif current_name_to_use in value:
-                        if (
-                            "/" in value
-                            or value.startswith("pipelines/")
-                            or "_" in value
-                            or value.startswith(current_name_to_use)
-                            or value.endswith(current_name_to_use)
-                            or current_name_to_use in value
-                        ):
-                            new_value = value.replace(current_name_to_use, new_name_to_use)
-                            if new_value != value:
-                                obj[key] = new_value
-                                updated = True
+                        continue
                 elif isinstance(value, (dict, list)):
                     update_strings_recursively(value)
         elif isinstance(obj, list):
             for i, item in enumerate(obj):
                 if isinstance(item, str):
-                    # Update pipeline ID
-                    if current_pipeline_id in item:
-                        new_item = item.replace(current_pipeline_id, new_pipeline_id)
-                        if new_item != item:
-                            obj[i] = new_item
-                            updated = True
-                    # Update pipeline name
-                    if current_name_to_use == item:
+                    # Skip if already correct
+                    if item == new_pipeline_id or new_name_to_use in item:
+                        continue
+                    # Update pipeline ID (full ID takes precedence)
+                    if item == current_pipeline_id:
+                        obj[i] = new_pipeline_id
+                        updated = True
+                        continue
+                    # Only update name if item is exactly the current name
+                    if item == current_name_to_use:
                         obj[i] = new_name_to_use
                         updated = True
-                    elif current_name_to_use in item:
-                        if (
-                            "/" in item
-                            or item.startswith("pipelines/")
-                            or "_" in item
-                            or item.startswith(current_name_to_use)
-                            or item.endswith(current_name_to_use)
-                        ):
-                            new_item = item.replace(current_name_to_use, new_name_to_use)
-                            if new_item != item:
-                                obj[i] = new_item
-                                updated = True
+                        continue
                 else:
                     update_strings_recursively(item)
 
