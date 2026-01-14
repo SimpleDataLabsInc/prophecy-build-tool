@@ -844,35 +844,34 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                     file_path = os.path.join(root, filename)
                     try:
                         content = _read_file_with_retry(file_path)
-                        # Only flag if we find the exact pipeline ID or "pipelines/{name}" pattern that's NOT part of the new ID
-                        # Exclude package names (like "from initial_pipe" or "topLevelPackage": "initial_pipe")
                         if filename == "workflow.latest.json":
-                            # In workflow.latest.json, check for pipeline ID references but ignore package names
                             import json
+
                             try:
                                 data = json.loads(content)
                                 metainfo = data.get("metainfo", {})
                                 uri = metainfo.get("uri", "")
-                                # Only flag if URI is wrong
-                                if uri == current_pipeline_id or (current_pipeline_id in uri and new_pipeline_id not in uri):
+                                if uri == current_pipeline_id or (
+                                    current_pipeline_id in uri and new_pipeline_id not in uri
+                                ):
                                     files_with_current_name.append(file_path)
                             except Exception:
-                                # Fallback to simple check
                                 if current_pipeline_id in content and new_pipeline_id not in content:
                                     files_with_current_name.append(file_path)
                         elif filename.endswith(".py"):
-                            # In Python files, check for pipeline ID references (quoted strings with "pipelines/")
-                            # but ignore package imports (from initial_pipe or import initial_pipe)
                             import re
-                            # Look for pipeline ID patterns but exclude package imports
-                            pipeline_id_pattern = re.compile(r'["\']pipelines/' + re.escape(current_pipeline_name) + r'["\']')
+
+                            pipeline_id_pattern = re.compile(
+                                r'["\']pipelines/' + re.escape(current_pipeline_name) + r'["\']'
+                            )
                             if pipeline_id_pattern.search(content) and new_pipeline_id not in content:
                                 files_with_current_name.append(file_path)
-                            # Also check for unquoted pipeline ID references
-                            elif re.search(r'\b' + re.escape(current_pipeline_id) + r'\b', content) and new_pipeline_id not in content:
+                            elif (
+                                re.search(r"\b" + re.escape(current_pipeline_id) + r"\b", content)
+                                and new_pipeline_id not in content
+                            ):
                                 files_with_current_name.append(file_path)
                         else:
-                            # For other files, check for pipeline ID references
                             if current_pipeline_id in content and new_pipeline_id not in content:
                                 files_with_current_name.append(file_path)
                     except Exception:
@@ -891,12 +890,10 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                     try:
                         content = _read_file_with_retry(file_path)
                         if filename.endswith(".json"):
-                            # For JSON files, parse and check specific fields
                             try:
                                 data = json.loads(content)
                                 has_old_reference = False
-                                
-                                # Check prophecy-job.json structure
+
                                 if "processes" in data:
                                     for process_value in data["processes"].values():
                                         if isinstance(process_value, dict) and "properties" in process_value:
@@ -905,12 +902,12 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                                                 pipeline_id = pipeline_id["value"]
                                             if isinstance(pipeline_id, str):
                                                 if pipeline_id == current_pipeline_id or (
-                                                    current_pipeline_id in pipeline_id and new_pipeline_id not in pipeline_id
+                                                    current_pipeline_id in pipeline_id
+                                                    and new_pipeline_id not in pipeline_id
                                                 ):
                                                     has_old_reference = True
                                                     break
-                                
-                                # Check databricks-job.json structure
+
                                 if "components" in data:
                                     for component in data["components"]:
                                         if "PipelineComponent" in component:
@@ -918,12 +915,12 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                                             pipeline_id = pc.get("pipelineId")
                                             if isinstance(pipeline_id, str):
                                                 if pipeline_id == current_pipeline_id or (
-                                                    current_pipeline_id in pipeline_id and new_pipeline_id not in pipeline_id
+                                                    current_pipeline_id in pipeline_id
+                                                    and new_pipeline_id not in pipeline_id
                                                 ):
                                                     has_old_reference = True
                                                     break
-                                    
-                                    # Check libraries in tasks
+
                                     if "request" in data:
                                         request = data["request"]
                                         if "CreateNewJobRequest" in request:
@@ -936,11 +933,12 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                                                             pipeline_id = library["PipelineComponent"].get("pipelineId")
                                                             if isinstance(pipeline_id, str):
                                                                 if pipeline_id == current_pipeline_id or (
-                                                                    current_pipeline_id in pipeline_id and new_pipeline_id not in pipeline_id
+                                                                    current_pipeline_id in pipeline_id
+                                                                    and new_pipeline_id not in pipeline_id
                                                                 ):
                                                                     has_old_reference = True
                                                                     break
-                                
+
                                 if has_old_reference:
                                     files_with_current_name.append(file_path)
                             except (json.JSONDecodeError, Exception):
@@ -948,9 +946,8 @@ def validate_current_name_removed(project_path: str, new_name: str, current_pipe
                                 if current_pipeline_id in content and new_pipeline_id not in content:
                                     files_with_current_name.append(file_path)
                         else:
-                            # For Python files, check for pipeline ID references
                             import re
-                            # Look for quoted pipeline ID patterns
+
                             pipeline_id_pattern = re.compile(r'["\']' + re.escape(current_pipeline_id) + r'["\']')
                             if pipeline_id_pattern.search(content) and new_pipeline_id not in content:
                                 files_with_current_name.append(file_path)
@@ -974,7 +971,6 @@ def update_job_json_files(
     if not os.path.exists(jobs_path):
         return
 
-    # Find all prophecy-job.json and databricks-job.json files
     for root, dirs, files in os.walk(jobs_path):
         for filename in files:
             if filename in ["prophecy-job.json", "databricks-job.json"]:
@@ -1313,7 +1309,10 @@ def update_json_file(
                             except (json.JSONDecodeError, TypeError):
                                 # Fallback: simple string replacement if JSON parsing fails
                                 packages_path_str = spark_conf["prophecy.packages.path"]
-                                if current_pipeline_id in packages_path_str and new_pipeline_id not in packages_path_str:
+                                if (
+                                    current_pipeline_id in packages_path_str
+                                    and new_pipeline_id not in packages_path_str
+                                ):
                                     packages_path_str = packages_path_str.replace(current_pipeline_id, new_pipeline_id)
                                     updated = True
                                 if (
