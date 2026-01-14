@@ -42,27 +42,27 @@ def _detect_json_format_style(original_content: str) -> dict:
         "space_after_colon_before_object": True,  # Default to True (most common)
         "single_line_arrays": False,
     }
-    
+
     if re.search(r'"[^"]+"\s+:', original_content):
         style["space_before_colon"] = True
-    
-    if re.search(r'\{\s+\}', original_content):
+
+    if re.search(r"\{\s+\}", original_content):
         style["space_in_empty_object"] = True
-    
-    if re.search(r'\[\s+\]', original_content):
+
+    if re.search(r"\[\s+\]", original_content):
         style["space_in_empty_array"] = True
-    
-    if re.search(r':\s*\[', original_content):
-        if re.search(r':\[', original_content) and not re.search(r':\s+\[', original_content):
+
+    if re.search(r":\s*\[", original_content):
+        if re.search(r":\[", original_content) and not re.search(r":\s+\[", original_content):
             style["space_after_colon_before_array"] = False
-    
-    if re.search(r':\s*\{', original_content):
-        if re.search(r':\{', original_content) and not re.search(r':\s+\{', original_content):
+
+    if re.search(r":\s*\{", original_content):
+        if re.search(r":\{", original_content) and not re.search(r":\s+\{", original_content):
             style["space_after_colon_before_object"] = False
-    
+
     if re.search(r':\s*\[\s*"[^"]+"\s*\]', original_content):
         style["single_line_arrays"] = True
-    
+
     return style
 
 
@@ -76,45 +76,41 @@ def _format_json_preserve_structure(data: dict, original_content: str, format_st
             if indent_str:
                 original_indent = len(indent_str.replace("\t", "    "))
                 break
-    
+
     # Format with indent
     formatted = json.dumps(data, indent=original_indent, ensure_ascii=False, sort_keys=False)
-    
+
     if format_style:
         if format_style.get("space_before_colon", False):
             formatted = formatted.replace('": ', '" : ')
-            formatted = re.sub(r'([^"\s]): ', r'\1 : ', formatted)
-        
+            formatted = re.sub(r'([^"\s]): ', r"\1 : ", formatted)
+
         if not format_style.get("space_after_colon_before_array", True):
             formatted = re.sub(r'":\s+\[', r'":[', formatted)
         if not format_style.get("space_after_colon_before_object", True):
             formatted = re.sub(r'":\s+\{', r'":{', formatted)
-        
+
         if format_style.get("space_in_empty_object", False):
-            formatted = re.sub(r'(:\s*)\{\}([,}\]]|\s*$)', r'\1{ }\2', formatted, flags=re.MULTILINE)
-            formatted = re.sub(r'(,\s*)\{\}([,}\]]|\s*$)', r'\1{ }\2', formatted, flags=re.MULTILINE)
-        
+            formatted = re.sub(r"(:\s*)\{\}([,}\]]|\s*$)", r"\1{ }\2", formatted, flags=re.MULTILINE)
+            formatted = re.sub(r"(,\s*)\{\}([,}\]]|\s*$)", r"\1{ }\2", formatted, flags=re.MULTILINE)
+
         if format_style.get("space_in_empty_array", False):
-            formatted = re.sub(r'(:\s*)\[\]([,}\]]|\s*$)', r'\1[ ]\2', formatted, flags=re.MULTILINE)
-            formatted = re.sub(r'(,\s*)\[\]([,}\]]|\s*$)', r'\1[ ]\2', formatted, flags=re.MULTILINE)
-    
+            formatted = re.sub(r"(:\s*)\[\]([,}\]]|\s*$)", r"\1[ ]\2", formatted, flags=re.MULTILINE)
+            formatted = re.sub(r"(,\s*)\[\]([,}\]]|\s*$)", r"\1[ ]\2", formatted, flags=re.MULTILINE)
+
     if format_style and format_style.get("single_line_arrays", False):
-        formatted = re.sub(
-            r'(\[\s*)\n(\s+)("[^"]+")\n(\s+)\](\s*),?',
-            r'\1\3 \4]\5',
-            formatted
-        )
-    has_compact_array_object = re.search(r'\[\s*\{', original_content) or re.search(r'\}\s*\]', original_content)
-    
+        formatted = re.sub(r'(\[\s*)\n(\s+)("[^"]+")\n(\s+)\](\s*),?', r"\1\3 \4]\5", formatted)
+    has_compact_array_object = re.search(r"\[\s*\{", original_content) or re.search(r"\}\s*\]", original_content)
+
     if has_compact_array_object:
-        has_space_in_compact = re.search(r'\[\s+\{', original_content)
-        compact_space = ' ' if has_space_in_compact else ''
-        formatted = re.sub(r'(\[\s*)\n(\s+)\{', rf'\1{compact_space}{{', formatted)
-        has_space_in_close = re.search(r'\}\s+\]', original_content)
-        close_space = ' ' if has_space_in_close else ''
-        formatted = re.sub(r'\}\n(\s+)\](\s*),?', rf'}}{close_space}]', formatted)
-        formatted = re.sub(r'\}\n(\s+)\](\s*)$', rf'}}{close_space}]', formatted, flags=re.MULTILINE)
-    
+        has_space_in_compact = re.search(r"\[\s+\{", original_content)
+        compact_space = " " if has_space_in_compact else ""
+        formatted = re.sub(r"(\[\s*)\n(\s+)\{", rf"\1{compact_space}{{", formatted)
+        has_space_in_close = re.search(r"\}\s+\]", original_content)
+        close_space = " " if has_space_in_close else ""
+        formatted = re.sub(r"\}\n(\s+)\](\s*),?", rf"}}{close_space}]", formatted)
+        formatted = re.sub(r"\}\n(\s+)\](\s*)$", rf"}}{close_space}]", formatted, flags=re.MULTILINE)
+
     lines = formatted.split("\n")
     cleaned_lines = [line.rstrip() for line in lines]
     return "\n".join(cleaned_lines)
@@ -122,16 +118,16 @@ def _format_json_preserve_structure(data: dict, original_content: str, format_st
 
 def _format_json(data: dict, indent: int = 2, format_style: Optional[dict] = None) -> str:
     formatted = json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=False)
-    
+
     if format_style:
         if format_style.get("space_before_colon", False):
             formatted = formatted.replace('": ', '" : ')
-            formatted = re.sub(r'([^"\s]): ', r'\1 : ', formatted)
+            formatted = re.sub(r'([^"\s]): ', r"\1 : ", formatted)
         if format_style.get("space_in_empty_object", False):
-            formatted = formatted.replace('{}', '{ }')
+            formatted = formatted.replace("{}", "{ }")
         if format_style.get("space_in_empty_array", False):
-            formatted = formatted.replace('[]', '[ ]')
-    
+            formatted = formatted.replace("[]", "[ ]")
+
     lines = formatted.split("\n")
     cleaned_lines = [line.rstrip() for line in lines]
     return "\n".join(cleaned_lines)
@@ -280,13 +276,10 @@ def find_pipeline_in_project_config(project_config: dict, pipeline_name: str) ->
 
 def _validate_pipeline_name(name: str, field_name: str = "Pipeline name") -> None:
     if not name:
-        raise ValidationError(
-            f"{field_name} cannot be empty.\n"
-            f"  ACTION: Provide a valid {field_name.lower()}."
-        )
-    
+        raise ValidationError(f"{field_name} cannot be empty.\n" f"  ACTION: Provide a valid {field_name.lower()}.")
+
     name_part = name.split("/")[-1] if "/" in name else name
-    
+
     if not re.match(r"^[A-Za-z0-9_-]+$", name_part):
         invalid_chars = set(re.findall(r"[^A-Za-z0-9_-]", name_part))
         raise ValidationError(
@@ -331,7 +324,7 @@ def validate_sync(
             "Cannot specify both --pipeline-id and --pipeline-name.\n"
             f"  ACTION: Use either --pipeline-id <id> or --pipeline-name <name>, not both."
         )
-    
+
     if pipeline_id:
         _validate_pipeline_name(pipeline_id, "Pipeline ID")
     if pipeline_name:
@@ -400,7 +393,7 @@ def validate_sync(
             f"Pipeline '{found_id}' found but has no 'name' field in {PBT_FILE_NAME}.\n"
             f"  ACTION: Ensure the pipeline entry has a 'name' field."
         )
-    
+
     # Validate the target pipeline name from config
     _validate_pipeline_name(target_pipeline_name, "Pipeline name (from config)")
 
@@ -1307,71 +1300,73 @@ def update_json_file(
     content = re.sub(
         r'"pipelineId"\s*:\s*"(' + re.escape(current_pipeline_id) + r')"',
         lambda m: m.group(0).replace(current_pipeline_id, new_pipeline_id),
-        content
+        content,
     )
-    
+
     content = re.sub(
-        r'"pipelineId"\s*:\s*\{\s*"type"\s*:\s*"literal"\s*,\s*"value"\s*:\s*"(' + re.escape(current_pipeline_id) + r')"\s*\}',
+        r'"pipelineId"\s*:\s*\{\s*"type"\s*:\s*"literal"\s*,\s*"value"\s*:\s*"('
+        + re.escape(current_pipeline_id)
+        + r')"\s*\}',
         lambda m: m.group(0).replace(current_pipeline_id, new_pipeline_id),
-        content
+        content,
     )
-    
+
     content = re.sub(
         r'"nodeName"\s*:\s*"(' + re.escape(current_name_to_use) + r')"',
         lambda m: m.group(0).replace(current_name_to_use, new_name_to_use),
-        content
+        content,
     )
-    
+
     content = re.sub(
         r'"task_key"\s*:\s*"(' + re.escape(current_name_to_use) + r')"',
         lambda m: m.group(0).replace(current_name_to_use, new_name_to_use),
-        content
+        content,
     )
-    
+
     content = re.sub(
         r'"task_key"\s*:\s*"([^"]*' + re.escape(current_name_to_use) + r'[^"]*)"',
         lambda m: m.group(0).replace(current_name_to_use, new_name_to_use),
-        content
+        content,
     )
-    
+
     # Update package_name in python_wheel_task - preserve spacing
     if current_package_name and new_package_name:
         content = re.sub(
             r'"package_name"\s*:\s*"(' + re.escape(current_package_name) + r')"',
             lambda m: m.group(0).replace(current_package_name, new_package_name),
-            content
+            content,
         )
-    
+
     # Update whl paths (in "whl" field) - be careful to only update in whl context
     if current_package_name and new_package_name:
         content = re.sub(
             r'"whl"\s*:\s*"([^"]*' + re.escape(current_package_name) + r'[^"]*)"',
             lambda m: m.group(0).replace(current_package_name, new_package_name),
-            content
+            content,
         )
-    
+
     # Update path field in PipelineComponent
     if current_package_name and new_package_name:
         content = re.sub(
             r'"path"\s*:\s*"([^"]*' + re.escape(current_package_name) + r'[^"]*)"',
             lambda m: m.group(0).replace(current_package_name, new_package_name),
-            content
+            content,
         )
-    
+
     # Update path field with pipeline name
     content = re.sub(
         r'"path"\s*:\s*"([^"]*' + re.escape(current_name_to_use) + r'[^"]*)"',
         lambda m: m.group(0).replace(current_name_to_use, new_name_to_use),
-        content
+        content,
     )
-    
+
     # Update PipelineComponent.pipelineId in libraries
     content = re.sub(
         r'"PipelineComponent"\s*:\s*\{[^}]*"pipelineId"\s*:\s*"(' + re.escape(current_pipeline_id) + r')"',
         lambda m: m.group(0).replace(current_pipeline_id, new_pipeline_id),
-        content
+        content,
     )
-    
+
     # Update prophecy.packages.path (JSON string within JSON)
     # This is tricky - we need to parse the JSON string, update it, then put it back
     def update_packages_path_in_content(content_str):
@@ -1380,49 +1375,45 @@ def update_json_file(
             packages_str = match.group(1)
             try:
                 # Unescape the JSON string
-                packages_str_unescaped = packages_str.replace('\\"', '"').replace('\\\\', '\\')
+                packages_str_unescaped = packages_str.replace('\\"', '"').replace("\\\\", "\\")
                 packages = json.loads(packages_str_unescaped)
                 path_updated = False
-                
+
                 # Update pipeline ID keys
                 if current_pipeline_id in packages:
                     packages[new_pipeline_id] = packages.pop(current_pipeline_id)
                     path_updated = True
-                
+
                 # Update package names in paths
                 if current_package_name and new_package_name:
                     for key in list(packages.keys()):
                         if current_package_name in packages[key]:
                             packages[key] = packages[key].replace(current_package_name, new_package_name)
                             path_updated = True
-                
+
                 # Update pipeline names in paths
                 for key in list(packages.keys()):
                     if current_name_to_use in packages[key] and new_name_to_use not in packages[key]:
                         packages[key] = packages[key].replace(current_name_to_use, new_name_to_use)
                         path_updated = True
-                
+
                 if path_updated:
                     # Re-escape and return
                     new_packages_str = json.dumps(packages)
-                    new_packages_str_escaped = new_packages_str.replace('"', '\\"').replace('\\', '\\\\')
+                    new_packages_str_escaped = new_packages_str.replace('"', '\\"').replace("\\", "\\\\")
                     return full_match.replace(packages_str, new_packages_str_escaped)
             except:
                 # Fallback: simple string replacement
                 if current_pipeline_id in packages_str:
                     return full_match.replace(current_pipeline_id, new_pipeline_id)
             return full_match
-        
+
         # Match "prophecy.packages.path": "escaped_json_string"
-        content_str = re.sub(
-            r'"prophecy\.packages\.path"\s*:\s*"([^"]+)"',
-            replace_packages_path,
-            content_str
-        )
+        content_str = re.sub(r'"prophecy\.packages\.path"\s*:\s*"([^"]+)"', replace_packages_path, content_str)
         return content_str
-    
+
     content = update_packages_path_in_content(content)
-    
+
     # Check if content changed
     if content != original_content:
         try:
