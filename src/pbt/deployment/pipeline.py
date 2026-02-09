@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import subprocess
@@ -21,6 +22,51 @@ from ..utils.constants import PYTHON_LANGUAGE, SCALA_LANGUAGE
 from ..utils.exceptions import ProjectBuildFailedException
 from ..utils.project_config import DeploymentMode, ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
+
+
+_SCALA_JAR_SUFFIX_RE = re.compile(r"_2\.(12|13)\.jar$")
+
+
+def _extract_scala_version_from_jar_path(jar_path: str) -> Optional[str]:
+    m = _SCALA_JAR_SUFFIX_RE.search(jar_path)
+    return f"2.{m.group(1)}" if m else None
+
+
+def get_required_scala_versions(project: Project) -> Dict[str, List[str]]:
+    pipeline_versions: Dict[str, set] = {}
+
+    for job_id in project.jobs:
+        raw_db = project.load_databricks_job(job_id)
+        try:
+            db_json = json.loads(raw_db)
+        except Exception:
+            db_json = {}
+            continue
+
+        node_name_to_pipeline = {}
+        for comp in db_json.get("components", []):
+            pc = comp.get("PipelineComponent")
+            if not pc:
+                continue
+            node_name = pc.get("nodeName", "")
+            pipeline_id = pc.get("pipelineId", "")
+            if node_name and pipeline_id:
+                node_name_to_pipeline[node_name] = pipeline_id
+
+        task_key_to_jars = {}
+        for task in db_json.get("request", {}).get("tasks", []):
+            tk = task.get("task_key", "")
+            jars = [lib["jar"] for lib in task.get("libraries", []) if "jar" in lib and lib["jar"]]
+            if jars:
+                task_key_to_jars[tk] = jars
+
+        for node_name, pipeline_id in node_name_to_pipeline.items():
+            for jp in task_key_to_jars.get(node_name, []):
+                sv = _extract_scala_version_from_jar_path(jp)
+                if sv:
+                    pipeline_versions.setdefault(pipeline_id, set()).add(sv)
+
+    return {pid: sorted(versions) for pid, versions in pipeline_versions.items()}
 
 
 class PipelineDeployment:
@@ -47,16 +93,23 @@ class PipelineDeployment:
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case deployment doesn't have any pipelines.
 
+        self._scala_versions_per_pipeline: Dict[str, List[str]] = (
+            get_required_scala_versions(project) if project.project_language == SCALA_LANGUAGE else {}
+        )
+
     @property
     def _all_jobs(self) -> Dict[str, JobData]:
         return {**self.databricks_jobs.valid_databricks_jobs, **self.airflow_jobs.valid_airflow_jobs}
+
+    def _get_scala_versions_for_pipeline(self, pipeline_id: str) -> List[str]:
+        return self._scala_versions_per_pipeline.get(pipeline_id, ["2.12"])
 
     def summary(self):
         summary = []
         for pipeline_id, pipeline_name in self.pipelines_to_build_and_upload():
             if self.project.project_language == SCALA_LANGUAGE:
-                for sv in ("2.12", "2.13"):
-                    summary.append(f"Pipeline {pipeline_id} (Scala {sv}) pipeline will be build and uploaded.")
+                for sv in self._get_scala_versions_for_pipeline(pipeline_id):
+                    summary.append(f"Pipeline {pipeline_id} (Scala {sv}) will be build and uploaded.")
             else:
                 summary.append(f"Pipeline {pipeline_id} will be build and uploaded.")
         return summary
@@ -65,7 +118,7 @@ class PipelineDeployment:
         headers = []
         for pipeline_id, pipeline_name in self.pipelines_to_build_and_upload():
             if self.project.project_language == SCALA_LANGUAGE:
-                for sv in ("2.12", "2.13"):
+                for sv in self._get_scala_versions_for_pipeline(pipeline_id):
                     step_id = f"{pipeline_id}_scala_{sv}"
                     headers.append(
                         StepMetadata(step_id, f"Build {pipeline_name} pipeline (Scala {sv})", Operation.Build, StepType.Pipeline)
@@ -132,6 +185,7 @@ class PipelineDeployment:
         relevant_fabrics_for_pipeline = [
             fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if fabric in all_available_fabrics
         ]
+        scala_versions = self._get_scala_versions_for_pipeline(pipeline_id) if self.project.project_language == SCALA_LANGUAGE else []
         pipeline_builder = PackageBuilderAndUploader(
             self.project,
             pipeline_id,
@@ -139,6 +193,7 @@ class PipelineDeployment:
             self.project_config,
             are_tests_enabled=self.are_tests_enabled,
             fabrics=relevant_fabrics_for_pipeline,
+            scala_versions=scala_versions,
         )
         return pipeline_builder.build_and_upload_pipeline()
 
@@ -459,6 +514,7 @@ class PackageBuilderAndUploader:
         project_config: ProjectConfig = None,
         are_tests_enabled: bool = False,
         fabrics: List = [],
+        scala_versions: Optional[List[str]] = None,
     ):
         self._pipeline_id = pipeline_id
         self._pipeline_name = pipeline_name
@@ -468,6 +524,7 @@ class PackageBuilderAndUploader:
         self._base_path = project.load_pipeline_base_path(pipeline_id)
         self._project_config = project_config
         self.fabrics = fabrics
+        self._scala_versions = scala_versions or ["2.12"]
         self.pipeline_upload_manager = PipelineUploadManager(
             self._project, self._project_config, self._pipeline_id, self._pipeline_name, self.fabrics
         )
@@ -516,7 +573,7 @@ class PackageBuilderAndUploader:
                 log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
 
                 if self._project_language == SCALA_LANGUAGE:
-                    for scala_version in ("2.12", "2.13"):
+                    for scala_version in self._scala_versions:
                         step_id = f"{self._pipeline_id}_scala_{scala_version}"
                         profile = f"scala-{scala_version}"
                         log(step_id=step_id, step_status=Status.RUNNING)
