@@ -685,6 +685,7 @@ class PackageBuilderAndUploader:
             return
         # ONLY import pyspark here if we need it because it is a heavy dependency and we don't want to import it if we don't need it.
         import pyspark
+
         maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", pyspark.__version__) for d in maven_deps]
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
         for d in maven_deps:

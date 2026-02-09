@@ -236,7 +236,7 @@ class Project:
             return None
         plibs_maven_dep = copy.deepcopy(plibs_maven_deps[0])
         plibs_maven_dep["type"] = "coordinates"
-        plibs_maven_dep["package"] = plibs_maven_dep['package']
+        plibs_maven_dep["package"] = plibs_maven_dep["package"]
         plibs_maven_dep["version"] = spark_version + "-" + plibs_maven_dep["version"]
         plibs_maven_dep["coordinates"] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
         project_level_maven_dependencies.append(plibs_maven_dep)
