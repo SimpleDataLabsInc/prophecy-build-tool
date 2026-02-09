@@ -79,12 +79,14 @@ def _get_scala_version() -> str:
                 if m:
                     scala_version = f"2.{m.group(1)}"
                     log(f"[DEBUG] Scala version detected from {cmd[0]} stderr: {scala_version}")
+                    os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
                     return scala_version
             if out.stdout:
                 m = SCALA_VERSION_RE.search(out.stdout)
                 if m:
                     scala_version = f"2.{m.group(1)}"
                     log(f"[DEBUG] Scala version detected from {cmd[0]} stdout: {scala_version}")
+                    os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
                     return scala_version
             log(f"[DEBUG] No scala version detected with command: {' '.join(cmd)}")
         except (FileNotFoundError, subprocess.TimeoutExpired) as e:
@@ -103,12 +105,14 @@ def _get_scala_version() -> str:
             if m:
                 scala_version = f"2.{m.group(1)}"
                 log(f"[DEBUG] Scala version detected from sbt: {scala_version}, line: {line}")
+                os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
                 return scala_version
         for line in out.stderr.splitlines():
             m = SBT_SCALA_VERSION_RE.search(line)
             if m:
                 scala_version = f"2.{m.group(1)}"
                 log(f"[DEBUG] Scala version detected from sbt (stderr): {scala_version}, line: {line}")
+                os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
                 return scala_version
         log("[DEBUG] No scala version detected from sbt output")
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:

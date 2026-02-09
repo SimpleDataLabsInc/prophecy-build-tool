@@ -686,7 +686,20 @@ class PackageBuilderAndUploader:
         # ONLY import pyspark here if we need it because it is a heavy dependency and we don't want to import it if we don't need it.
         import pyspark
 
-        maven_deps = [d["coordinates"].replace("{{REPLACE_ME}}", pyspark.__version__) for d in maven_deps]
+        def _get_spark_version_for_prophecy_libs(version):
+            # Only use major.minor version and set patch as 0, e.g. 3.5.2 -> 3.5.0
+            parts = version.split(".")
+            if len(parts) >= 2:
+                return f"{parts[0]}.{parts[1]}.0"
+            return version
+
+        maven_deps_patched = []
+        for d in maven_deps:
+            if d["coordinates"].startswith("io.prophecy:prophecy-libs_"):
+                # For prophecy-libs, use major.minor.0 in place of {{REPLACE_ME}}
+                patched = d["coordinates"].replace("{{REPLACE_ME}}", _get_spark_version_for_prophecy_libs(pyspark.__version__))
+            maven_deps_patched.append(patched)
+        maven_deps = maven_deps_patched
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
         for d in maven_deps:
             try:
