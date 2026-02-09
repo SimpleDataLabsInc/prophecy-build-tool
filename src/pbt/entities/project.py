@@ -40,7 +40,6 @@ SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
 # Match "2.12" or "2.13" in strings like "scala2.12", "12.2.x-scala2.13", or "prophecy-libs_2.13"
 
 
-
 def _get_scala_version() -> str:
     """
     Resolve Scala major version (2.12 or 2.13) for prophecy-libs package name.
@@ -73,9 +72,7 @@ def _get_scala_version() -> str:
     for cmd in (["scalac", "-version"], ["scala", "-version"]):
         try:
             log(f"[DEBUG] Running subprocess to detect scala version: {' '.join(cmd)}")
-            out = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=5, check=False
-            )
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=5, check=False)
             SCALA_VERSION_RE = re.compile(r"version\s+2\.(12|13)")
             if out.returncode == 0 and out.stderr:
                 m = SCALA_VERSION_RE.search(out.stderr)
@@ -97,9 +94,7 @@ def _get_scala_version() -> str:
     # 4. Try 'sbt scalaVersion'
     try:
         log(f"[DEBUG] Running subprocess to detect scala version via sbt scalaVersion")
-        out = subprocess.run(
-            ["sbt", "scalaVersion"], capture_output=True, text=True, timeout=15, check=False
-        )
+        out = subprocess.run(["sbt", "scalaVersion"], capture_output=True, text=True, timeout=15, check=False)
         # Output is likely multi-line; scan all lines.
         # Regex matches 2.12, 2.13 at start of a version string like '2.12.17'.
         SBT_SCALA_VERSION_RE = re.compile(r"2\.(12|13)\.")
@@ -121,7 +116,6 @@ def _get_scala_version() -> str:
 
     log("[DEBUG] Defaulting to Scala version 2.12")
     return "2.12"
-
 
 
 def is_cross_project_pipeline(pipeline):
