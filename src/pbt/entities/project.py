@@ -180,6 +180,17 @@ class Project:
                 if full_path.endswith(".whl") or full_path.endswith(".jar"):
                     return full_path
 
+    @staticmethod
+    def get_pipeline_jar_for_scala_version(base_path: str, scala_version: str) -> Optional[str]:
+        target_dir = os.path.join(base_path, "target")
+        if not os.path.isdir(target_dir):
+            return None
+        suffix = f"_{scala_version}.jar"
+        for name in os.listdir(target_dir):
+            if name.endswith(suffix) and "jar-with-dependencies" not in name:
+                return os.path.join(target_dir, name)
+        return None
+
     def get_py_pipeline_main_file(self, pipeline_id):
         if self.does_project_contains_dynamic_pipeline() and pipeline_id in self.pipelines:
             return self._uber_main_py_file()
