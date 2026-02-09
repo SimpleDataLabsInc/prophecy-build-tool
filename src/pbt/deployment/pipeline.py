@@ -697,7 +697,9 @@ class PackageBuilderAndUploader:
         for d in maven_deps:
             if d["coordinates"].startswith("io.prophecy:prophecy-libs_"):
                 # For prophecy-libs, use major.minor.0 in place of {{REPLACE_ME}}
-                patched = d["coordinates"].replace("{{REPLACE_ME}}", _get_spark_version_for_prophecy_libs(pyspark.__version__))
+                patched = d["coordinates"].replace(
+                    "{{REPLACE_ME}}", _get_spark_version_for_prophecy_libs(pyspark.__version__)
+                )
             maven_deps_patched.append(patched)
         maven_deps = maven_deps_patched
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
