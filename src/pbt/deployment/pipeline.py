@@ -121,7 +121,9 @@ class PipelineDeployment:
                 for sv in self._get_scala_versions_for_pipeline(pipeline_id):
                     step_id = f"{pipeline_id}_scala_{sv}"
                     headers.append(
-                        StepMetadata(step_id, f"Build {pipeline_name} pipeline (Scala {sv})", Operation.Build, StepType.Pipeline)
+                        StepMetadata(
+                            step_id, f"Build {pipeline_name} pipeline (Scala {sv})", Operation.Build, StepType.Pipeline
+                        )
                     )
             else:
                 headers.append(
@@ -185,7 +187,11 @@ class PipelineDeployment:
         relevant_fabrics_for_pipeline = [
             fabric for fabric in self._pipeline_to_list_fabrics.get(pipeline_id) if fabric in all_available_fabrics
         ]
-        scala_versions = self._get_scala_versions_for_pipeline(pipeline_id) if self.project.project_language == SCALA_LANGUAGE else []
+        scala_versions = (
+            self._get_scala_versions_for_pipeline(pipeline_id)
+            if self.project.project_language == SCALA_LANGUAGE
+            else []
+        )
         pipeline_builder = PackageBuilderAndUploader(
             self.project,
             pipeline_id,
@@ -750,7 +756,9 @@ class PackageBuilderAndUploader:
             result = re.sub(underscore_regex, "_", result)
             return f"{result}-1.0-py3-none-any.whl"
 
-    def mvn_build(self, ignore_build_errors: bool = False, scala_profile: Optional[str] = None, step_id: Optional[str] = None):
+    def mvn_build(
+        self, ignore_build_errors: bool = False, scala_profile: Optional[str] = None, step_id: Optional[str] = None
+    ):
         mvn = "mvn"
         command = (
             [mvn, "package", "-DskipTests"] if not self._are_tests_enabled else [mvn, "package", "-Dfabric=default"]
