@@ -1,0 +1,67 @@
+# Blocks merge if the PR branch's version in setup.py is not greater than the target branch's version.
+# Ensures semantic version is always bumped for pull requests.
+
+name: Version bump check
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch target branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Extract and compare versions
+        run: |
+          # Extract version from setup.py (version="X.Y.Z")
+          get_version() {
+            grep -E '^\s*version\s*=' "$1" | sed -E 's/.*version\s*=\s*["'\'']([^"'\'']+)["'\''].*/\1/' | tr -d '"' | tr -d "'"
+          }
+
+          BASE_SETUP=$(git show origin/${{ github.base_ref }}:setup.py 2>/dev/null) || true
+          if [ -z "$BASE_SETUP" ]; then
+            echo "Could not read setup.py from base ref origin/${{ github.base_ref }}"
+            exit 1
+          fi
+
+          BASE_VERSION=$(echo "$BASE_SETUP" | grep -E '^\s*version\s*=' | sed -E 's/.*version\s*=\s*["'\'']([^"'\''"]+)["'\''].*/\1/' | tr -d '"' | tr -d "'")
+          HEAD_VERSION=$(get_version setup.py)
+
+          if [ -z "$BASE_VERSION" ] || [ -z "$HEAD_VERSION" ]; then
+            echo "Could not parse version from setup.py (base=$BASE_VERSION, head=$HEAD_VERSION)"
+            exit 1
+          fi
+
+          echo "Target branch (${{ github.base_ref }}) version: $BASE_VERSION"
+          echo "Source branch version: $HEAD_VERSION"
+
+          # Compare semantic versions (major.minor.patch) using Python. 
+          # THIS IS USING A 'PY' HEREDOC:
+          python3 - "$BASE_VERSION" "$HEAD_VERSION" << 'PY'
+          import sys
+
+          def parse_version(v):
+              parts = v.strip().split(".")
+              return tuple(int(p) for p in parts if p.isdigit())
+
+          base = parse_version(sys.argv[1])
+          head = parse_version(sys.argv[2])
+
+          # Pad to same length for comparison
+          while len(base) < len(head):
+              base = base + (0,)
+          while len(head) < len(base):
+              head = head + (0,)
+
+          if head <= base:
+              print(f"Version bump required: source version {head} must be greater than target version {base}.")
+              sys.exit(1)
+          print("Version bump check passed.")
+          PY
