@@ -1,8 +1,10 @@
 import json
 import os
 import re
+import subprocess
 from abc import ABC
 from typing import Optional, List
+import copy
 
 import yaml
 
@@ -27,12 +29,97 @@ from ..utils.constants import (
 )
 from ..utils.exceptions import ProjectPathNotFoundException, ProjectFileNotFoundException
 from ..utils.versioning import update_all_versions
+from ..utils.project_models import Colors
 
 # Example:
 # 'gitUri=http://gitserver:3000/UnSTjHIY_team_5/UnSTjHIY_project_12.git&subPath=&tag=HelloWorld/rashmin-1.0.25&projectSubscriptionProjectId=12&path=pipelines/customers_orders'
 SUBSCRIBED_ENTITY_URI_REGEX = re.compile(
     r"gitUri=(.*)&subPath=(.*)&tag=(.*)&projectSubscriptionProjectId=(.*)&path=(.*)"
 )
+
+# Match "2.12" or "2.13" in strings like "scala2.12", "12.2.x-scala2.13", or "prophecy-libs_2.13"
+
+
+def _get_scala_version() -> str:
+    """
+    Resolve Scala major version (2.12 or 2.13) for prophecy-libs package name.
+    Priority: SCALA_VERSION env -> SPARK_VERSION env -> scalac/scala -version -> sbt scalaVersion -> default 2.12.
+    """
+    # 1. check if SCALA_VERSION env var is set
+    scala_version_env = os.environ.get("SCALA_VERSION")
+    if scala_version_env is not None and scala_version_env.strip():
+        if scala_version_env.strip() in ("2.12", "2.13"):
+            log(f"[DEBUG] SCALA_VERSION env detected: {scala_version_env.strip()}")
+            return scala_version_env.strip()
+        else:
+            log(f"[DEBUG] Invalid SCALA_VERSION value detected: {scala_version_env}")
+            raise ValueError(f"Invalid SCALA_VERSION for prophecy-libs (must be 2.12 or 2.13): {scala_version_env}")
+
+    # 2. From SPARK_VERSION (e.g. "12.2.x-scala2.12" or "3.5.0-scala2.13")
+    spark_version_str = os.environ.get("SPARK_VERSION", "")
+    SPARK_SCALA_VERSION_RE = re.compile(r"-scala2\.(12|13)\b")
+    if spark_version_str:
+        log(f"[DEBUG] SPARK_VERSION env detected: {spark_version_str}")
+        m = SPARK_SCALA_VERSION_RE.search(spark_version_str)
+        if m:
+            scala_version = f"2.{m.group(1)}"
+            log(f"[DEBUG] Scala version found in SPARK_VERSION: {scala_version}")
+            return scala_version
+        else:
+            log(f"[DEBUG] No scala version matched in SPARK_VERSION: {spark_version_str}")
+
+    # 3. From scalac -version or scala -version on the machine
+    for cmd in (["scalac", "-version"], ["scala", "-version"]):
+        try:
+            log(f"[DEBUG] Running subprocess to detect scala version: {' '.join(cmd)}")
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=5, check=False)
+            SCALA_VERSION_RE = re.compile(r"version\s+2\.(12|13)")
+            if out.returncode == 0 and out.stderr:
+                m = SCALA_VERSION_RE.search(out.stderr)
+                if m:
+                    scala_version = f"2.{m.group(1)}"
+                    log(f"[DEBUG] Scala version detected from {cmd[0]} stderr: {scala_version}")
+                    os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
+                    return scala_version
+            if out.stdout:
+                m = SCALA_VERSION_RE.search(out.stdout)
+                if m:
+                    scala_version = f"2.{m.group(1)}"
+                    log(f"[DEBUG] Scala version detected from {cmd[0]} stdout: {scala_version}")
+                    os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
+                    return scala_version
+            log(f"[DEBUG] No scala version detected with command: {' '.join(cmd)}")
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            log(f"[DEBUG] Command failed: {' '.join(cmd)}; error: {e}")
+            continue
+
+    # 4. Try 'sbt scalaVersion'
+    try:
+        log(f"[DEBUG] Running subprocess to detect scala version via sbt scalaVersion")
+        out = subprocess.run(["sbt", "scalaVersion"], capture_output=True, text=True, timeout=15, check=False)
+        # Output is likely multi-line; scan all lines.
+        # Regex matches 2.12, 2.13 at start of a version string like '2.12.17'.
+        SBT_SCALA_VERSION_RE = re.compile(r"2\.(12|13)\.")
+        for line in out.stdout.splitlines():
+            m = SBT_SCALA_VERSION_RE.search(line)
+            if m:
+                scala_version = f"2.{m.group(1)}"
+                log(f"[DEBUG] Scala version detected from sbt: {scala_version}, line: {line}")
+                os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
+                return scala_version
+        for line in out.stderr.splitlines():
+            m = SBT_SCALA_VERSION_RE.search(line)
+            if m:
+                scala_version = f"2.{m.group(1)}"
+                log(f"[DEBUG] Scala version detected from sbt (stderr): {scala_version}, line: {line}")
+                os.environ["SCALA_VERSION"] = scala_version  # Cache in env var
+                return scala_version
+        log("[DEBUG] No scala version detected from sbt output")
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        log(f"[DEBUG] Command failed: sbt scalaVersion; error: {e}")
+
+    log("[DEBUG] Defaulting to Scala version 2.12")
+    return "2.12"
 
 
 def is_cross_project_pipeline(pipeline):
@@ -226,8 +313,47 @@ class Project:
         except Exception:
             return self.dependent_project.get_pipeline_name(pipeline_id)
 
-    @staticmethod
-    def _read_directory(base_path: str):
+    def get_maven_dependencies_for_python_pipelines(self, pipeline_id=None):
+        """
+        leave pipeline id blank to get dependencies for all pipelines.
+        """
+        # gather project level dependencies:
+        project_level_dependencies = self.pbt_project_dict.get("dependencies", [])
+        project_level_maven_dependencies = [d for d in project_level_dependencies if d["type"] == "coordinates"]
+
+        # the plibs maven does not have a normal coordinate so we have to make one:
+        spark_version = os.environ.get("SPARK_VERSION", "{{REPLACE_ME}}")
+        plibs_maven_deps = [d for d in project_level_dependencies if d.get("name") == "plibMaven"]
+        if len(plibs_maven_deps) != 1:
+            log(
+                f"{Colors.WARNING}Skipping creating maven dependencies, pbt_project.yml is missing "
+                f"prophecy-libs information. please update your prophecy-libs in the Prophecy UI{Colors.ENDC}"
+            )
+            return None
+        plibs_maven_dep = copy.deepcopy(plibs_maven_deps[0])
+        plibs_maven_dep["type"] = "coordinates"
+        scala_version = _get_scala_version()
+        plibs_maven_dep["package"] = f"prophecy-libs_{scala_version}"
+        plibs_maven_dep["version"] = spark_version + "-" + plibs_maven_dep["version"]
+        plibs_maven_dep["coordinates"] = f"io.prophecy:{plibs_maven_dep['package']}:{plibs_maven_dep['version']}"
+        project_level_maven_dependencies.append(plibs_maven_dep)
+
+        pipeline_level_maven_dependencies = []
+        pipelines_to_process = [pipeline_id] if pipeline_id else self.pipelines
+        for pid in pipelines_to_process:
+            rdc = self.load_pipeline_folder(pid)
+            workflow_str = rdc.get(".prophecy/workflow.latest.json")
+            if not workflow_str:
+                continue
+            workflow = json.loads(workflow_str)
+            pipeline_level_dependencies = workflow.get("metainfo", {}).get("externalDependencies", [])
+            pipeline_level_maven_dependencies += [
+                d for d in pipeline_level_dependencies if d.get("type") == "coordinates"
+            ]
+        maven_dependencies = pipeline_level_maven_dependencies + project_level_maven_dependencies
+        return maven_dependencies
+
+    def _read_directory(self, base_path: str):
         rdc = {}
         ignore_dirs = ["build", "dist", "__pycache__"]
 
