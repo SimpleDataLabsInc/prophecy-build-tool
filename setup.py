@@ -1,14 +1,11 @@
 import setuptools
-import os
-
-VERSION = os.environ.get("DEV_VERSION")
 
 with open("README.md", "r", encoding="utf-8") as _in:
     long_description = _in.read()
 
 setuptools.setup(
     name="prophecy-build-tool",
-    version=f"1.3.13.dev{VERSION}",
+    version="1.3.14",
     author="Prophecy",
     author_email="maciej@prophecy.io",
     description="Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the "
