@@ -9,7 +9,7 @@ setup(
     package_data = {'prophecy_config_instances' : ['*.json', '*.py']},
     description = 'workflow',
     install_requires = [
-'prophecy-libs==1.3.22'],
+'prophecy-libs>=2.1.10'],
     entry_points = {
 'console_scripts' : [
 'main = job.pipeline:main'], },
