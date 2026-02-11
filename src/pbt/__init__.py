@@ -6,7 +6,7 @@ import sys
 from typing import Optional
 
 import click
-import pkg_resources
+from importlib.metadata import version as _get_version
 from rich import print
 
 from .utils.versioning import get_bumped_version
@@ -563,7 +563,7 @@ def rename_sync_cmd(path, pipeline_id, pipeline_name, unsafe):
 def main():
     print(
         f"[bold purple]Prophecy-build-tool[/bold purple] [bold black]"
-        f"v{pkg_resources.require('prophecy-build-tool')[0].version}[/bold black]\n"
+        f"v{_get_version('prophecy-build-tool')}[/bold black]\n"
     )
     cli()
 
