@@ -736,7 +736,6 @@ class ProphecyBuildTool:
                         "-m",
                         "pytest",
                         "-v",
-                        "--import-mode=importlib",
                         "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
                         "--junitxml=report.xml",

@@ -670,7 +670,6 @@ class PackageBuilderAndUploader:
             "-m",
             "pytest",
             "-v",
-            "--import-mode=importlib",
             "--cov=.",
             "--cov-report=xml",
             "--junitxml=report.xml",
