@@ -41,7 +41,7 @@ def version_check_sync(project_path, project_language, pbt_project_version):
                 raise ValueError("bad project language: ", project_language)
 
             try:
-                if semver.parse_version_info(pbt_project_version) != semver.parse_version_info(file_version):
+                if semver.Version.parse(pbt_project_version) != semver.Version.parse(file_version):
                     log(f"Versions are out of sync: {pbt_project_version} != {file_version}")
                     exit(1)
             except ValueError as e:
@@ -57,7 +57,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
     # check this version against base branch if not "force". error if it is not greater
     if not force:
         orig_version = orig_project_version
-        if semver.parse_version_info(new_version) <= semver.parse_version_info(orig_version):
+        if semver.Version.parse(new_version) <= semver.Version.parse(orig_version):
             log(f"new version {new_version} is not later than {orig_version}")
             raise ValueError(f"new version {new_version} is not later than {orig_version}")
 
@@ -132,7 +132,7 @@ def update_all_versions(project_path, project_language, orig_project_version, ne
 
 def get_bumped_version(original_version, bump_type, project_language):
     try:
-        v = semver.parse_version_info(original_version)
+        v = semver.Version.parse(original_version)
     except ValueError:
         log(f"Error bumping: Unable to parse version {original_version}. " f"Must Use Semantic Versioning")
         exit(1)
