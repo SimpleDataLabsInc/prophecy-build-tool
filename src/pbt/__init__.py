@@ -3,6 +3,7 @@ DATABRICKS_HOST, DATABRICKS_TOKEN
 """
 
 import sys
+from importlib.metadata import version
 from typing import Optional
 
 import click
