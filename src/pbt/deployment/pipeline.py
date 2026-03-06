@@ -102,7 +102,8 @@ class PipelineDeployment:
         return {**self.databricks_jobs.valid_databricks_jobs, **self.airflow_jobs.valid_airflow_jobs}
 
     def _get_scala_versions_for_pipeline(self, pipeline_id: str) -> List[str]:
-        return self._scala_versions_per_pipeline.get(pipeline_id, ["2.12"])
+        # Always build both versions: dependent projects may need either version
+        return ["2.12", "2.13"]
 
     def summary(self):
         summary = []
