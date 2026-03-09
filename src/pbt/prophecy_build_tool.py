@@ -367,9 +367,9 @@ class ProphecyBuildTool:
                     ):
                         # Check if this shared pipelineComponent has configs
                         dependent_pipeline_regex_pattern = (
-                            r"(^[0-9]+?/pipelines/[-_.A-Za-z0-9 /]+)$"
-                            r"|^.*projectSubscriptionProjectId=([0-9]+).*path=([-_.A-Za-z0-9 /]+).*$"
-                            r"|^.*path=([-_.A-Za-z0-9 /]+).*projectSubscriptionProjectId=([0-9]+).*$"
+                            r"(^[0-9]+?\/pipelines\/[-_.A-Za-z0-9 \/]+)$"
+                            r"|^.*projectSubscriptionProjectId=([0-9]+).*path=([-_.A-Za-z0-9 \/]+).*$"
+                            r"|^.*path=([-_.A-Za-z0-9 \/]+).*projectSubscriptionProjectId=([0-9]+).*$"
                         )
                         print(f"Parsing basepipeline: {pipeline_uri}")
                         search_regex_id = re.search(dependent_pipeline_regex_pattern, pipeline_uri)
