@@ -592,7 +592,7 @@ class PackageBuilderAndUploader:
                                     step_id=step_id,
                                     indent=2,
                                 )
-                                log(step_id=step_id, step_status=Status.SUCCEEDED)
+                                log(step_id=step_id, step_status=Status.FAILED)
                     return Either(right=True)
                 else:
                     self.wheel_build()
