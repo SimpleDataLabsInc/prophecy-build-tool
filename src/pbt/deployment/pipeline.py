@@ -588,7 +588,7 @@ class PackageBuilderAndUploader:
                                 return Either(left=build_err)
                             else:
                                 log(
-                                    f"{Colors.WARNING}Skipping Scala 2.13 build failure and continuing . .{Colors.ENDC}",
+                                    f"{Colors.WARNING}Failed to build Scala 2.13 JAR. Skipping it and continuing.{Colors.ENDC}",
                                     step_id=step_id,
                                     indent=2,
                                 )
