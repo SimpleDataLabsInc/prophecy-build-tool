@@ -557,30 +557,42 @@ class PackageBuilderAndUploader:
                     for scala_version in self._scala_versions:
                         step_id = f"{self._pipeline_id}_scala_{scala_version}"
                         profile = f"scala-{scala_version}"
+                        is_primary = scala_version == "2.12"
                         log(step_id=step_id, step_status=Status.RUNNING)
                         log(
                             f"Building Scala pipeline with profile -P{profile}",
                             step_id=step_id,
                             indent=2,
                         )
-                        self.mvn_build(scala_profile=profile, step_id=step_id)
-                        jar_path = Project.get_pipeline_jar_for_scala_version(self._base_path, scala_version)
-                        if jar_path:
-                            log(
-                                f"{Colors.OKGREEN}Built JAR: {jar_path}{Colors.ENDC}",
-                                step_id=step_id,
-                                indent=2,
-                            )
-                            self._upload_built_jar(jar_path, step_id=step_id)
-                            log(step_id=step_id, step_status=Status.SUCCEEDED)
-                        else:
-                            log(
-                                f"{Colors.FAIL}JAR for Scala {scala_version} not found in target/{Colors.ENDC}",
-                                step_id=step_id,
-                                indent=2,
-                            )
-                            log(step_id=step_id, step_status=Status.FAILED)
-                            return Either(left=Exception(f"JAR for Scala {scala_version} not found after build"))
+                        try:
+                            self.mvn_build(scala_profile=profile, step_id=step_id)
+                            jar_path = Project.get_pipeline_jar_for_scala_version(self._base_path, scala_version)
+                            if jar_path:
+                                log(
+                                    f"{Colors.OKGREEN}Built JAR: {jar_path}{Colors.ENDC}",
+                                    step_id=step_id,
+                                    indent=2,
+                                )
+                                self._upload_built_jar(jar_path, step_id=step_id)
+                                log(step_id=step_id, step_status=Status.SUCCEEDED)
+                            else:
+                                raise Exception(f"JAR for Scala {scala_version} not found in target/")
+                        except Exception as build_err:
+                            if is_primary:
+                                log(
+                                    f"{Colors.FAIL}Scala {scala_version} build failed: {build_err}{Colors.ENDC}",
+                                    step_id=step_id,
+                                    indent=2,
+                                )
+                                log(step_id=step_id, step_status=Status.FAILED)
+                                return Either(left=build_err)
+                            else:
+                                log(
+                                    f"{Colors.WARNING}Failed to build Scala 2.13 JAR. Skipping it and continuing.{Colors.ENDC}",
+                                    step_id=step_id,
+                                    indent=2,
+                                )
+                                log(step_id=step_id, step_status=Status.FAILED)
                     return Either(right=True)
                 else:
                     self.wheel_build()
