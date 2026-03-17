@@ -556,7 +556,8 @@ class PackageBuilderAndUploader:
                 if self._project_language == SCALA_LANGUAGE:
                     for scala_version in self._scala_versions:
                         step_id = f"{self._pipeline_id}_scala_{scala_version}"
-                        profile = f"scala-{scala_version}"
+                        spark_prefix = "spark3" if scala_version == "2.12" else "spark4"
+                        profile = f"{spark_prefix}-scala-{scala_version}"
                         is_primary = scala_version == "2.12"
                         log(step_id=step_id, step_status=Status.RUNNING)
                         log(
