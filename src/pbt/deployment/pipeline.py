@@ -835,6 +835,8 @@ class PackageBuilderAndUploader:
                 patched = d["coordinates"].replace(
                     "{{REPLACE_ME}}", _get_spark_version_for_prophecy_libs(pyspark.__version__)
                 )
+            else:
+                patched = d["coordinates"]
             maven_deps_patched.append(patched)
         maven_deps = maven_deps_patched
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
