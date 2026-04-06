@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import shutil
 import tempfile
 import threading
 import xml.etree.ElementTree as ET
@@ -554,46 +555,41 @@ class PackageBuilderAndUploader:
                 log("Initialized temp folder for building the pipeline package.", step_id=self._pipeline_id, indent=2)
 
                 if self._project_language == SCALA_LANGUAGE:
-                    for scala_version in self._scala_versions:
-                        step_id = f"{self._pipeline_id}_scala_{scala_version}"
-                        spark_prefix = "spark3" if scala_version == "2.12" else "spark4"
-                        profile = f"{spark_prefix}-scala-{scala_version}"
-                        is_primary = scala_version == "2.12"
-                        log(step_id=step_id, step_status=Status.RUNNING)
+                    build_paths = {}
+                    for sv in self._scala_versions:
+                        sv_path = os.path.join(self._base_path, f"scala_{sv}")
+                        shutil.copytree(self._base_path, sv_path, ignore=shutil.ignore_patterns("scala_*"))
+                        build_paths[sv] = sv_path
+
+                    with ThreadPoolExecutor(max_workers=len(self._scala_versions)) as executor:
+                        futures = {
+                            executor.submit(self._build_single_scala_version, sv, build_paths[sv]): sv
+                            for sv in self._scala_versions
+                        }
+                        results = {}
+                        for future in as_completed(futures):
+                            scala_version, error, output_lines = future.result()
+                            results[scala_version] = (error, output_lines)
+
+                    for sv in self._scala_versions:
+                        error, output_lines = results.get(sv, (None, []))
+                        step_id = f"{self._pipeline_id}_scala_{sv}"
+                        log(f"{Colors.OKCYAN}--- Scala {sv} build output ---{Colors.ENDC}", step_id=step_id, indent=2)
+                        for line in output_lines:
+                            log(line, step_id=step_id, indent=2)
+
+                    primary_error, _ = results.get("2.12", (None, []))
+                    if primary_error is not None:
+                        return Either(left=primary_error)
+
+                    secondary_error, _ = results.get("2.13", (None, []))
+                    if secondary_error is not None:
                         log(
-                            f"Building Scala pipeline with profile -P{profile}",
-                            step_id=step_id,
+                            f"{Colors.WARNING}Scala 2.13 build failed but 2.12 succeeded. Continuing.{Colors.ENDC}",
+                            step_id=self._pipeline_id,
                             indent=2,
                         )
-                        try:
-                            self.mvn_build(scala_profile=profile, step_id=step_id)
-                            jar_path = Project.get_pipeline_jar_for_scala_version(self._base_path, scala_version)
-                            if jar_path:
-                                log(
-                                    f"{Colors.OKGREEN}Built JAR: {jar_path}{Colors.ENDC}",
-                                    step_id=step_id,
-                                    indent=2,
-                                )
-                                self._upload_built_jar(jar_path, step_id=step_id)
-                                log(step_id=step_id, step_status=Status.SUCCEEDED)
-                            else:
-                                raise Exception(f"JAR for Scala {scala_version} not found in target/")
-                        except Exception as build_err:
-                            if is_primary:
-                                log(
-                                    f"{Colors.FAIL}Scala {scala_version} build failed: {build_err}{Colors.ENDC}",
-                                    step_id=step_id,
-                                    indent=2,
-                                )
-                                log(step_id=step_id, step_status=Status.FAILED)
-                                return Either(left=build_err)
-                            else:
-                                log(
-                                    f"{Colors.WARNING}Failed to build Scala 2.13 JAR. Skipping it and continuing.{Colors.ENDC}",
-                                    step_id=step_id,
-                                    indent=2,
-                                )
-                                log(step_id=step_id, step_status=Status.FAILED)
+
                     return Either(right=True)
                 else:
                     self.wheel_build()
@@ -744,8 +740,42 @@ class PackageBuilderAndUploader:
             result = re.sub(underscore_regex, "_", result)
             return f"{result}-1.0-py3-none-any.whl"
 
+    def _build_single_scala_version(self, scala_version: str, build_path: str):
+        """Build one Scala version in its own directory.
+
+        Returns (scala_version, error_or_None, output_lines).
+        Build output is buffered so parallel builds don't produce interleaved logs.
+        """
+        step_id = f"{self._pipeline_id}_scala_{scala_version}"
+        spark_prefix = "spark3" if scala_version == "2.12" else "spark4"
+        profile = f"{spark_prefix}-scala-{scala_version}"
+        output_lines: List[str] = []
+        log(step_id=step_id, step_status=Status.RUNNING)
+        output_lines.append(f"Building Scala pipeline with profile -P{profile}")
+        try:
+            self.mvn_build(scala_profile=profile, step_id=step_id, cwd=build_path, output_buffer=output_lines)
+            jar_path = Project.get_pipeline_jar_for_scala_version(build_path, scala_version)
+            if jar_path:
+                output_lines.append(f"{Colors.OKGREEN}Built JAR: {jar_path}{Colors.ENDC}")
+                self._upload_built_jar(jar_path, step_id=step_id)
+                log(step_id=step_id, step_status=Status.SUCCEEDED)
+                return (scala_version, None, output_lines)
+            else:
+                raise Exception(f"JAR for Scala {scala_version} not found in target/")
+        except Exception as build_err:
+            output_lines.append(
+                f"{Colors.FAIL}Scala {scala_version} build failed: {build_err}{Colors.ENDC}"
+            )
+            log(step_id=step_id, step_status=Status.FAILED)
+            return (scala_version, build_err, output_lines)
+
     def mvn_build(
-        self, ignore_build_errors: bool = False, scala_profile: Optional[str] = None, step_id: Optional[str] = None
+        self,
+        ignore_build_errors: bool = False,
+        scala_profile: Optional[str] = None,
+        step_id: Optional[str] = None,
+        cwd: Optional[str] = None,
+        output_buffer: Optional[List[str]] = None,
     ):
         mvn = "mvn"
         command = (
@@ -755,9 +785,10 @@ class PackageBuilderAndUploader:
             command.extend([f"-P{scala_profile}"])
 
         _step_id = step_id or self._pipeline_id
-        log(f"Running mvn command {command}", step_id=_step_id, indent=2)
+        _emit = output_buffer.append if output_buffer is not None else lambda msg: log(msg, step_id=_step_id, indent=2)
+        _emit(f"Running mvn command {command}")
 
-        return self._build(command, ignore_build_errors, step_id=_step_id)
+        return self._build(command, ignore_build_errors, step_id=_step_id, cwd=cwd, output_buffer=output_buffer)
 
     def mvn_test(self):
         mvn = "mvn"
@@ -896,8 +927,17 @@ class PackageBuilderAndUploader:
         return self._build(command, ignore_build_error)
 
     # maybe we can try another iteration with yield ?
-    def _build(self, command: list, ignore_build_errors: bool = False, step_id: Optional[str] = None):
+    def _build(
+        self,
+        command: list,
+        ignore_build_errors: bool = False,
+        step_id: Optional[str] = None,
+        cwd: Optional[str] = None,
+        output_buffer: Optional[List[str]] = None,
+    ):
         _step_id = step_id or self._pipeline_id
+        _cwd = cwd or self._base_path
+        _emit = output_buffer.append if output_buffer is not None else lambda msg: log(msg, step_id=_step_id, indent=2)
         env = dict(os.environ)
 
         # Set the MAVEN_OPTS variable with environment overrides
@@ -906,9 +946,9 @@ class PackageBuilderAndUploader:
         if env.get("FABRIC_NAME", None) is None:
             env["FABRIC_NAME"] = "default"  # for python test runs.
 
-        log(f"Running command {command} on path {self._base_path}", step_id=_step_id, indent=2)
+        _emit(f"Running command {command} on path {_cwd}")
         process = subprocess.Popen(
-            command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=self._base_path
+            command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=_cwd
         )
 
         def log_output(pipe, log_function):
@@ -925,12 +965,8 @@ class PackageBuilderAndUploader:
                     log_function(response)
 
         # Create threads to read and log stdout and stderr simultaneously
-        stdout_thread = threading.Thread(
-            target=log_output, args=(process.stdout, lambda msg: log(msg, step_id=_step_id, indent=2))
-        )
-        stderr_thread = threading.Thread(
-            target=log_output, args=(process.stderr, lambda msg: log(msg, step_id=_step_id, indent=2))
-        )
+        stdout_thread = threading.Thread(target=log_output, args=(process.stdout, _emit))
+        stderr_thread = threading.Thread(target=log_output, args=(process.stderr, _emit))
 
         # Start threads
         stdout_thread.start()
@@ -944,11 +980,11 @@ class PackageBuilderAndUploader:
         return_code = process.wait()
 
         if return_code in (0, 5):
-            log(f"Build was successful with exit code {return_code}", step_id=_step_id, indent=2)
+            _emit(f"Build was successful with exit code {return_code}")
         elif ignore_build_errors:
-            log(f"Build failed with exit code {return_code}", step_id=_step_id, indent=2)
+            _emit(f"Build failed with exit code {return_code}")
         else:
-            log(f"Build failed with exit code {return_code}", step_id=_step_id, indent=2)
+            _emit(f"Build failed with exit code {return_code}")
             raise ProjectBuildFailedException(f"Build failed with exit code {return_code}")
 
         return return_code
