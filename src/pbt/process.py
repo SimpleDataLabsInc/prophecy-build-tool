@@ -1,5 +1,8 @@
 import subprocess
 import time
+from typing import List, Optional
+
+from .runner import CommandRunner, default_runner
 
 
 class Process:
@@ -20,39 +23,36 @@ class Process:
         self.running_message = running_message
 
     @staticmethod
-    def process_sequential(processes, time_between_each_cmd=1):
+    def process_sequential(
+        processes: List["Process"],
+        time_between_each_cmd: int = 1,
+        runner: Optional[CommandRunner] = None,
+    ) -> int:
+        """Run ``processes`` one after another and return the last return code.
+
+        An optional :class:`~pbt.runner.CommandRunner` can be injected so tests
+        can swap in a :class:`~test.fakes.FakeRunner` instead of spawning real
+        subprocesses. When omitted, the process-wide default is used.
+        """
+
+        active_runner = runner or default_runner
         return_code = 0
         for process in processes:
             if process.running_message:
                 print(process.running_message)
-            result = subprocess.run(
+            result = active_runner.run(
                 process.process_args,
-                stdout=process.std_output,
-                stderr=process.std_err,
-                shell=process.is_shell,
                 cwd=process.current_working_directory,
+                shell=process.is_shell,
+                capture_output=True,
+                check=False,
             )
-            return_code, stdout, stderr = (
-                result.returncode,
-                result.stdout,
-                result.stderr,
-            )
+            return_code, stdout, stderr = result.returncode, result.stdout, result.stderr
 
-            if stdout is not None:
-                if stderr is not None and len(stderr) > 0:
-                    print(
-                        "   ",
-                        "\n    ".join([line.decode("utf-8") for line in stdout.splitlines()]),
-                    )
-                    print(
-                        "   ",
-                        "\n    ".join([line.decode("utf-8") for line in stderr.splitlines()]),
-                    )
-                else:
-                    print(
-                        "   ",
-                        "\n    ".join([line.decode("utf-8") for line in stdout.splitlines()]),
-                    )
+            if stdout:
+                print("   ", "\n    ".join(stdout.splitlines()))
+            if stderr:
+                print("   ", "\n    ".join(stderr.splitlines()))
 
             if return_code != 0:
                 break

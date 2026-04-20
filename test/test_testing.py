@@ -1,6 +1,10 @@
 from click.testing import CliRunner
 from src.pbt import test, test_v2
 import os
+import pytest
+
+# Legacy tests retained as a parity baseline during the v2-first refactor.
+pytestmark = pytest.mark.legacy
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 

@@ -854,14 +854,16 @@ class ProphecyBuildTool:
 
     @classmethod
     def _verify_databricks_configs(cls, exit_on_failure=True):
-        host = os.environ.get("DATABRICKS_HOST")
-        token = os.environ.get("DATABRICKS_TOKEN")
+        from .utils.databricks_creds import get_databricks_credentials
 
-        if host is None or token is None:
+        creds = get_databricks_credentials()
+        if creds is None:
             if exit_on_failure:
                 cls._error(
-                    "[i]DATABRICKS_HOST[/i] & [i]DATABRICKS_TOKEN[/i] environment variables are required to "
-                    "deploy your Databricks Workflows"
+                    "Databricks credentials not found. Set [i]DATABRICKS_HOST[/i] & "
+                    "[i]DATABRICKS_TOKEN[/i] environment variables, or configure a "
+                    "default profile in [i]~/.databrickscfg[/i] (e.g. via "
+                    "`databricks configure --token`), to deploy your Databricks Workflows."
                 )
             else:
                 return False

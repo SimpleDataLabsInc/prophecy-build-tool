@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
 from .constants import DBFS_FILE_STORE, PROPHECY_ARTIFACTS
+from .databricks_creds import get_databricks_credentials
 from .exceptions import ConfigFileNotFoundException
 from .project_models import Status
 from ..deployment import JobInfoAndOperation, OperationType
@@ -597,9 +598,13 @@ class ProjectConfig:
 
         else:
             if not is_based_on_file:
-                # only cli case for databricks/ fabrics
-                host = os.environ.get("DATABRICKS_HOST", "test")
-                token = os.environ.get("DATABRICKS_TOKEN", "test")
+                # Env vars take priority; fall back to ``~/.databrickscfg``
+                # default profile so users who ran ``databricks configure``
+                # don't need to re-export credentials. Final fallback is the
+                # placeholder ``test``/``test`` pair used by offline tests.
+                creds = get_databricks_credentials(default_host="test", default_token="test")
+                host = creds.host
+                token = creds.token
                 if not fabric_ids:
                     allowed_fabric_ids = project.fabrics()
                 else:

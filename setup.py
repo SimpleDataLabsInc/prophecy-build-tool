@@ -45,11 +45,14 @@ setuptools.setup(
     ],
     extras_require={
         "test": [
+            "pytest>=7.0",
             "pytest-html",
             "pytest-cov",
-            "pytest",
+            "pytest-xdist",  # parallel test execution
+            "pytest-timeout",  # per-test timeout to cap CI hangs
+            "pytest-mock",  # ergonomic mock fixture
             "pyspark>=3.3.0,<4.3",
-            "mock",  # or any other testing-specific packages you need
+            "mock",
             "parameterized",
         ]
     },

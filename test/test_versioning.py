@@ -5,7 +5,11 @@ import os
 import git
 import glob
 import shutil
+import pytest
 from parameterized import parameterized
+
+# Legacy (mutates real git checkout; dedicated refactor tracked as a follow-up).
+pytestmark = [pytest.mark.legacy, pytest.mark.serial]
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)

@@ -1,6 +1,11 @@
 from click.testing import CliRunner
 from src.pbt import build, build_v2
 import os
+import pytest
+
+# Legacy tests retained as a parity baseline during the v2-first refactor.
+# See test/README.md and the refactor plan for why every legacy test stays.
+pytestmark = pytest.mark.legacy
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 ERROR_PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorldBuildError"
