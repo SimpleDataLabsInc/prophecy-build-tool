@@ -1,0 +1,46 @@
+version: 1
+schema:
+  type: struct
+  fields:
+  - name: order_id
+    type: integer
+    nullable: true
+    metadata:
+      description: ''
+      mappings: []
+      tags: []
+  - name: customer_id
+    type: integer
+    nullable: true
+    metadata:
+      description: ''
+      mappings: []
+      tags: []
+  - name: order_status
+    type: string
+    nullable: true
+    metadata:
+      description: Order status
+      mappings: []
+      tags: []
+  - name: order_category
+    type: string
+    nullable: true
+    metadata:
+      description: Order category
+      mappings: []
+      tags: []
+  - name: order_date
+    type: date
+    nullable: true
+    metadata:
+      description: ''
+      mappings: []
+      tags: []
+  - name: amount
+    type: float
+    nullable: true
+    metadata:
+      description: ''
+      mappings: []
+      tags: []

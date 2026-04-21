@@ -1,0 +1,79 @@
+{
+  "metainfo" : {
+    "type" : "Databricks",
+    "fabricId" : "16433",
+    "jobId" : "jobs/DatabricksJob2",
+    "name" : "DatabricksJob2",
+    "schedule" : "0 0 0 1 * ? *",
+    "scheduleTimeZone" : "UTC",
+    "jobClusterMode" : {
+      "clusterMode" : "Single"
+    },
+    "enabled" : false,
+    "defaultClusterSize" : "small",
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false,
+      "onDurationWarningThresholdExceeded" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "type" : "Inherited",
+      "retries" : 0,
+      "alerting" : {
+        "emails" : "",
+        "onStart" : false,
+        "onSuccess" : false,
+        "onFailure" : false,
+        "onDurationWarningThresholdExceeded" : false
+      }
+    }
+  },
+  "processes" : {
+    "Iz8n_RC-AT5b7Vq2P1gEY$$CXIkARLdsz-uvF1uZEuou" : {
+      "id" : "Iz8n_RC-AT5b7Vq2P1gEY$$CXIkARLdsz-uvF1uZEuou",
+      "component" : "Script",
+      "metadata" : {
+        "label" : "Script_0",
+        "slug" : "Script_0",
+        "x" : 420,
+        "y" : 140
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "JocVjju-PUdPbOMJBIbvl$$uNMfW4Srj0ksru8V5doCk",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "DN1EEr4vn-Yyl4RER1M18$$e21rwWlS2cuq2dullxjQk",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "code" : "print(\"helloWorld\")"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    }
+  },
+  "connections" : [ ]
+}

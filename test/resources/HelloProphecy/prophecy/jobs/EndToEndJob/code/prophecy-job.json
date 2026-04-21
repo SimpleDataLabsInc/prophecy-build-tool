@@ -1,0 +1,610 @@
+{
+  "metainfo" : {
+    "type" : "Databricks",
+    "fabricId" : "1571",
+    "jobId" : "jobs/EndToEndJob",
+    "name" : "EndToEndJob",
+    "schedule" : "0 0 0 ? * 1 *",
+    "scheduleTimeZone" : "UTC",
+    "jobClusterMode" : {
+      "clusterMode" : "Single"
+    },
+    "enabled" : false,
+    "defaultClusterSize" : "small",
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false,
+      "onDurationWarningThresholdExceeded" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "type" : "Inherited",
+      "retries" : 0,
+      "alerting" : {
+        "emails" : "",
+        "onStart" : false,
+        "onSuccess" : false,
+        "onFailure" : false,
+        "onDurationWarningThresholdExceeded" : false
+      }
+    }
+  },
+  "processes" : {
+    "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY" : {
+      "id" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "silver_zip_codes",
+        "slug" : "silver_zip_codes",
+        "x" : 640,
+        "y" : 440
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "mVOpOILZa7_KJoemjUubZ$$dHSz5GppEqUILVy6XeCgN",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/silver_zip_codes",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "QbqKyT1qH_wbXboch_Jjn$$nKzTtzRsCn856DRyrzxki" : {
+      "id" : "QbqKyT1qH_wbXboch_Jjn$$nKzTtzRsCn856DRyrzxki",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "raw_bronze_4",
+        "slug" : "raw_bronze_4",
+        "x" : 460,
+        "y" : 700
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "_O3fAOXcJPYGBXu7-Grlo$$SXViTXLiwlAX_Cm2zE6Ht",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "3fqJHgYciMuW_vQlMIuLH$$oeLXL8MszqdAQaKB_Itxi",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/raw_bronze",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "RPMwjvRCF4gh0GyPqS6tH$$3iOuiHEFYwFRuE-py0k8C" : {
+      "id" : "RPMwjvRCF4gh0GyPqS6tH$$3iOuiHEFYwFRuE-py0k8C",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "raw_bronze",
+        "slug" : "raw_bronze",
+        "x" : 460,
+        "y" : 440
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "tvI_1445EjNwE_pxxF_TC$$3lVkA47LpboL1rnuw8eAG",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "BnfWeBedbZ_49y7JvNOuk$$2QMkwUGHkFpniAkmOaQho",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/raw_bronze",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "uljmMvyC1AxYNIoYPqsGm$$d-RvN4Ddbk51YPlhV9ZEU" : {
+      "id" : "uljmMvyC1AxYNIoYPqsGm$$d-RvN4Ddbk51YPlhV9ZEU",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "raw_bronze_1",
+        "slug" : "raw_bronze_1",
+        "x" : 460,
+        "y" : 300
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "u1Bu_41CP63f6-jGraYv_$$Go_lQWf5FKKKotJqwUL4i",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "_oi7ghQhaSYU2eKUjt6yR$$fZQnBguIfNu432FNGKkHw",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/raw_bronze",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "mK5TjFICbE4kEVgdecp5q$$o_CjDujc7g8C3z8mvDSn9" : {
+      "id" : "mK5TjFICbE4kEVgdecp5q$$o_CjDujc7g8C3z8mvDSn9",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "gold_sales",
+        "slug" : "gold_sales",
+        "x" : 1060,
+        "y" : 440
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "lZSG2qqJE-PWdHd2rGLKu$$9GsaEqnu10Vg4WkwqGnBk",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "yCvh_gejRoI_iv-NtBAku$$DOgio-3ZgTDjWBQjZn4Sr",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/gold_sales",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "8PF48kvISFbKh-EKPv0HH$$Q4Tw4z9_LAw417_Tq0IOp" : {
+      "id" : "8PF48kvISFbKh-EKPv0HH$$Q4Tw4z9_LAw417_Tq0IOp",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "raw_bronze_5",
+        "slug" : "raw_bronze_5",
+        "x" : 460,
+        "y" : 560
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "8rsQ9nP6bMQZcwiMlKBCk$$jx4hYdApuZP5kTAZpBkmT",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "PsRQQZfXcPf1f1rQYUL-s$$7gNMc04V7br5rS8FnP7X-",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/raw_bronze",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "nfIwB7iYP4bHcX7MELOPO$$Ebrjd71DZXpuDActLChu9" : {
+      "id" : "nfIwB7iYP4bHcX7MELOPO$$Ebrjd71DZXpuDActLChu9",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "silver_customers_orders",
+        "slug" : "silver_customers_orders",
+        "x" : 840,
+        "y" : 440
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "BGLVdWVyUgrPOGXlryLLi$$MMyOGQ0m5TZLQVH5oyWyp",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "DVy4UnrkTr5bspGytrsxU$$lyGLXZ00xi67LiFwMgSyX",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/silver_customers_orders",
+        "configurations" : {
+          "schema" : [ {
+            "name" : "ZipCodes",
+            "optional" : false,
+            "kind" : {
+              "type" : "record",
+              "fields" : [ ]
+            },
+            "isReferenced" : false,
+            "isWorkflowNodeConfiguration" : true
+          } ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "OmsNdT5TJTYVYNjegYzFe$$j1V3UBGEHgpWjf5N0cdEn" : {
+      "id" : "OmsNdT5TJTYVYNjegYzFe$$j1V3UBGEHgpWjf5N0cdEn",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "raw_bronze_3",
+        "slug" : "raw_bronze_3",
+        "x" : 460,
+        "y" : 840
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "UmrgE0lZhe7k9ao-WgPAM$$Ik-rnkS8Zd5X_GpGjw6D0",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "kYva-YQ2bq8dLWXP7WhSP$$chG9R23R0G2bRk8A5TYms",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/raw_bronze",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "ZmrBIZbT1ZCqIv3NyZdNg$$CHVMuPa2YSOaMXUnK2krK" : {
+      "id" : "ZmrBIZbT1ZCqIv3NyZdNg$$CHVMuPa2YSOaMXUnK2krK",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "raw_bronze_2",
+        "slug" : "raw_bronze_2",
+        "x" : 460,
+        "y" : 160
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "saw5k_gs_V-1QXQL3Y58f$$p3qaR2Ny-iSksy5rOlOy7",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "y3do0xBqpAwceaplhMZXJ$$CK1VOuiigEV8QO3d7kc2t",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/raw_bronze",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    },
+    "MqtM2fJ2bF1AbDqIHv6lo$$NZf93RF8Ob4kZ8bvMLYRS" : {
+      "id" : "MqtM2fJ2bF1AbDqIHv6lo$$NZf93RF8Ob4kZ8bvMLYRS",
+      "component" : "Pipeline",
+      "metadata" : {
+        "label" : "gold_top_customers",
+        "slug" : "gold_top_customers",
+        "x" : 1280,
+        "y" : 440
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "nIT4hFq1YBKOfeTVDLnSK$$WpmdZbPKihEYNXpvBweHm",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "98cVy2YUUPaYXGyTR3PtE$$isgpe28Z7rMh1RdoNCWsI",
+          "slug" : ""
+        } ]
+      },
+      "settings" : {
+        "type" : "Inherited",
+        "alerting" : {
+          "emails" : "",
+          "onStart" : false,
+          "onSuccess" : false,
+          "onFailure" : false,
+          "onDurationWarningThresholdExceeded" : false
+        }
+      },
+      "properties" : {
+        "pipelineId" : "pipelines/gold_top_customers",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : "default"
+        },
+        "projectId" : "5613"
+      },
+      "conditional" : {
+        "runIf" : "ALL_SUCCESS",
+        "forEach" : false,
+        "forEachConfig" : "",
+        "forEachConcurrency" : 1,
+        "forEachInputVariable" : "",
+        "forEachIterationCount" : null
+      },
+      "parent" : null
+    }
+  },
+  "connections" : [ {
+    "id" : "dGLlgh0MlrH9oT1Mo-bI-$$Pw0Dl5zJnJmq5p_RPqASk",
+    "source" : "RPMwjvRCF4gh0GyPqS6tH$$3iOuiHEFYwFRuE-py0k8C",
+    "target" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "sourcePort" : "BnfWeBedbZ_49y7JvNOuk$$2QMkwUGHkFpniAkmOaQho",
+    "targetPort" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn"
+  }, {
+    "id" : "xSWj4GmtmashBnCdsRS8d$$iTctJJjIyNujtaybWkAlB",
+    "source" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "target" : "nfIwB7iYP4bHcX7MELOPO$$Ebrjd71DZXpuDActLChu9",
+    "sourcePort" : "mVOpOILZa7_KJoemjUubZ$$dHSz5GppEqUILVy6XeCgN",
+    "targetPort" : "BGLVdWVyUgrPOGXlryLLi$$MMyOGQ0m5TZLQVH5oyWyp"
+  }, {
+    "id" : "GckWlUd9Nguu_oLZ30W6I$$SEcMWKHRwoGhAOn7A4q9V",
+    "source" : "nfIwB7iYP4bHcX7MELOPO$$Ebrjd71DZXpuDActLChu9",
+    "target" : "mK5TjFICbE4kEVgdecp5q$$o_CjDujc7g8C3z8mvDSn9",
+    "sourcePort" : "DVy4UnrkTr5bspGytrsxU$$lyGLXZ00xi67LiFwMgSyX",
+    "targetPort" : "lZSG2qqJE-PWdHd2rGLKu$$9GsaEqnu10Vg4WkwqGnBk"
+  }, {
+    "id" : "oowG_EE4FIXfKdprl9aIO$$MGr4kiX9idK3aUjDMRIiD",
+    "source" : "mK5TjFICbE4kEVgdecp5q$$o_CjDujc7g8C3z8mvDSn9",
+    "target" : "MqtM2fJ2bF1AbDqIHv6lo$$NZf93RF8Ob4kZ8bvMLYRS",
+    "sourcePort" : "yCvh_gejRoI_iv-NtBAku$$DOgio-3ZgTDjWBQjZn4Sr",
+    "targetPort" : "nIT4hFq1YBKOfeTVDLnSK$$WpmdZbPKihEYNXpvBweHm"
+  }, {
+    "id" : "NvaVXU3eT7-MXE0w-mR8C",
+    "source" : "uljmMvyC1AxYNIoYPqsGm$$d-RvN4Ddbk51YPlhV9ZEU",
+    "target" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "sourcePort" : "_oi7ghQhaSYU2eKUjt6yR$$fZQnBguIfNu432FNGKkHw",
+    "targetPort" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn"
+  }, {
+    "id" : "4I33ySfVqgmhcDppUhnrr",
+    "source" : "ZmrBIZbT1ZCqIv3NyZdNg$$CHVMuPa2YSOaMXUnK2krK",
+    "target" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "sourcePort" : "y3do0xBqpAwceaplhMZXJ$$CK1VOuiigEV8QO3d7kc2t",
+    "targetPort" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn"
+  }, {
+    "id" : "JwG4phfFXV_vIr2yj3bKF",
+    "source" : "8PF48kvISFbKh-EKPv0HH$$Q4Tw4z9_LAw417_Tq0IOp",
+    "target" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "sourcePort" : "PsRQQZfXcPf1f1rQYUL-s$$7gNMc04V7br5rS8FnP7X-",
+    "targetPort" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn"
+  }, {
+    "id" : "r-KdgYOAwjG0IEPqQxar_",
+    "source" : "QbqKyT1qH_wbXboch_Jjn$$nKzTtzRsCn856DRyrzxki",
+    "target" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "sourcePort" : "3fqJHgYciMuW_vQlMIuLH$$oeLXL8MszqdAQaKB_Itxi",
+    "targetPort" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn"
+  }, {
+    "id" : "XXbbRrf3PbrDTcYVPRHV9",
+    "source" : "OmsNdT5TJTYVYNjegYzFe$$j1V3UBGEHgpWjf5N0cdEn",
+    "target" : "F-dRo2e7N0ynJ2mLDe9ZW$$KxnCeW4MIt8piU30nmuzY",
+    "sourcePort" : "kYva-YQ2bq8dLWXP7WhSP$$chG9R23R0G2bRk8A5TYms",
+    "targetPort" : "9SBpUfUKNNtvmvR2Xb9bQ$$FK-nU0qpgvL_1ugWz9uFn"
+  } ]
+}

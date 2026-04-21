@@ -1,0 +1,1 @@
+{"initCode":"","code":"@udf(returnType=IntegerType())\ndef rand_zip_index(value: int):\n    from random import Random\n    r = Random(value)\n    return r.randrange(0, 27689)"}

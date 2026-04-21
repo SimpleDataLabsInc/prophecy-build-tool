@@ -1,0 +1,2 @@
+[run]
+omit=test/**,build/**,dist/**,setup.py

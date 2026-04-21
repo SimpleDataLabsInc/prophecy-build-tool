@@ -12,7 +12,7 @@ from src.pbt.deployment.pipeline import PackageBuilderAndUploader
 from src.pbt.pbt_cli import PBTCli
 from src.pbt.runner import CommandResult
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 @pytest.fixture

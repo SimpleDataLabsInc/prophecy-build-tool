@@ -19,7 +19,7 @@ from click.testing import CliRunner
 from src.pbt import validate_v2
 from src.pbt.pbt_cli import PBTCli
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 def _make_pipeline(project: Path, pipeline_id: str, diagnostics: list | None) -> None:

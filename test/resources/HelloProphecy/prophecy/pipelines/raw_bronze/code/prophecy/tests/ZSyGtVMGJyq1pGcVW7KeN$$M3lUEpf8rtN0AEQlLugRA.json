@@ -1,0 +1,62 @@
+{
+  "unitTests" : [ {
+    "data" : {
+      "MBRtrfAl-KvbCq2bpSzdv$$1yAU9HicqGYh_bmd9_8jh" : {
+        "values" : [ [ "1", "2019-07-20" ], [ "2", "2019-10-21" ], [ "3", "2019-05-04" ], [ "4", "2019-10-19" ], [ "5", "2020-02-19" ], [ "6", "2019-04-20" ], [ "7", "2020-01-14" ], [ "8", "2019-03-25" ], [ "9", "2019-07-19" ], [ "10", "2019-05-15" ] ],
+        "schema" : {
+          "type" : "struct",
+          "fields" : [ {
+            "name" : "customer_id",
+            "type" : "string",
+            "nullable" : true,
+            "metadata" : {
+              "description" : "",
+              "mappings" : [ ],
+              "tags" : [ ]
+            }
+          }, {
+            "name" : "account_open_date",
+            "type" : "string",
+            "nullable" : true,
+            "metadata" : {
+              "description" : "",
+              "mappings" : [ ],
+              "tags" : [ ]
+            }
+          } ]
+        },
+        "predicates" : [ ]
+      },
+      "qsaXtb9A1b6UDfYeTZJTL$$Gz092FzwIQqZDmKwEm6j_" : {
+        "values" : [ [ "1", "2019-07-20" ], [ "2", "2019-10-21" ], [ "3", "2019-05-04" ], [ "4", "2019-10-19" ], [ "5", "2020-02-19" ], [ "6", "2019-04-20" ], [ "7", "2020-01-14" ], [ "8", "2019-03-25" ], [ "9", "2019-07-19" ], [ "10", "2019-05-15" ] ],
+        "schema" : {
+          "type" : "struct",
+          "fields" : [ {
+            "name" : "customer_id",
+            "type" : "integer",
+            "nullable" : true,
+            "metadata" : {
+              "description" : "",
+              "mappings" : [ ],
+              "tags" : [ ]
+            }
+          }, {
+            "name" : "account_open_date",
+            "type" : "date",
+            "nullable" : true,
+            "metadata" : {
+              "description" : "",
+              "mappings" : [ ],
+              "tags" : [ ]
+            }
+          } ]
+        },
+        "predicates" : [ ]
+      }
+    },
+    "name" : "Unit Test ",
+    "testType" : "outputRow",
+    "language" : "python"
+  } ],
+  "language" : "python"
+}

@@ -21,7 +21,7 @@ import pytest
 from src.pbt.pbt_cli import PBTCli
 from src.pbt.deployment import pipeline as pipeline_module
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 class _FakeBuilder:
@@ -122,3 +122,49 @@ def test_build_failure_with_ignore_errors_succeeds(tmp_path: Path, fake_builder)
     pbt = PBTCli.from_conf_folder(str(project))
     # Should not raise. Swallowing the error is the flag's entire purpose.
     pbt.build(pipelines="", ignore_build_errors=True, ignore_parse_errors=False, add_pom_python=False)
+
+
+def test_partial_invalid_filter_builds_matching_only(
+    tmp_path: Path, fake_builder, monkeypatch
+) -> None:
+    """Replaces legacy ``test_build_path_pipeline_with_invalid_filter``.
+
+    ``--pipelines alpha,INVALID_PIPELINE_NAME`` builds ``alpha`` and silently
+    ignores the unknown name. v2 does not sys.exit on partial-invalid filters
+    — the legacy CLI does; that stays covered by ``test/test_build.py``.
+    """
+
+    project = _make_project(tmp_path, [("pipelines/alpha", "alpha"), ("pipelines/beta", "beta")])
+    calls = _build_count(monkeypatch, fake_builder)
+
+    pbt = PBTCli.from_conf_folder(str(project))
+    pbt.build(
+        pipelines="alpha,INVALID_PIPELINE_NAME",
+        ignore_build_errors=False,
+        ignore_parse_errors=False,
+        add_pom_python=False,
+    )
+
+    assert len(calls) == 1
+
+
+def test_all_invalid_filter_builds_nothing(tmp_path: Path, fake_builder, monkeypatch) -> None:
+    """Replaces legacy ``test_build_path_pipeline_invalid_filter_only``.
+
+    The legacy CLI exits 1 on an all-invalid filter. v2's filter quietly
+    yields an empty loop — no builder is invoked and control returns.
+    We assert the zero-call invariant to pin that contract down.
+    """
+
+    project = _make_project(tmp_path, [("pipelines/alpha", "alpha"), ("pipelines/beta", "beta")])
+    calls = _build_count(monkeypatch, fake_builder)
+
+    pbt = PBTCli.from_conf_folder(str(project))
+    pbt.build(
+        pipelines="NO_SUCH_PIPELINE,ALSO_MISSING",
+        ignore_build_errors=False,
+        ignore_parse_errors=False,
+        add_pom_python=False,
+    )
+
+    assert len(calls) == 0

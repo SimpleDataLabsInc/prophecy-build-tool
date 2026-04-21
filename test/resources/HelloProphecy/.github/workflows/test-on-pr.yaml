@@ -1,0 +1,93 @@
+on:
+  pull_request:
+    branches:
+      - 'main'
+      - 'prod'
+
+# This ensures that both 'Push' and 'PR' trigger tests at the same time
+concurrency: 
+  group: pr-push-test
+  cancel-in-progress: true
+
+jobs:
+  test-pr:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_MANAGER: pip3
+      COVERAGE_SINGLE: 60
+      COVERAGE_TOTAL: 60
+      PULL_NUMBER: ${{ github.event.pull_request.number }}
+      COMMIT_URL: "https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}/commits/${{ github.event.after }}"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      # Install all python dependencies 
+      # prophecy-libs not included here because prophecy-build-tool 
+      # takes care of it by reading each pipeline's setup.py
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install build pytest pytest-cov wheel pytest-html pyspark prophecy-build-tool
+      # Make sure you set the path to match the Project directory
+      - name: Run PBT build
+        run: pbt build --path prophecy
+      # Same as above, make the path match the Project directory
+      - name: Run PBT test
+        run: pbt test --path prophecy
+
+      # Extra: Fail PR if insufficient unit test coverage
+      # Not required, but a useful example
+      - name: pytester-cov
+        id: pytester-cov
+        uses: dima-engineer/pytester@v0.1
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          package-manager: ${{ env.PACKAGE_MANAGER }}
+          pytest-root-dir: './prophecy'
+          cov-threshold-single: ${{ env.COVERAGE_SINGLE }}
+          cov-threshold-total: ${{ env.COVERAGE_TOTAL }}
+      - name: Find Comment
+        uses: peter-evans/find-comment@v1
+        id: fc
+        with:
+          issue-number: ${{env.PULL_NUMBER}}
+          comment-author: 'github-actions[bot]'
+          direction: last
+
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=`echo ${{github.event.after}} | cut -c1-7`" >> $GITHUB_ENV
+      
+      - name: Create comment with pytest coverage table
+        uses: peter-evans/create-or-update-comment@v1
+        with:
+          issue-number: ${{env.PULL_NUMBER}}
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            ## Tests coverage table for [${{ env.SHORT_SHA }}](${{ env.COMMIT_URL }}) commit.
+            ${{ steps.pytester-cov.outputs.output-table }}
+          edit-mode: replace
+
+      - name: Coverage single fail - exit
+        if: ${{ steps.pytester-cov.outputs.cov-threshold-single-fail == 'true' }}
+        run: |
+          echo "cov single fail ${{ steps.pytester-cov.outputs.cov-threshold-single-fail }}"
+          exit 1
+
+      - name: Coverage total fail - exit
+        if: ${{ steps.pytester-cov.outputs.cov-threshold-total-fail == 'true' }}
+        run: |
+          echo "cov single fail ${{ steps.pytester-cov.outputs.cov-threshold-total-fail }}"
+          exit 1
+
+      - name: Commit pytest coverage table
+        uses: peter-evans/commit-comment@v1
+        with:
+          body: ${{ steps.pytester-cov.outputs.output-table }}

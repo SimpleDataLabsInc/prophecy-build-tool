@@ -8,7 +8,7 @@ from fakes import FakeRunner
 from src.pbt.deployment import get_python_commands
 from src.pbt.runner import CommandResult
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 def test_prefers_python3_when_available() -> None:

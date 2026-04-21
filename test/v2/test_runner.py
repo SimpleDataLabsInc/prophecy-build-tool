@@ -17,7 +17,7 @@ import pytest
 from src.pbt.runner import CommandResult, SubprocessRunner
 from fakes import FakeRunner
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 def test_subprocess_runner_invokes_and_captures() -> None:

@@ -11,7 +11,7 @@ import pytest
 
 from src.pbt.utils.versioning import get_bumped_version
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 @pytest.mark.parametrize(
@@ -59,3 +59,62 @@ def test_python_rejects_non_pep440_version() -> None:
 def test_malformed_version_exits() -> None:
     with pytest.raises(SystemExit):
         get_bumped_version("not-a-version", "patch", "scala")
+
+
+# ---------------------------------------------------------------------------
+# Extra scenarios replacing the non-git branches of legacy test_versioning.
+# These mirror the numeric expectations of the legacy CLI tests without any
+# filesystem or git wiring.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("original", "bump", "expected"),
+    [
+        # The three starting versions that legacy tests used across projects.
+        ("0.0.1", "major", "1.0.0"),
+        ("0.0.1", "minor", "0.1.0"),
+        ("0.0.1", "patch", "0.0.2"),
+        # Bumping major resets minor and patch.
+        ("1.2.3", "major", "2.0.0"),
+        # Bumping minor resets patch.
+        ("1.2.3", "minor", "1.3.0"),
+    ],
+)
+def test_legacy_project_bump_parity(original: str, bump: str, expected: str) -> None:
+    assert get_bumped_version(original, bump, "python") == expected
+    assert get_bumped_version(original, bump, "scala") == expected
+
+
+@pytest.mark.parametrize(
+    ("original", "bump", "expected"),
+    [
+        # Legacy docs: ``0.0.1`` → ``0.0.1+build.1`` with --force.
+        ("0.0.1", "build", "0.0.1+build.1"),
+        # Legacy docs: ``0.0.1`` → ``0.0.1-rc.1`` with --force.
+        ("0.0.1", "prerelease", "0.0.1-rc.1"),
+    ],
+)
+def test_legacy_scala_build_and_prerelease_parity(
+    original: str, bump: str, expected: str
+) -> None:
+    # These are scala-flavoured in the legacy suite; python also supports them
+    # provided the output remains PEP440-compatible.
+    assert get_bumped_version(original, bump, "scala") == expected
+
+
+def test_prerelease_then_bump_prerelease_python() -> None:
+    # Mirrors ``test_versioning_set_prerelease_and_bump_python``:
+    #   start 0.0.1 → set-suffix -rc.4 (via packaging) → bump prerelease → 0.0.1-rc.5
+    # We exercise just the bump half here; the set-suffix half lives in the CLI
+    # test file and the packaging helper itself.
+    assert get_bumped_version("0.0.1-rc.4", "prerelease", "python") == "0.0.1-rc.5"
+
+
+def test_build_bump_increments_monotonically() -> None:
+    first = get_bumped_version("1.2.3", "build", "scala")
+    second = get_bumped_version(first, "build", "scala")
+    # semver's bump_build increments the numeric suffix of the build-metadata
+    # segment. We pin only the structural contract: second > first, same core.
+    assert first.split("+")[0] == second.split("+")[0] == "1.2.3"
+    assert first != second

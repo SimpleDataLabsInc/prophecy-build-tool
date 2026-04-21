@@ -20,7 +20,7 @@ import pytest
 from src.pbt.pbt_cli import PBTCli
 from src.pbt.deployment import project as project_module
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 @pytest.fixture

@@ -1,0 +1,3669 @@
+{
+  "metainfo" : {
+    "migrationVersions" : {
+      "gemBuilderVersion" : "v1",
+      "unitTestNullDataMigrated" : true
+    },
+    "functions" : { },
+    "codeGenConfiguration" : {
+      "editableConfig" : false,
+      "plibVersion" : {
+        "mavenVersion" : "9.2.0"
+      }
+    },
+    "id" : "1",
+    "uri" : "pipelines/raw_bronze",
+    "pipelineSettingsInfo" : {
+      "isNullValuesInUnitTestsEnabled" : true
+    },
+    "language" : "scala",
+    "fabricId" : "16433",
+    "frontEndLanguage" : "sql",
+    "mode" : "batch",
+    "udfs" : {
+      "language" : "scala",
+      "udfs" : [ ],
+      "functionPackageName" : "scott_demo2_team.helloprophecyscala.functions",
+      "sharedFunctionPackageNames" : [ "io.prophecy.scalagems.functions", "io.prophecy.warehousegems.functions" ]
+    },
+    "udafs" : {
+      "language" : "scala",
+      "code" : "package udfs\n\nimport org.apache.spark.sql.expressions._\nimport org.apache.spark.sql.types._\nimport org.apache.spark.sql._\n\n/**\n  * Here you can define your custom aggregate functions.\n  *\n  * Make sure to register your `udafs` in the register_udafs function below.\n  *\n  * Example:\n  *\n  * object GeometricMean extends UserDefinedAggregateFunction {\n  *   // This is the input fields for your aggregate function.\n  *   override def inputSchema: org.apache.spark.sql.types.StructType =\n  *     StructType(StructField(\"value\", DoubleType) :: Nil)\n  *\n  *   // This is the internal fields you keep for computing your aggregate.\n  *   override def bufferSchema: StructType = StructType(\n  *     StructField(\"count\", LongType) ::\n  *     StructField(\"product\", DoubleType) :: Nil\n  *   )\n  *\n  *   // This is the output type of your aggregatation function.\n  *   override def dataType: DataType = DoubleType\n  *\n  *   override def deterministic: Boolean = true\n  *\n  *   // This is the initial value for your buffer schema.\n  *   override def initialize(buffer: MutableAggregationBuffer): Unit = {\n  *     buffer(0) = 0L\n  *     buffer(1) = 1.0\n  *   }\n  *\n  *   // This is how to update your buffer schema given an input.\n  *   override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {\n  *     buffer(0) = buffer.getAs[Long](0) + 1\n  *     buffer(1) = buffer.getAs[Double](1) * input.getAs[Double](0)\n  *   }\n  *\n  *   // This is how to merge two objects with the bufferSchema type.\n  *   override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {\n  *     buffer1(0) = buffer1.getAs[Long](0) + buffer2.getAs[Long](0)\n  *     buffer1(1) = buffer1.getAs[Double](1) * buffer2.getAs[Double](1)\n  *   }\n  *\n  *   // This is where you output the final value, given the final value of your bufferSchema.\n  *   override def evaluate(buffer: Row): Any = {\n  *     math.pow(buffer.getDouble(1), 1.toDouble / buffer.getLong(0))\n  *   }\n  * }\n  *\n  */\n\n\nobject UDAFs {\n  /**\n    * Registers UDAFs with Spark SQL\n    */\n  def registerUDAFs(spark: SparkSession): Unit = {\n    /**\n      * Example:\n      *\n      * spark.udf.register(\"gm\", GeometricMean)\n      *\n      */\n\n\n  }\n}\n"
+    },
+    "configuration" : {
+      "common" : {
+        "type" : "record",
+        "fields" : [ ]
+      },
+      "oldCommon" : {
+        "type" : "record",
+        "fields" : [ ]
+      },
+      "fabrics" : { },
+      "instances" : { },
+      "selected" : "default",
+      "nonEditable" : [ ],
+      "isSubscribedPipelineWithPipelineConfigs" : false
+    },
+    "sparkConf" : [ ],
+    "hadoopConf" : [ ],
+    "codeMode" : "sparse",
+    "buildSystem" : "maven",
+    "externalDependencies" : [ ],
+    "dependentProjectExternalDependencies" : [ {
+      "projectUID" : "12651",
+      "projectName" : "ProphecySparkBasicsScala",
+      "externalDependencies" : [ ]
+    }, {
+      "projectUID" : "12652",
+      "projectName" : "ProphecyWarehouseScala",
+      "externalDependencies" : [ ]
+    } ],
+    "isImported" : false,
+    "interimMode" : "Full",
+    "interimModeEnabled" : true,
+    "visualCodeInterimMode" : "Disabled",
+    "recordsLimit" : {
+      "enabled" : false,
+      "value" : 1000
+    },
+    "topLevelPackage" : "io.prophecy.pipelines.raw_bronze",
+    "configurationVersion" : "v2"
+  },
+  "connections" : [ {
+    "id" : "hJs86PJHaHNU3CQGX4lYo$$H9M-igul4GetayauIiROe",
+    "source" : "e5L6vGTI04eLilj37znxT$$iNyhJqm0XGT6k3Nkb2tAR",
+    "sourcePort" : "7Al-gtdFPvQETLfdJafjx$$cZgj0uUIBEACTGm01SKIA",
+    "target" : "LMThgCd7Uuu1-D2W7MDqP$$5D1PXWZ98pDg_2jvKOmdY",
+    "targetPort" : "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm"
+  }, {
+    "id" : "_0F0z9xIGCdM4-0cpVbZ-$$qEj8d1fRU1KLby8a4iaGt",
+    "source" : "LMThgCd7Uuu1-D2W7MDqP$$5D1PXWZ98pDg_2jvKOmdY",
+    "sourcePort" : "XHjQlHmijbPFdBCk5bEo6$$EUgrMM6zSyGfoHO49vkts",
+    "target" : "FRhBTo1sIy0cBj-dFoUb5$$dLq4M5vO5O_2DwEX2CFMb",
+    "targetPort" : "3lPS5B2vAQGyyBCgn0W1V$$MDkAiZbczV0JlkMjz4dvs"
+  }, {
+    "id" : "QEPDoXz_curi72nzIwLYy$$4jF8DbUW96H4e96RQbzIs",
+    "source" : "wEFNMjcSNBlXgGJUihaMf$$I5aOMYeseWrsGMHvFLtbP",
+    "sourcePort" : "dmhoEVZ-3n2SWqe0LysUT$$XYX0k7yujLimv3_bfi4pb",
+    "target" : "LTgTQhYE7prLT4LQaSh-6$$YWcZrH_J6riy41gYqsibk",
+    "targetPort" : "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo"
+  }, {
+    "id" : "u8vE0Ow6qOFe9W3F5QhO_$$6ZvusyH2dazibZUKN6jqs",
+    "source" : "PoK5qOCcfGEzcgiXZe6Mz$$94-w4mFCrOq49Oeu7njqh",
+    "sourcePort" : "IaCC8b1SOB2CwPtF-96BW$$TQaoNvl2o3euI_4zrIjiP",
+    "target" : "HR_CIJEQp-A0AotomTJTL$$r31OcojcDX6RH_ANipvJB",
+    "targetPort" : "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M"
+  }, {
+    "id" : "42Wf_QQVthmvnxLdRXT6Y$$zE6THeUB1JNmaI9ekd_nZ",
+    "source" : "LTgTQhYE7prLT4LQaSh-6$$YWcZrH_J6riy41gYqsibk",
+    "sourcePort" : "kBkJ-hRpIP-EESX5xxjou$$BMcaejgc7AydvzS-tXTkA",
+    "target" : "30_Q8UksEp4pqCwtJuAm_$$4UHkAft2M6yWXajOAFKSn",
+    "targetPort" : "XrrPRHE6bhXVpAofzYUXU$$JK-Rzl-NPF5PDUldFCGbw"
+  }, {
+    "id" : "2gsvFUW4YXW6_tm-vIWLv$$LHAtK8zFnHMt01zNngOym",
+    "source" : "HR_CIJEQp-A0AotomTJTL$$r31OcojcDX6RH_ANipvJB",
+    "sourcePort" : "52MaYOieg-kThyv_lF3gu$$FpNRw7TH6RyUvfFOA1RFX",
+    "target" : "kQ9aUVsblQ16ikNkanv25$$duIN3DlLxq7a7KfcIUz7K",
+    "targetPort" : "pOi7LuGB-GJPoUAOjMcV0$$WLSryU_ORFJSFxfftB1xV"
+  } ],
+  "processes" : {
+    "LMThgCd7Uuu1-D2W7MDqP$$5D1PXWZ98pDg_2jvKOmdY" : {
+      "id" : "LMThgCd7Uuu1-D2W7MDqP$$5D1PXWZ98pDg_2jvKOmdY",
+      "component" : "Reformat",
+      "metadata" : {
+        "label" : "ReformatCustomers",
+        "slug" : "ReformatCustomers",
+        "x" : 800,
+        "y" : 380,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm",
+          "slug" : "in",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "customer_id",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer ID",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "primary"
+                } ]
+              }
+            }, {
+              "name" : "first_name",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer first name",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "last_name",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer last name",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "phone",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer phone number",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "email",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer Email",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "country_code",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer country code",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "account_open_date",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "The date the the Customer opened their account",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "account_flags",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer account flags",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ {
+          "id" : "XHjQlHmijbPFdBCk5bEo6$$EUgrMM6zSyGfoHO49vkts",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "columnsSelector" : [ "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##customer_id", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##first_name", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##last_name", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##phone", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##email", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##country_code", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##account_open_date", "6G9cCcAOZ73TYvXI9I9L2$$ZgAkRW5do38iaC3RShEQm##account_flags" ],
+        "expressions" : [ {
+          "target" : "customer_id",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "cast(customer_id as int)"
+          },
+          "description" : ""
+        }, {
+          "target" : "first_name",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "first_name"
+          },
+          "description" : ""
+        }, {
+          "target" : "last_name",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "last_name"
+          },
+          "description" : ""
+        }, {
+          "target" : "phone",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "phone"
+          },
+          "description" : ""
+        }, {
+          "target" : "email",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "email"
+          },
+          "description" : ""
+        }, {
+          "target" : "country_code",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "country_code"
+          },
+          "description" : ""
+        }, {
+          "target" : "account_open_date",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "cast(account_open_date as date)"
+          },
+          "description" : ""
+        }, {
+          "target" : "account_flags",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "account_flags"
+          },
+          "description" : ""
+        }, {
+          "target" : "full_name",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "concat(first_name, last_name)"
+          },
+          "description" : ""
+        } ]
+      },
+      "componentInfo" : {
+        "gemId" : "gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12651.git&subPath=&tag=0.2.6.7&projectSubscriptionProjectId=12651&path=gems/Reformat",
+        "projectName" : "ProphecySparkBasicsScala"
+      }
+    },
+    "e5L6vGTI04eLilj37znxT$$iNyhJqm0XGT6k3Nkb2tAR" : {
+      "id" : "e5L6vGTI04eLilj37znxT$$iNyhJqm0XGT6k3Nkb2tAR",
+      "component" : "Source",
+      "metadata" : {
+        "label" : "raw_customers",
+        "slug" : "raw_customers",
+        "x" : 600,
+        "y" : 380,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false,
+        "comment" : "Loads customer data from a CSV file, enabling access to essential customer information for further analysis.",
+        "autoUpdateComment" : true
+      },
+      "ports" : {
+        "inputs" : [ ],
+        "outputs" : [ {
+          "id" : "7Al-gtdFPvQETLfdJafjx$$cZgj0uUIBEACTGm01SKIA",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/raw_customers"
+      }
+    },
+    "kQ9aUVsblQ16ikNkanv25$$duIN3DlLxq7a7KfcIUz7K" : {
+      "id" : "kQ9aUVsblQ16ikNkanv25$$duIN3DlLxq7a7KfcIUz7K",
+      "component" : "Target",
+      "metadata" : {
+        "label" : "bronze_irs_zipcode",
+        "slug" : "bronze_irs_zipcode",
+        "x" : 1040,
+        "y" : 760,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "pOi7LuGB-GJPoUAOjMcV0$$WLSryU_ORFJSFxfftB1xV",
+          "slug" : "in",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "STATEFIPS",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "STATE",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "zipcode",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "agi_stub",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N1",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "MARS1",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "MARS2",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "MARS4",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "PREP",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N2",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "NUMDEP",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00100",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00200",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00200",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N01000",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A01000",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N01400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A01400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N01700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A01700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "SCHF",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N26270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A26270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03150",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03150",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03210",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03210",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N04470",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A04470",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00101",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18425",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18425",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18450",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18450",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N19300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A19300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N19700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A19700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N04800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A04800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N05800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A05800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N09600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A09600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07100",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07100",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07180",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07180",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07260",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07260",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N09400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A09400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N10600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A10600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N59660",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A59660",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N59720",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A59720",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N11070",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A11070",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N10960",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A10960",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N06500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A06500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N10300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A10300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N85330",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A85330",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N85300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A85300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N11901",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A11901",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N11902",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A11902",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/bronze_irs_zipcode"
+      }
+    },
+    "HR_CIJEQp-A0AotomTJTL$$r31OcojcDX6RH_ANipvJB" : {
+      "id" : "HR_CIJEQp-A0AotomTJTL$$r31OcojcDX6RH_ANipvJB",
+      "component" : "Reformat",
+      "metadata" : {
+        "label" : "ReformatIRS",
+        "slug" : "ReformatIRS",
+        "x" : 800,
+        "y" : 760,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M",
+          "slug" : "in",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "STATEFIPS",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "STATE",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "zipcode",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "agi_stub",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N1",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "MARS1",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "MARS2",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "MARS4",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "PREP",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N2",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "NUMDEP",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00100",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00200",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00200",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00650",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N00900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N01000",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A01000",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N01400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A01400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N01700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A01700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "SCHF",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N26270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A26270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N02900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A02900",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03270",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03150",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03150",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03210",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03210",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N03240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A03240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N04470",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A04470",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A00101",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18425",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18425",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18450",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18450",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N18300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A18300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N19300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A19300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N19700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A19700",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N04800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A04800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N05800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A05800",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N09600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A09600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07100",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07100",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07180",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07180",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07230",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07240",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07220",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N07260",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A07260",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N09400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A09400",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N10600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A10600",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N59660",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A59660",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N59720",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A59720",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N11070",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A11070",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N10960",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A10960",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N06500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A06500",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N10300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A10300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N85330",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A85330",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N85300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A85300",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N11901",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A11901",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "N11902",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "A11902",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ {
+          "id" : "52MaYOieg-kThyv_lF3gu$$FpNRw7TH6RyUvfFOA1RFX",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "columnsSelector" : [ "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##STATEFIPS", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##STATE", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##zipcode", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##agi_stub", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N1", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##MARS1", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##MARS2", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##MARS4", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##PREP", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N2", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##NUMDEP", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00100", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N02650", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A02650", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N00200", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00200", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N00300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N00600", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00600", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N00650", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00650", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N00700", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00700", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N00900", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00900", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N01000", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A01000", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N01400", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A01400", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N01700", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A01700", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##SCHF", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N02300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A02300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N02500", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A02500", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N26270", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A26270", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N02900", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A02900", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03220", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03220", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03270", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03270", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03150", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03150", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03210", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03210", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03230", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03230", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N03240", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A03240", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N04470", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A04470", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A00101", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N18425", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A18425", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N18450", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A18450", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N18500", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A18500", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N18300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A18300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N19300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A19300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N19700", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A19700", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N04800", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A04800", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N05800", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A05800", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N09600", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A09600", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07100", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07100", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07180", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07180", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07230", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07230", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07240", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07240", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07220", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07220", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N07260", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A07260", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N09400", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A09400", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N10600", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A10600", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N59660", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A59660", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N59720", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A59720", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N11070", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A11070", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N10960", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A10960", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N06500", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A06500", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N10300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A10300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N85330", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A85330", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N85300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A85300", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N11901", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A11901", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##N11902", "3OlV60cz6xM_F9G00j4f6$$DBM6Q3M0D6yQDA8aT_b2M##A11902" ],
+        "expressions" : [ {
+          "target" : "STATEFIPS",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "STATEFIPS"
+          },
+          "description" : ""
+        }, {
+          "target" : "STATE",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "STATE"
+          },
+          "description" : ""
+        }, {
+          "target" : "zipcode",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "zipcode"
+          },
+          "description" : ""
+        }, {
+          "target" : "agi_stub",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "agi_stub"
+          },
+          "description" : ""
+        }, {
+          "target" : "N1",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N1"
+          },
+          "description" : ""
+        }, {
+          "target" : "MARS1",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "MARS1"
+          },
+          "description" : ""
+        }, {
+          "target" : "MARS2",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "MARS2"
+          },
+          "description" : ""
+        }, {
+          "target" : "MARS4",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "MARS4"
+          },
+          "description" : ""
+        }, {
+          "target" : "PREP",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "PREP"
+          },
+          "description" : ""
+        }, {
+          "target" : "N2",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N2"
+          },
+          "description" : ""
+        }, {
+          "target" : "NUMDEP",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "NUMDEP"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00100",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00100"
+          },
+          "description" : ""
+        }, {
+          "target" : "N02650",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N02650"
+          },
+          "description" : ""
+        }, {
+          "target" : "A02650",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A02650"
+          },
+          "description" : ""
+        }, {
+          "target" : "N00200",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N00200"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00200",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00200"
+          },
+          "description" : ""
+        }, {
+          "target" : "N00300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N00300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N00600",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N00600"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00600",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00600"
+          },
+          "description" : ""
+        }, {
+          "target" : "N00650",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N00650"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00650",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00650"
+          },
+          "description" : ""
+        }, {
+          "target" : "N00700",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N00700"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00700",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00700"
+          },
+          "description" : ""
+        }, {
+          "target" : "N00900",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N00900"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00900",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00900"
+          },
+          "description" : ""
+        }, {
+          "target" : "N01000",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N01000"
+          },
+          "description" : ""
+        }, {
+          "target" : "A01000",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A01000"
+          },
+          "description" : ""
+        }, {
+          "target" : "N01400",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N01400"
+          },
+          "description" : ""
+        }, {
+          "target" : "A01400",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A01400"
+          },
+          "description" : ""
+        }, {
+          "target" : "N01700",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N01700"
+          },
+          "description" : ""
+        }, {
+          "target" : "A01700",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A01700"
+          },
+          "description" : ""
+        }, {
+          "target" : "SCHF",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "SCHF"
+          },
+          "description" : ""
+        }, {
+          "target" : "N02300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N02300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A02300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A02300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N02500",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N02500"
+          },
+          "description" : ""
+        }, {
+          "target" : "A02500",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A02500"
+          },
+          "description" : ""
+        }, {
+          "target" : "N26270",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N26270"
+          },
+          "description" : ""
+        }, {
+          "target" : "A26270",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A26270"
+          },
+          "description" : ""
+        }, {
+          "target" : "N02900",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N02900"
+          },
+          "description" : ""
+        }, {
+          "target" : "A02900",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A02900"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03220",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03220"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03220",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03220"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03270",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03270"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03270",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03270"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03150",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03150"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03150",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03150"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03210",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03210"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03210",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03210"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03230",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03230"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03230",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03230"
+          },
+          "description" : ""
+        }, {
+          "target" : "N03240",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N03240"
+          },
+          "description" : ""
+        }, {
+          "target" : "A03240",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A03240"
+          },
+          "description" : ""
+        }, {
+          "target" : "N04470",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N04470"
+          },
+          "description" : ""
+        }, {
+          "target" : "A04470",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A04470"
+          },
+          "description" : ""
+        }, {
+          "target" : "A00101",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A00101"
+          },
+          "description" : ""
+        }, {
+          "target" : "N18425",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N18425"
+          },
+          "description" : ""
+        }, {
+          "target" : "A18425",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A18425"
+          },
+          "description" : ""
+        }, {
+          "target" : "N18450",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N18450"
+          },
+          "description" : ""
+        }, {
+          "target" : "A18450",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A18450"
+          },
+          "description" : ""
+        }, {
+          "target" : "N18500",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N18500"
+          },
+          "description" : ""
+        }, {
+          "target" : "A18500",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A18500"
+          },
+          "description" : ""
+        }, {
+          "target" : "N18300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N18300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A18300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A18300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N19300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N19300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A19300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A19300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N19700",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N19700"
+          },
+          "description" : ""
+        }, {
+          "target" : "A19700",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A19700"
+          },
+          "description" : ""
+        }, {
+          "target" : "N04800",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N04800"
+          },
+          "description" : ""
+        }, {
+          "target" : "A04800",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A04800"
+          },
+          "description" : ""
+        }, {
+          "target" : "N05800",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N05800"
+          },
+          "description" : ""
+        }, {
+          "target" : "A05800",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A05800"
+          },
+          "description" : ""
+        }, {
+          "target" : "N09600",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N09600"
+          },
+          "description" : ""
+        }, {
+          "target" : "A09600",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A09600"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07100",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07100"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07100",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07100"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07180",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07180"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07180",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07180"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07230",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07230"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07230",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07230"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07240",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07240"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07240",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07240"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07220",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07220"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07220",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07220"
+          },
+          "description" : ""
+        }, {
+          "target" : "N07260",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N07260"
+          },
+          "description" : ""
+        }, {
+          "target" : "A07260",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A07260"
+          },
+          "description" : ""
+        }, {
+          "target" : "N09400",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N09400"
+          },
+          "description" : ""
+        }, {
+          "target" : "A09400",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A09400"
+          },
+          "description" : ""
+        }, {
+          "target" : "N10600",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N10600"
+          },
+          "description" : ""
+        }, {
+          "target" : "A10600",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A10600"
+          },
+          "description" : ""
+        }, {
+          "target" : "N59660",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N59660"
+          },
+          "description" : ""
+        }, {
+          "target" : "A59660",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A59660"
+          },
+          "description" : ""
+        }, {
+          "target" : "N59720",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N59720"
+          },
+          "description" : ""
+        }, {
+          "target" : "A59720",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A59720"
+          },
+          "description" : ""
+        }, {
+          "target" : "N11070",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N11070"
+          },
+          "description" : ""
+        }, {
+          "target" : "A11070",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A11070"
+          },
+          "description" : ""
+        }, {
+          "target" : "N10960",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N10960"
+          },
+          "description" : ""
+        }, {
+          "target" : "A10960",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A10960"
+          },
+          "description" : ""
+        }, {
+          "target" : "N06500",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N06500"
+          },
+          "description" : ""
+        }, {
+          "target" : "A06500",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A06500"
+          },
+          "description" : ""
+        }, {
+          "target" : "N10300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N10300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A10300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A10300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N85330",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N85330"
+          },
+          "description" : ""
+        }, {
+          "target" : "A85330",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A85330"
+          },
+          "description" : ""
+        }, {
+          "target" : "N85300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N85300"
+          },
+          "description" : ""
+        }, {
+          "target" : "A85300",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A85300"
+          },
+          "description" : ""
+        }, {
+          "target" : "N11901",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N11901"
+          },
+          "description" : ""
+        }, {
+          "target" : "A11901",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A11901"
+          },
+          "description" : ""
+        }, {
+          "target" : "N11902",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "N11902"
+          },
+          "description" : ""
+        }, {
+          "target" : "A11902",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "A11902"
+          },
+          "description" : ""
+        } ]
+      },
+      "componentInfo" : {
+        "gemId" : "gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12651.git&subPath=&tag=0.2.6.7&projectSubscriptionProjectId=12651&path=gems/Reformat",
+        "projectName" : "ProphecySparkBasicsScala"
+      }
+    },
+    "wEFNMjcSNBlXgGJUihaMf$$I5aOMYeseWrsGMHvFLtbP" : {
+      "id" : "wEFNMjcSNBlXgGJUihaMf$$I5aOMYeseWrsGMHvFLtbP",
+      "component" : "Source",
+      "metadata" : {
+        "label" : "raw_orders",
+        "slug" : "raw_orders",
+        "x" : 600,
+        "y" : 580,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false,
+        "comment" : "Loads raw order data from a CSV file for further analysis.",
+        "autoUpdateComment" : true
+      },
+      "ports" : {
+        "inputs" : [ ],
+        "outputs" : [ {
+          "id" : "dmhoEVZ-3n2SWqe0LysUT$$XYX0k7yujLimv3_bfi4pb",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/raw_orders"
+      }
+    },
+    "LTgTQhYE7prLT4LQaSh-6$$YWcZrH_J6riy41gYqsibk" : {
+      "id" : "LTgTQhYE7prLT4LQaSh-6$$YWcZrH_J6riy41gYqsibk",
+      "component" : "Reformat",
+      "metadata" : {
+        "label" : "ReformatOrders",
+        "slug" : "ReformatOrders",
+        "x" : 800,
+        "y" : 580,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo",
+          "slug" : "in",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "order_id",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Order ID",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "primary"
+                } ]
+              }
+            }, {
+              "name" : "customer_id",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer ID",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "order_status",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Order status",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "order_category",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Order category",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "order_date",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Date the order was made",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "amount",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Total amount for the order",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ {
+          "id" : "kBkJ-hRpIP-EESX5xxjou$$BMcaejgc7AydvzS-tXTkA",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "columnsSelector" : [ "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo##order_id", "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo##customer_id", "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo##order_status", "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo##order_category", "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo##order_date", "jZIlDRETKo2SlyWTO5Abr$$tUKoHPHE5LEgz6HHU3_Eo##amount" ],
+        "expressions" : [ {
+          "target" : "order_id",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "cast(order_id as int)"
+          },
+          "description" : ""
+        }, {
+          "target" : "customer_id",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "cast(customer_id as int)"
+          },
+          "description" : ""
+        }, {
+          "target" : "order_status",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "order_status"
+          },
+          "description" : ""
+        }, {
+          "target" : "order_category",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "order_category"
+          },
+          "description" : ""
+        }, {
+          "target" : "order_date",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "cast(order_date as date)"
+          },
+          "description" : ""
+        }, {
+          "target" : "amount",
+          "expression" : {
+            "format" : "sql",
+            "expression" : "cast(amount as float)"
+          },
+          "description" : ""
+        } ]
+      },
+      "componentInfo" : {
+        "gemId" : "gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12651.git&subPath=&tag=0.2.6.7&projectSubscriptionProjectId=12651&path=gems/Reformat",
+        "projectName" : "ProphecySparkBasicsScala"
+      }
+    },
+    "PoK5qOCcfGEzcgiXZe6Mz$$94-w4mFCrOq49Oeu7njqh" : {
+      "id" : "PoK5qOCcfGEzcgiXZe6Mz$$94-w4mFCrOq49Oeu7njqh",
+      "component" : "Source",
+      "metadata" : {
+        "label" : "raw_irs_zipcode",
+        "slug" : "raw_irs_zipcode",
+        "x" : 600,
+        "y" : 760,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ ],
+        "outputs" : [ {
+          "id" : "IaCC8b1SOB2CwPtF-96BW$$TQaoNvl2o3euI_4zrIjiP",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/raw_irs_zipcode"
+      }
+    },
+    "30_Q8UksEp4pqCwtJuAm_$$4UHkAft2M6yWXajOAFKSn" : {
+      "id" : "30_Q8UksEp4pqCwtJuAm_$$4UHkAft2M6yWXajOAFKSn",
+      "component" : "Target",
+      "metadata" : {
+        "label" : "bronze_orders",
+        "slug" : "bronze_orders",
+        "x" : 1040,
+        "y" : 580,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "XrrPRHE6bhXVpAofzYUXU$$JK-Rzl-NPF5PDUldFCGbw",
+          "slug" : "in",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "order_id",
+              "type" : "integer",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "customer_id",
+              "type" : "integer",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "order_status",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Order status",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "order_category",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Order category",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "order_date",
+              "type" : "date",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "amount",
+              "type" : "float",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/bronze_orders"
+      }
+    },
+    "FRhBTo1sIy0cBj-dFoUb5$$dLq4M5vO5O_2DwEX2CFMb" : {
+      "id" : "FRhBTo1sIy0cBj-dFoUb5$$dLq4M5vO5O_2DwEX2CFMb",
+      "component" : "Target",
+      "metadata" : {
+        "label" : "bronze_customers",
+        "slug" : "bronze_customers",
+        "x" : 1040,
+        "y" : 380,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "3lPS5B2vAQGyyBCgn0W1V$$MDkAiZbczV0JlkMjz4dvs",
+          "slug" : "in",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "customer_id",
+              "type" : "integer",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "first_name",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer first name",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "last_name",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer last name",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "phone",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer phone number",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "email",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer Email",
+                "mappings" : [ ],
+                "tags" : [ {
+                  "type" : "user",
+                  "name" : "pii"
+                } ]
+              }
+            }, {
+              "name" : "country_code",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer country code",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "account_open_date",
+              "type" : "date",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "account_flags",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "Customer account flags",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "full_name",
+              "type" : "string",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/bronze_customers"
+      }
+    }
+  },
+  "ports" : {
+    "inputs" : [ ],
+    "outputs" : [ ],
+    "selectedInputFields" : [ ],
+    "isCustomOutputSchema" : false,
+    "autoUpdateOnRun" : false
+  }
+}

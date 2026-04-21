@@ -1,0 +1,12 @@
+on: [push]
+
+jobs:
+  ado-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Push to ADO
+        run: |
+          git remote add ado https://scott:${{ secrets.ADO_PAT }}@dev.azure.com/prophecy-io/HelloProphecyADO/_git/HelloProphecyADO
+          git push --force ado

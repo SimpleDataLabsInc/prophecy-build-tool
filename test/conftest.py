@@ -149,6 +149,58 @@ def sample_project(tmp_path: Path, resources_dir: Path) -> Path:
     return dest
 
 
+# ---------------------------------------------------------------------------
+# HelloProphecy sample repo (vendored from prophecy-samples/HelloProphecy)
+# ---------------------------------------------------------------------------
+#
+# Used by the v2 e2e suite (python) and the scala deprecation lane. The repo
+# ships two sibling pbt projects:
+#
+#   - ``prophecy/``          — python project
+#   - ``prophecy_scala/``    — scala project (deprecated; kept for parity)
+#
+# We vendor the repo into ``test/resources/HelloProphecy`` rather than cloning
+# at test time so the e2e lane is:
+#   - offline (no github round-trip on every CI run),
+#   - deterministic (no chance of a new upstream commit breaking the build),
+#   - faster (no clone cost per session).
+#
+# To refresh the vendored copy against upstream ``main``, see the instructions
+# in ``test/README.md``.
+
+_HELLOPROPHECY_VENDORED = _RESOURCES / "HelloProphecy"
+
+
+@pytest.fixture
+def helloprophecy_repo(tmp_path: Path) -> "tuple[Path, Path, Path]":
+    """Return an isolated per-test copy of the vendored HelloProphecy repo.
+
+    Returns ``(repo_root, python_project, scala_project)`` where
+    ``python_project == repo_root/prophecy`` and
+    ``scala_project == repo_root/prophecy_scala``.
+
+    The copy is scoped to ``tmp_path`` so any mutations a test makes
+    (pipeline builds, generated ``coverage.xml``, tags, …) never leak
+    across tests.
+    """
+
+    if not _HELLOPROPHECY_VENDORED.exists():
+        pytest.skip(
+            f"Vendored HelloProphecy fixture is missing at "
+            f"{_HELLOPROPHECY_VENDORED}. See test/README.md for how to refresh."
+        )
+
+    dest = tmp_path / "HelloProphecy"
+    shutil.copytree(_HELLOPROPHECY_VENDORED, dest, symlinks=False)
+    python_project = dest / "prophecy"
+    scala_project = dest / "prophecy_scala"
+    if not python_project.exists():
+        pytest.skip(f"HelloProphecy fixture missing prophecy/: {python_project}")
+    if not scala_project.exists():
+        pytest.skip(f"HelloProphecy fixture missing prophecy_scala/: {scala_project}")
+    return dest, python_project, scala_project
+
+
 @pytest.fixture
 def empty_project(tmp_path: Path) -> Path:
     """Tiny synthetic project used for validator/unit tests that only need a pbt_project.yml."""
@@ -164,6 +216,89 @@ def empty_project(tmp_path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Per-worker Maven / Ivy cache hints
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Marker guardrail
+# ---------------------------------------------------------------------------
+#
+# Every test file under ``test/v2/`` MUST declare at the top::
+#
+#     pytestmark = [pytest.mark.v2, pytest.mark.fast]   # default
+#     # or
+#     pytestmark = [pytest.mark.v2, pytest.mark.e2e]    # slow / bundle / CLI happy-path
+#
+# Rules enforced at collection time (fail fast, before any test runs):
+#
+# 1. Every test under ``test/v2/`` carries ``v2``.
+# 2. Every ``v2`` test carries exactly one of ``fast`` or ``e2e``.
+#
+# These invariants back the CI selectors ``-m "v2 and fast"`` (PR lane) and
+# ``-m "e2e or maven or spark"`` (slow lane), so a missing marker would silently
+# exclude a new test from the PR lane. We fail the run instead.
+#
+# ``legacy`` and ``v2`` are *not* disjoint. The ``legacy`` marker is used in
+# two distinct ways:
+#   (a) on pre-refactor files at ``test/test_*.py`` (carried alone, not v2);
+#   (b) on new tests under ``test/v2/`` that exercise a deprecated subject
+#       (e.g. scala in ``test/v2/e2e/test_scala_e2e.py``) — these carry
+#       ``v2 + e2e + legacy`` so they show up in *both* the legacy CI lane
+#       and the slow e2e lane, but never in the v2 fast lane.
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: "list[pytest.Item]"
+) -> None:
+    v2_root = _HERE / "v2"
+    errors: list[str] = []
+
+    for item in items:
+        try:
+            item_path = Path(str(item.fspath)).resolve()
+        except Exception:
+            continue
+        names = {m.name for m in item.iter_markers()}
+        rel = None
+        try:
+            rel = item_path.relative_to(_HERE)
+        except ValueError:
+            continue
+
+        in_v2 = False
+        try:
+            item_path.relative_to(v2_root)
+            in_v2 = True
+        except ValueError:
+            in_v2 = False
+
+        if in_v2 and "v2" not in names:
+            errors.append(f"{rel}::{item.name}: missing `pytest.mark.v2` (required for every test under test/v2/)")
+
+        if "v2" in names:
+            has_fast = "fast" in names
+            has_e2e = "e2e" in names
+            if has_fast and has_e2e:
+                errors.append(
+                    f"{rel}::{item.name}: carries both `fast` and `e2e`; pick exactly one"
+                )
+            elif not has_fast and not has_e2e:
+                errors.append(
+                    f"{rel}::{item.name}: v2 test must also carry `fast` or `e2e`"
+                )
+
+            if "legacy" in names and "fast" in names:
+                # A v2+legacy test means "new test, deprecated subject" — those
+                # belong in the slow e2e lane, never in the PR fast lane.
+                errors.append(
+                    f"{rel}::{item.name}: v2+legacy must be `e2e`, not `fast` "
+                    "(legacy-subject tests should not run in the PR fast lane)"
+                )
+
+    if errors:
+        joined = "\n  - " + "\n  - ".join(errors)
+        raise pytest.UsageError(
+            "Invalid pytest marker configuration on one or more tests:" + joined
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)

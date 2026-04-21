@@ -20,7 +20,7 @@ import pytest
 from src.pbt.pbt_cli import PBTCli
 from src.pbt.utils.project_config import DeploymentMode
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 def _project_with_fabric(tmp_path: Path, fabric_ids: list[str]) -> Path:

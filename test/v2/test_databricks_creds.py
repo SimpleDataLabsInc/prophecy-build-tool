@@ -11,7 +11,7 @@ import pytest
 
 from src.pbt.utils.databricks_creds import get_databricks_credentials
 
-pytestmark = [pytest.mark.unit, pytest.mark.v2]
+pytestmark = [pytest.mark.unit, pytest.mark.v2, pytest.mark.fast]
 
 
 @pytest.fixture(autouse=True)

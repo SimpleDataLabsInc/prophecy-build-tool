@@ -1,0 +1,1 @@
+{"initCode":"","code":"udf((value: Int) => {\n    import scala.util.Random\n    val r = new Random(value)\n    r.nextInt(27689)\n})"}

@@ -1,0 +1,327 @@
+{
+  "metainfo" : {
+    "migrationVersions" : {
+      "gemBuilderVersion" : "v1",
+      "unitTestNullDataMigrated" : true
+    },
+    "functions" : { },
+    "codeGenConfiguration" : {
+      "editableConfig" : false,
+      "plibVersion" : {
+        "mavenVersion" : "9.2.0",
+        "pyPiVersion" : "2.1.16"
+      }
+    },
+    "id" : "1",
+    "uri" : "pipelines/gold_top_customers",
+    "pipelineSettingsInfo" : {
+      "isNullValuesInUnitTestsEnabled" : true
+    },
+    "language" : "python",
+    "fabricId" : "1571",
+    "frontEndLanguage" : "sql",
+    "mode" : "batch",
+    "udfs" : {
+      "language" : "python",
+      "udfs" : [ ],
+      "functionPackageName" : "scott_demo2_team.helloworld.functions",
+      "sharedFunctionPackageNames" : [ "prophecy.spark_basic.functions", "prophecy.warehouse.functions" ]
+    },
+    "udafs" : {
+      "language" : "python",
+      "code" : ""
+    },
+    "configuration" : {
+      "common" : {
+        "type" : "record",
+        "fields" : [ ]
+      },
+      "oldCommon" : {
+        "type" : "record",
+        "fields" : [ ]
+      },
+      "fabrics" : { },
+      "instances" : { },
+      "selected" : "default",
+      "nonEditable" : [ ],
+      "isSubscribedPipelineWithPipelineConfigs" : false
+    },
+    "sparkConf" : [ ],
+    "hadoopConf" : [ ],
+    "codeMode" : "sparse",
+    "buildSystem" : "maven",
+    "externalDependencies" : [ ],
+    "dependentProjectExternalDependencies" : [ {
+      "projectUID" : "12654",
+      "projectName" : "ProphecySparkBasicsPython",
+      "externalDependencies" : [ ]
+    }, {
+      "projectUID" : "12655",
+      "projectName" : "ProphecyWarehousePython",
+      "externalDependencies" : [ ]
+    } ],
+    "isImported" : false,
+    "interimMode" : "Full",
+    "interimModeEnabled" : true,
+    "visualCodeInterimMode" : "Disabled",
+    "recordsLimit" : {
+      "enabled" : false,
+      "value" : 1000
+    },
+    "topLevelPackage" : "gold_top_customers",
+    "configurationVersion" : "v2"
+  },
+  "connections" : [ {
+    "id" : "Beg1BYu7pY_zM4GR8xVNH$$6V--WcoX9Psg68i_VGqU6",
+    "source" : "z5re_BybsrU1NoAakKhHs$$mJHvXLjnDNcmck2eH7J7q",
+    "sourcePort" : "DLraNgXJ3LisZLEkWp5d1$$l2jPi8Td5ym9yNOGCaECn",
+    "target" : "oxcXzdJNHyYpWsJEIaKkp$$HTG67Dy9ZO9fIFaqx2kCg",
+    "targetPort" : "XhjP1uvF2Vf1943_yrKM9$$IpXsB0F9L9MsqowaZOLCx"
+  }, {
+    "id" : "WnldfEC9BklcBgoRR86jj$$tlTCy1zG5GoRaM3SAqlDO",
+    "source" : "oxcXzdJNHyYpWsJEIaKkp$$HTG67Dy9ZO9fIFaqx2kCg",
+    "sourcePort" : "7M3agKOSVlw_uCZHCFNtb$$9fKIvQOxz7g9i7yC9lIq0",
+    "target" : "0VqVgj9CNr5HUE65Hzsw-$$ltsiOJ4twWeVvuuKLyOBW",
+    "targetPort" : "k8DFmp-XAQYU18A2wNnip$$m5tFeDF37QkUePt1v5XGZ"
+  }, {
+    "id" : "wzPOk_lx3sb8HA629wlDc$$nAQmvnFUpFo1qO0kHvitO",
+    "source" : "0VqVgj9CNr5HUE65Hzsw-$$ltsiOJ4twWeVvuuKLyOBW",
+    "sourcePort" : "wUsB0Dga97QNF2tqvM8ca$$3jZNzR2bEU8oQ4mQq5UK-",
+    "target" : "tD0z7Hu8Y-buf6xKuj5Ad$$9e6S1OXpJ24f_rdDcTXDD",
+    "targetPort" : "cqj0ijn3pMhxYuoG4qhon$$Up_Fk1qpTN_GpGMaunvMC"
+  } ],
+  "processes" : {
+    "tD0z7Hu8Y-buf6xKuj5Ad$$9e6S1OXpJ24f_rdDcTXDD" : {
+      "id" : "tD0z7Hu8Y-buf6xKuj5Ad$$9e6S1OXpJ24f_rdDcTXDD",
+      "component" : "Target",
+      "metadata" : {
+        "label" : "gold_top50_customers_by_spend",
+        "slug" : "gold_top50_customers_by_spend",
+        "x" : 1040,
+        "y" : 500,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "cqj0ijn3pMhxYuoG4qhon$$Up_Fk1qpTN_GpGMaunvMC",
+          "slug" : "in0",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "customer_id",
+              "type" : "integer",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "orders",
+              "type" : "long",
+              "nullable" : false,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "total_spend",
+              "type" : "double",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/gold_top50_customers_by_spend"
+      }
+    },
+    "oxcXzdJNHyYpWsJEIaKkp$$HTG67Dy9ZO9fIFaqx2kCg" : {
+      "id" : "oxcXzdJNHyYpWsJEIaKkp$$HTG67Dy9ZO9fIFaqx2kCg",
+      "component" : "OrderBy",
+      "metadata" : {
+        "label" : "OrderByTotalSpend",
+        "slug" : "OrderByTotalSpend",
+        "x" : 640,
+        "y" : 500,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "XhjP1uvF2Vf1943_yrKM9$$IpXsB0F9L9MsqowaZOLCx",
+          "slug" : "in0",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "customer_id",
+              "type" : "integer",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "orders",
+              "type" : "long",
+              "nullable" : false,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "total_spend",
+              "type" : "double",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ {
+          "id" : "7M3agKOSVlw_uCZHCFNtb$$9fKIvQOxz7g9i7yC9lIq0",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "columnsSelector" : [ "XhjP1uvF2Vf1943_yrKM9$$IpXsB0F9L9MsqowaZOLCx##total_spend" ],
+        "orders" : [ {
+          "expression" : {
+            "format" : "sql",
+            "expression" : "total_spend"
+          },
+          "sortType" : "desc"
+        } ]
+      },
+      "componentInfo" : {
+        "gemId" : "gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12654.git&subPath=&tag=0.2.55&projectSubscriptionProjectId=12654&path=gems/OrderBy",
+        "projectName" : "ProphecySparkBasicsPython"
+      }
+    },
+    "z5re_BybsrU1NoAakKhHs$$mJHvXLjnDNcmck2eH7J7q" : {
+      "id" : "z5re_BybsrU1NoAakKhHs$$mJHvXLjnDNcmck2eH7J7q",
+      "component" : "Source",
+      "metadata" : {
+        "label" : "gold_total_sales_by_customer",
+        "slug" : "gold_total_sales_by_customer",
+        "x" : 440,
+        "y" : 500,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ ],
+        "outputs" : [ {
+          "id" : "DLraNgXJ3LisZLEkWp5d1$$l2jPi8Td5ym9yNOGCaECn",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "datasetId" : "datasets/gold_total_sales_by_customer"
+      }
+    },
+    "0VqVgj9CNr5HUE65Hzsw-$$ltsiOJ4twWeVvuuKLyOBW" : {
+      "id" : "0VqVgj9CNr5HUE65Hzsw-$$ltsiOJ4twWeVvuuKLyOBW",
+      "component" : "Limit",
+      "metadata" : {
+        "label" : "Top50",
+        "slug" : "Top50",
+        "x" : 820,
+        "y" : 500,
+        "phase" : 0,
+        "cache" : false,
+        "detailedStats" : false,
+        "isImported" : false
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "k8DFmp-XAQYU18A2wNnip$$m5tFeDF37QkUePt1v5XGZ",
+          "slug" : "in0",
+          "schema" : {
+            "type" : "struct",
+            "fields" : [ {
+              "name" : "customer_id",
+              "type" : "integer",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "orders",
+              "type" : "long",
+              "nullable" : false,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            }, {
+              "name" : "total_spend",
+              "type" : "double",
+              "nullable" : true,
+              "metadata" : {
+                "description" : "",
+                "mappings" : [ ],
+                "tags" : [ ]
+              }
+            } ]
+          },
+          "isStreaming" : false
+        } ],
+        "outputs" : [ {
+          "id" : "wUsB0Dga97QNF2tqvM8ca$$3jZNzR2bEU8oQ4mQq5UK-",
+          "slug" : "out"
+        } ],
+        "selectedInputFields" : [ ],
+        "isCustomOutputSchema" : false,
+        "autoUpdateOnRun" : false
+      },
+      "properties" : {
+        "limit" : "50"
+      },
+      "componentInfo" : {
+        "gemId" : "gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12654.git&subPath=&tag=0.2.55&projectSubscriptionProjectId=12654&path=gems/Limit",
+        "projectName" : "ProphecySparkBasicsPython"
+      }
+    }
+  },
+  "ports" : {
+    "inputs" : [ ],
+    "outputs" : [ ],
+    "selectedInputFields" : [ ],
+    "isCustomOutputSchema" : false,
+    "autoUpdateOnRun" : false
+  }
+}

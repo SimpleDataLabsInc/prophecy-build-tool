@@ -1,0 +1,302 @@
+{
+  "metainfo" : {
+    "type" : "Prophecy",
+    "fabricId" : "16432",
+    "jobId" : "jobs/AirflowEndToEndJob",
+    "name" : "AirflowEndToEndJob",
+    "dagName" : "scott_demo2_team_HelloProphecy_AirflowEndToEndJob",
+    "schedule" : "None",
+    "enabled" : false,
+    "alerting" : {
+      "emails" : "",
+      "onStart" : false,
+      "onSuccess" : false,
+      "onFailure" : false,
+      "onDurationWarningThresholdExceeded" : false
+    },
+    "maxConcurrentRuns" : 1,
+    "processDefaultSettings" : {
+      "ignore_first_depends_on_past" : true,
+      "do_xcom_push" : true
+    },
+    "endDate" : "2026-11-29",
+    "catchup" : false,
+    "scheduleTimeZone" : "UTC",
+    "dagParams" : {
+      "instances" : {
+        "default" : { }
+      },
+      "params" : { },
+      "selected" : "default"
+    },
+    "airflowFunctions" : [ ],
+    "dynamicPipelineStatus" : {
+      "databricks" : false,
+      "dataproc" : false,
+      "emr" : false,
+      "onprem" : false,
+      "emr_serverless" : false
+    }
+  },
+  "processes" : {
+    "kJBop76DMF2_pR-K8REpS$$7KYWbmSJkMJPYwI4EtPDb" : {
+      "id" : "kJBop76DMF2_pR-K8REpS$$7KYWbmSJkMJPYwI4EtPDb",
+      "component" : "DatabricksPipeline",
+      "metadata" : {
+        "label" : "silver_customers",
+        "slug" : "silver_customers",
+        "x" : -200,
+        "y" : -480
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "Ui-gu7hlaPhd3sJhIyJi2$$eqiGhNjoVf1_B3CQ1UYft",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "KFlMVpgSA0RPALt1ymEmy$$SJE-z9w92hhFMzS-UCHTU",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "runJson" : null,
+        "projectId" : "5613",
+        "databricksConnId" : "",
+        "clusterSize" : "16433/small",
+        "configurations" : {
+          "schema" : [ {
+            "name" : "ZipCodes",
+            "optional" : false,
+            "kind" : {
+              "type" : "record",
+              "fields" : [ ]
+            },
+            "isReferenced" : false,
+            "isWorkflowNodeConfiguration" : true
+          } ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : {
+            "type" : "literal",
+            "value" : "default"
+          }
+        },
+        "taskId" : null,
+        "pipelineId" : {
+          "type" : "literal",
+          "value" : "pipelines/silver_customers_orders"
+        }
+      },
+      "connections" : [ ],
+      "processes" : { }
+    },
+    "UQ4i4F6EOwXgdyqIJxTvE$$dI8lAZ_M7sWwrQfsRycXM" : {
+      "id" : "UQ4i4F6EOwXgdyqIJxTvE$$dI8lAZ_M7sWwrQfsRycXM",
+      "component" : "DatabricksPipeline",
+      "metadata" : {
+        "label" : "raw_bronze",
+        "slug" : "raw_bronze",
+        "x" : -540,
+        "y" : -480
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "bNsfQpqrynomYQrge8285$$-_EGsTS9JNmG_3UIi0FGz",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "M5luDf9r6HzplgVBgBsIe$$HHxcGtOqlyMa3coCmUElO",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "runJson" : null,
+        "projectId" : "5613",
+        "databricksConnId" : "",
+        "clusterSize" : "16433/small",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : {
+            "type" : "literal",
+            "value" : "default"
+          }
+        },
+        "taskId" : null,
+        "pipelineId" : {
+          "type" : "literal",
+          "value" : "pipelines/raw_bronze"
+        }
+      },
+      "connections" : [ ],
+      "processes" : { }
+    },
+    "m2KOLPMJuFdY2tAYo4TOY$$G9Phv0jlvLh06ShSEUzzO" : {
+      "id" : "m2KOLPMJuFdY2tAYo4TOY$$G9Phv0jlvLh06ShSEUzzO",
+      "component" : "DatabricksPipeline",
+      "metadata" : {
+        "label" : "gold_top_customers",
+        "slug" : "gold_top_customers",
+        "x" : 120,
+        "y" : -480
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "RuSaUEWG5y-ezc6-iWxVe$$C2yiMpfviVIrkp2lknYrt",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "63krAgiIUU3zLtro-sZpG$$3GFvz58WW4mxcf5k31nPo",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "runJson" : null,
+        "projectId" : "5613",
+        "databricksConnId" : "",
+        "clusterSize" : "16433/small",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : {
+            "type" : "literal",
+            "value" : "default"
+          }
+        },
+        "taskId" : null,
+        "pipelineId" : {
+          "type" : "literal",
+          "value" : "pipelines/gold_top_customers"
+        }
+      },
+      "connections" : [ ],
+      "processes" : { }
+    },
+    "ij7lfqyhk7t6zv-3oIHeO$$-Hjm0XBzjYrkcjwxha0I8" : {
+      "id" : "ij7lfqyhk7t6zv-3oIHeO$$-Hjm0XBzjYrkcjwxha0I8",
+      "component" : "DatabricksPipeline",
+      "metadata" : {
+        "label" : "silver_zip_codes",
+        "slug" : "silver_zip_codes",
+        "x" : -360,
+        "y" : -480
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "VqSCFfe-78AEtRn1mfAVr$$A13wvC2_jyogUn4cS1YEB",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "knOiUU0zjZyREv8Y08_om$$lk_aGclpZ3YyHs27DenO5",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "runJson" : null,
+        "projectId" : "5613",
+        "databricksConnId" : "",
+        "clusterSize" : "16433/small",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : {
+            "type" : "literal",
+            "value" : "default"
+          }
+        },
+        "taskId" : null,
+        "pipelineId" : {
+          "type" : "literal",
+          "value" : "pipelines/silver_zip_codes"
+        }
+      },
+      "connections" : [ ],
+      "processes" : { }
+    },
+    "709H-8NOyWWqZSg0ixZct$$aIqk9LkdsIgAIomZUpguG" : {
+      "id" : "709H-8NOyWWqZSg0ixZct$$aIqk9LkdsIgAIomZUpguG",
+      "component" : "DatabricksPipeline",
+      "metadata" : {
+        "label" : "gold_sales",
+        "slug" : "gold_sales",
+        "x" : -40,
+        "y" : -480
+      },
+      "ports" : {
+        "inputs" : [ {
+          "id" : "HoZRYOleBeuEo6szkE-Dj$$KG8NzH3lOkZbRVn4hNQD3",
+          "slug" : ""
+        } ],
+        "outputs" : [ {
+          "id" : "r6B0gCbPB_7nXtUyMtzTk$$vlx4ZFaA28CUzPqgqmtHG",
+          "slug" : ""
+        } ]
+      },
+      "settings" : { },
+      "properties" : {
+        "runJson" : null,
+        "projectId" : "5613",
+        "databricksConnId" : "",
+        "clusterSize" : "16433/small",
+        "configurations" : {
+          "schema" : [ ],
+          "instances" : {
+            "HelloProphecy" : [ "default" ]
+          },
+          "overrides" : { },
+          "selectedInstance" : {
+            "type" : "literal",
+            "value" : "default"
+          }
+        },
+        "taskId" : null,
+        "pipelineId" : {
+          "type" : "literal",
+          "value" : "pipelines/gold_sales"
+        }
+      },
+      "connections" : [ ],
+      "processes" : { }
+    }
+  },
+  "connections" : [ {
+    "id" : "EKbCCflffP4iH9E9fANla$$zNRdFtE-9qg5InGWXGj51",
+    "source" : "UQ4i4F6EOwXgdyqIJxTvE$$dI8lAZ_M7sWwrQfsRycXM",
+    "target" : "ij7lfqyhk7t6zv-3oIHeO$$-Hjm0XBzjYrkcjwxha0I8",
+    "sourcePort" : "M5luDf9r6HzplgVBgBsIe$$HHxcGtOqlyMa3coCmUElO",
+    "targetPort" : "VqSCFfe-78AEtRn1mfAVr$$A13wvC2_jyogUn4cS1YEB"
+  }, {
+    "id" : "R0z4r1Z4bVuzPWs8XvXZu$$ud7RXGDNWC3N3gstLjYXD",
+    "source" : "ij7lfqyhk7t6zv-3oIHeO$$-Hjm0XBzjYrkcjwxha0I8",
+    "target" : "kJBop76DMF2_pR-K8REpS$$7KYWbmSJkMJPYwI4EtPDb",
+    "sourcePort" : "knOiUU0zjZyREv8Y08_om$$lk_aGclpZ3YyHs27DenO5",
+    "targetPort" : "Ui-gu7hlaPhd3sJhIyJi2$$eqiGhNjoVf1_B3CQ1UYft"
+  }, {
+    "id" : "_p2bgD4yWQ9ZZ7teDVGSn$$XKrrzA4yAp9xem0xirrB6",
+    "source" : "kJBop76DMF2_pR-K8REpS$$7KYWbmSJkMJPYwI4EtPDb",
+    "target" : "709H-8NOyWWqZSg0ixZct$$aIqk9LkdsIgAIomZUpguG",
+    "sourcePort" : "KFlMVpgSA0RPALt1ymEmy$$SJE-z9w92hhFMzS-UCHTU",
+    "targetPort" : "HoZRYOleBeuEo6szkE-Dj$$KG8NzH3lOkZbRVn4hNQD3"
+  }, {
+    "id" : "7p_G4P7rCJZQ9PxggoM8Q$$QM6MCMIRvDOSXK-1VYBlS",
+    "source" : "709H-8NOyWWqZSg0ixZct$$aIqk9LkdsIgAIomZUpguG",
+    "target" : "m2KOLPMJuFdY2tAYo4TOY$$G9Phv0jlvLh06ShSEUzzO",
+    "sourcePort" : "r6B0gCbPB_7nXtUyMtzTk$$vlx4ZFaA28CUzPqgqmtHG",
+    "targetPort" : "RuSaUEWG5y-ezc6-iWxVe$$C2yiMpfviVIrkp2lknYrt"
+  } ]
+}
