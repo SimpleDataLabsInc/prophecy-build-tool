@@ -71,9 +71,7 @@ def fake_test_python(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return recorded
 
 
-def test_valid_filter_tests_only_matching_pipelines(
-    cli_runner: CliRunner, synthetic_project, fake_test_python
-) -> None:
+def test_valid_filter_tests_only_matching_pipelines(cli_runner: CliRunner, synthetic_project, fake_test_python) -> None:
     """Ports legacy ``test_test_with_pipeline_filter``."""
 
     project = _make_testable_project(
@@ -87,34 +85,22 @@ def test_valid_filter_tests_only_matching_pipelines(
     assert sorted(fake_test_python) == ["pipelines/join_agg_sort", "pipelines/report_top_customers"]
 
 
-def test_partial_notfound_filter_exits_nonzero(
-    cli_runner: CliRunner, synthetic_project, fake_test_python
-) -> None:
+def test_partial_notfound_filter_exits_nonzero(cli_runner: CliRunner, synthetic_project, fake_test_python) -> None:
     """Ports legacy ``test_test_with_pipeline_filter_one_notfound_pipeline``."""
 
-    project = _make_testable_project(
-        synthetic_project, ["customers_orders", "report_top_customers"]
-    )
-    result = cli_runner.invoke(
-        legacy_test, ["--path", str(project), "--pipelines", "report_top_customers,notfound"]
-    )
+    project = _make_testable_project(synthetic_project, ["customers_orders", "report_top_customers"])
+    result = cli_runner.invoke(legacy_test, ["--path", str(project), "--pipelines", "report_top_customers,notfound"])
     assert result.exit_code == 1
     assert "Filtered pipelines doesn't match with passed filter" in result.output
     # Filter exits before any pipeline is tested.
     assert fake_test_python == []
 
 
-def test_all_notfound_filter_exits_nonzero(
-    cli_runner: CliRunner, synthetic_project, fake_test_python
-) -> None:
+def test_all_notfound_filter_exits_nonzero(cli_runner: CliRunner, synthetic_project, fake_test_python) -> None:
     """Ports legacy ``test_test_with_pipeline_filter_all_notfound_pipelines``."""
 
-    project = _make_testable_project(
-        synthetic_project, ["customers_orders"]
-    )
-    result = cli_runner.invoke(
-        legacy_test, ["--path", str(project), "--pipelines", "nope1,nope2,nope3"]
-    )
+    project = _make_testable_project(synthetic_project, ["customers_orders"])
+    result = cli_runner.invoke(legacy_test, ["--path", str(project), "--pipelines", "nope1,nope2,nope3"])
     assert result.exit_code == 1
     assert "Filtered pipelines doesn't match with passed filter" in result.output
     assert fake_test_python == []

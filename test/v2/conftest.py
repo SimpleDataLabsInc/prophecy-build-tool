@@ -197,9 +197,7 @@ def fake_databricks_deploy(monkeypatch: pytest.MonkeyPatch) -> FakeDeploy:
             DeployCall(
                 job_ids=job_ids,
                 mode=co.mode,
-                jobs_and_fabric=(
-                    [(j.job_id, j.fabric_id) for j in co.jobs_and_fabric] if co.jobs_and_fabric else None
-                ),
+                jobs_and_fabric=([(j.job_id, j.fabric_id) for j in co.jobs_and_fabric] if co.jobs_and_fabric else None),
                 skip_builds=cfg.skip_builds,
                 skip_pipeline_deploy=cfg.skip_pipeline_deploy,
                 fabric_ids=[f.id for f in cfg.fabric_config.fabrics],
@@ -256,9 +254,7 @@ def git_bundle_repo(tmp_path: Path) -> Callable[[str], Path]:
             # ``origin/foo/bar`` → local ``foo/bar``.
             local = ref[len("origin/") :] if ref.startswith("origin/") else ref
             # Skip if the local branch already exists (e.g. the checked-out one).
-            exists = subprocess.run(
-                ["git", "-C", str(dest), "show-ref", "--verify", "--quiet", f"refs/heads/{local}"]
-            )
+            exists = subprocess.run(["git", "-C", str(dest), "show-ref", "--verify", "--quiet", f"refs/heads/{local}"])
             if exists.returncode == 0:
                 continue
             subprocess.run(

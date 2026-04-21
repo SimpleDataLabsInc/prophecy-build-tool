@@ -92,9 +92,9 @@ def test_trailing_slash_on_artifactory_is_normalised(input_db_json: dict) -> Non
     libs = _libraries_by_task(out)
     expected_repo = "https://prophecyio.jfrog.io/artifactory/api/pypi/pypi-local/simple"
     for task_key in ("customer_orders", "join_agg"):
-        assert libs[task_key][-1]["pypi"]["repo"] == expected_repo, (
-            f"Expected trailing-slash to be stripped for {task_key}"
-        )
+        assert (
+            libs[task_key][-1]["pypi"]["repo"] == expected_repo
+        ), f"Expected trailing-slash to be stripped for {task_key}"
 
 
 def test_unknown_whl_shape_is_passed_through_unchanged(input_db_json: dict) -> None:

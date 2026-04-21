@@ -36,10 +36,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.v2, pytest.mark.fast]
 
 
 _TESTSUITE_STUB = "def test_always_passes():\n    assert 1 == 1\n"
-_SETUP_PY_STUB = (
-    "from setuptools import setup\n"
-    "setup(name='pbt_cov_probe', version='0.0.1', packages=['job'])\n"
-)
+_SETUP_PY_STUB = "from setuptools import setup\n" "setup(name='pbt_cov_probe', version='0.0.1', packages=['job'])\n"
 _MODULE_INIT = ""
 _MODULE_BODY = "def add(a, b):\n    return a + b\n"
 
@@ -58,8 +55,7 @@ def _write_pipeline(project: Path, pid: str) -> Path:
     test_dir.mkdir(exist_ok=True)
     (test_dir / "__init__.py").write_text("")
     (test_dir / "TestSuite.py").write_text(
-        "from job.utils import add\n\n"
-        "def test_add_ok():\n    assert add(1, 2) == 3\n"
+        "from job.utils import add\n\n" "def test_add_ok():\n    assert add(1, 2) == 3\n"
     )
     return code
 

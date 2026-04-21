@@ -246,9 +246,7 @@ def empty_project(tmp_path: Path) -> Path:
 #       and the slow e2e lane, but never in the v2 fast lane.
 
 
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: "list[pytest.Item]"
-) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: "list[pytest.Item]") -> None:
     v2_root = _HERE / "v2"
     errors: list[str] = []
 
@@ -278,13 +276,9 @@ def pytest_collection_modifyitems(
             has_fast = "fast" in names
             has_e2e = "e2e" in names
             if has_fast and has_e2e:
-                errors.append(
-                    f"{rel}::{item.name}: carries both `fast` and `e2e`; pick exactly one"
-                )
+                errors.append(f"{rel}::{item.name}: carries both `fast` and `e2e`; pick exactly one")
             elif not has_fast and not has_e2e:
-                errors.append(
-                    f"{rel}::{item.name}: v2 test must also carry `fast` or `e2e`"
-                )
+                errors.append(f"{rel}::{item.name}: v2 test must also carry `fast` or `e2e`")
 
             if "legacy" in names and "fast" in names:
                 # A v2+legacy test means "new test, deprecated subject" — those
@@ -296,9 +290,7 @@ def pytest_collection_modifyitems(
 
     if errors:
         joined = "\n  - " + "\n  - ".join(errors)
-        raise pytest.UsageError(
-            "Invalid pytest marker configuration on one or more tests:" + joined
-        )
+        raise pytest.UsageError("Invalid pytest marker configuration on one or more tests:" + joined)
 
 
 @pytest.fixture(scope="session", autouse=True)

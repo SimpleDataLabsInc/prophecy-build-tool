@@ -165,9 +165,7 @@ def test_deploy_v2_helloprophecy_creates_real_job_in_databricks(
         seen_names: list[str] = []
         for job_id in created_job_ids:
             response = verifier.get_job(str(job_id))
-            assert int(response["job_id"]) == job_id, (
-                f"Databricks returned a different job_id for {job_id}: {response}"
-            )
+            assert int(response["job_id"]) == job_id, f"Databricks returned a different job_id for {job_id}: {response}"
             name = (response.get("settings") or {}).get("name") or response.get("name")
             assert name and name.endswith(suffix), (
                 f"Job {job_id} exists but its name {name!r} does not carry "
@@ -190,7 +188,4 @@ def test_deploy_v2_helloprophecy_creates_real_job_in_databricks(
                 # Best-effort cleanup — print so a failed cleanup is at
                 # least visible to whoever runs the test, but don't mask
                 # the real assertion failure (if any).
-                print(
-                    f"WARNING: failed to delete leaked Databricks job "
-                    f"{job_id} ({suffix}): {cleanup_err!r}"
-                )
+                print(f"WARNING: failed to delete leaked Databricks job " f"{job_id} ({suffix}): {cleanup_err!r}")

@@ -47,11 +47,7 @@ def _python_project(synthetic_project, version: str = "0.0.1") -> Path:
     # on a regex anchored to the start of the line.
     setup_py = project / "pipelines" / "demo" / "code" / "setup.py"
     setup_py.write_text(
-        "from setuptools import setup\n"
-        "setup(\n"
-        "    name='x',\n"
-        f"    version='{version}'\n"
-        ")\n"
+        "from setuptools import setup\n" "setup(\n" "    name='x',\n" f"    version='{version}'\n" ")\n"
     )
     return project
 
@@ -65,8 +61,8 @@ def _scala_project(synthetic_project, version: str = "0.0.1") -> Path:
     # Give the pipeline a real-enough pom.xml that version_check_sync parses.
     pom = project / "pipelines" / "demo" / "code" / "pom.xml"
     pom.write_text(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-        "<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n"
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<project xmlns="http://maven.apache.org/POM/4.0.0">\n'
         "  <modelVersion>4.0.0</modelVersion>\n"
         "  <groupId>g</groupId>\n"
         "  <artifactId>x</artifactId>\n"
@@ -88,22 +84,16 @@ def test_set_high_version_succeeds(cli_runner: CliRunner, synthetic_project) -> 
     assert _read_pbt_version(project) == "999999.0.0"
 
 
-def test_set_below_current_without_force_fails(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_set_below_current_without_force_fails(cli_runner: CliRunner, synthetic_project) -> None:
     project = _python_project(synthetic_project, "1.2.3")
     result = cli_runner.invoke(versioning, ["--path", str(project), "--set", "0.0.1"])
     assert result.exit_code == 1
     assert _read_pbt_version(project) == "1.2.3"
 
 
-def test_set_below_current_with_force_succeeds(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_set_below_current_with_force_succeeds(cli_runner: CliRunner, synthetic_project) -> None:
     project = _python_project(synthetic_project, "1.2.3")
-    result = cli_runner.invoke(
-        versioning, ["--path", str(project), "--set", "invalid-0.0.0-thing", "--force"]
-    )
+    result = cli_runner.invoke(versioning, ["--path", str(project), "--set", "invalid-0.0.0-thing", "--force"])
     assert result.exit_code == 0, result.output
     assert _read_pbt_version(project) == "invalid-0.0.0-thing"
 
@@ -123,13 +113,9 @@ def test_set_below_current_with_force_succeeds(
         ("patch", "0.0.2"),
     ],
 )
-def test_bump_core_fields(
-    cli_runner: CliRunner, synthetic_project, bump: str, expected: str
-) -> None:
+def test_bump_core_fields(cli_runner: CliRunner, synthetic_project, bump: str, expected: str) -> None:
     project = _python_project(synthetic_project, "0.0.1")
-    result = cli_runner.invoke(
-        versioning, ["--path", str(project), "--bump", bump, "--pbt-only"]
-    )
+    result = cli_runner.invoke(versioning, ["--path", str(project), "--bump", bump, "--pbt-only"])
     assert result.exit_code == 0, result.output
     assert _read_pbt_version(project) == expected
 
@@ -178,9 +164,7 @@ def test_set_suffix_python_prerelease(cli_runner: CliRunner, synthetic_project) 
     assert _read_pbt_version(project) == "0.0.1-rc.4"
 
 
-def test_set_suffix_then_bump_prerelease_python(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_set_suffix_then_bump_prerelease_python(cli_runner: CliRunner, synthetic_project) -> None:
     """Mirrors legacy ``test_versioning_set_prerelease_and_bump_python``."""
 
     project = _python_project(synthetic_project, "0.0.1")
@@ -203,21 +187,13 @@ def test_set_suffix_then_bump_prerelease_python(
 # ---------------------------------------------------------------------------
 
 
-def test_sync_propagates_pbt_version_to_setup_py(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_sync_propagates_pbt_version_to_setup_py(cli_runner: CliRunner, synthetic_project) -> None:
     project = _python_project(synthetic_project, "0.0.1")
     setup_py = project / "pipelines" / "demo" / "code" / "setup.py"
 
     # Make the pipeline's setup.py drift so sync has work to do. Keep the
     # multi-line form so ``update_all_versions``' regex matches.
-    setup_py.write_text(
-        "from setuptools import setup\n"
-        "setup(\n"
-        "    name='x',\n"
-        "    version='9.9.9'\n"
-        ")\n"
-    )
+    setup_py.write_text("from setuptools import setup\n" "setup(\n" "    name='x',\n" "    version='9.9.9'\n" ")\n")
     assert _read_setup_py_version(setup_py) == "9.9.9"
 
     result = cli_runner.invoke(versioning, ["--path", str(project), "--sync"])
@@ -239,13 +215,7 @@ def test_check_sync_success(cli_runner: CliRunner, synthetic_project) -> None:
 def test_check_sync_detects_drift(cli_runner: CliRunner, synthetic_project) -> None:
     project = _python_project(synthetic_project, "1.2.3")
     setup_py = project / "pipelines" / "demo" / "code" / "setup.py"
-    setup_py.write_text(
-        "from setuptools import setup\n"
-        "setup(\n"
-        "    name='x',\n"
-        "    version='9.9.9'\n"
-        ")\n"
-    )
+    setup_py.write_text("from setuptools import setup\n" "setup(\n" "    name='x',\n" "    version='9.9.9'\n" ")\n")
 
     result = cli_runner.invoke(versioning, ["--path", str(project), "--check-sync"])
     assert result.exit_code == 1
@@ -268,16 +238,12 @@ def test_mutually_exclusive_flags_error(cli_runner: CliRunner, synthetic_project
     """``--set`` and ``--bump`` together is rejected."""
 
     project = _python_project(synthetic_project, "0.0.1")
-    result = cli_runner.invoke(
-        versioning, ["--path", str(project), "--set", "1.0.0", "--bump", "minor"]
-    )
+    result = cli_runner.invoke(versioning, ["--path", str(project), "--set", "1.0.0", "--bump", "minor"])
     assert result.exit_code != 0
     assert "mutually exclusive" in result.output
 
 
-def test_compare_and_bump_combo_is_allowed_at_parse_time(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_compare_and_bump_combo_is_allowed_at_parse_time(cli_runner: CliRunner, synthetic_project) -> None:
     """``--compare-to-target`` + ``--bump`` is the single permitted pairing.
 
     We only assert that click doesn't reject the pairing outright — the actual

@@ -95,9 +95,7 @@ def test_legacy_project_bump_parity(original: str, bump: str, expected: str) -> 
         ("0.0.1", "prerelease", "0.0.1-rc.1"),
     ],
 )
-def test_legacy_scala_build_and_prerelease_parity(
-    original: str, bump: str, expected: str
-) -> None:
+def test_legacy_scala_build_and_prerelease_parity(original: str, bump: str, expected: str) -> None:
     # These are scala-flavoured in the legacy suite; python also supports them
     # provided the output remains PEP440-compatible.
     assert get_bumped_version(original, bump, "scala") == expected

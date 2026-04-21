@@ -77,8 +77,7 @@ def _hello_world_shape(synthetic_project):
 def _run_deploy_v2(runner: CliRunner, project_path, *extra):
     result = runner.invoke(deploy_v2, ["--path", str(project_path), *extra])
     assert result.exit_code == 0, (
-        f"deploy_v2 failed unexpectedly (exit={result.exit_code}): "
-        f"{result.output}\n{result.exception!r}"
+        f"deploy_v2 failed unexpectedly (exit={result.exit_code}): " f"{result.output}\n{result.exception!r}"
     )
     return result
 
@@ -105,9 +104,7 @@ def test_default_invokes_deploy_once_full_project_mode(
     assert set(call.fabric_ids) == {"647", "648"}
 
 
-def test_skip_builds_flag_plumbed_to_deploy(
-    cli_runner: CliRunner, synthetic_project, fake_databricks_deploy
-) -> None:
+def test_skip_builds_flag_plumbed_to_deploy(cli_runner: CliRunner, synthetic_project, fake_databricks_deploy) -> None:
     """Replaces legacy ``test_deploy_path_default_skip_builds``."""
 
     project = _hello_world_shape(synthetic_project)
@@ -233,9 +230,7 @@ def test_all_invalid_job_ids_still_invokes_selective_mode_in_v2(
 # contract), not substring-heavy, so we accept a one-line stdout probe.
 
 
-def test_legacy_combine_fabric_and_job_filter_errors(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_legacy_combine_fabric_and_job_filter_errors(cli_runner: CliRunner, synthetic_project) -> None:
     """Legacy: fabric_ids + job_ids is explicitly rejected."""
 
     project = _hello_world_shape(synthetic_project)
@@ -247,27 +242,19 @@ def test_legacy_combine_fabric_and_job_filter_errors(
     assert "Can't combine filters" in result.output
 
 
-def test_legacy_job_ids_plus_skip_builds_errors(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_legacy_job_ids_plus_skip_builds_errors(cli_runner: CliRunner, synthetic_project) -> None:
     """Legacy: job_ids + skip_builds is explicitly rejected."""
 
     project = _hello_world_shape(synthetic_project)
-    result = cli_runner.invoke(
-        legacy_deploy, ["--path", str(project), "--job-ids", "test-job", "--skip-builds"]
-    )
+    result = cli_runner.invoke(legacy_deploy, ["--path", str(project), "--job-ids", "test-job", "--skip-builds"])
     assert result.exit_code == 1
     assert "Can't skip builds for job_id filter" in result.output
 
 
-def test_legacy_all_invalid_job_ids_errors(
-    cli_runner: CliRunner, synthetic_project
-) -> None:
+def test_legacy_all_invalid_job_ids_errors(cli_runner: CliRunner, synthetic_project) -> None:
     """Legacy: all-invalid job_ids raises before build/deploy."""
 
     project = _hello_world_shape(synthetic_project)
-    result = cli_runner.invoke(
-        legacy_deploy, ["--path", str(project), "--job-ids", "invalid1,invalid2"]
-    )
+    result = cli_runner.invoke(legacy_deploy, ["--path", str(project), "--job-ids", "invalid1,invalid2"])
     assert result.exit_code == 1
     assert "No Job IDs matches with passed --job_id filter" in result.output

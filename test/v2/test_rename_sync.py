@@ -55,9 +55,7 @@ def _write_pipeline_files(pipelines_dir: Path, pipeline_name: str) -> None:
     }
     (prophecy_dir / "workflow.latest.json").write_text(json.dumps(workflow, indent=2))
 
-    (code_dir / "pipeline.py").write_text(
-        f'pipelineId = "pipelines/{pipeline_name}"\n' f'appName("{pipeline_name}")\n'
-    )
+    (code_dir / "pipeline.py").write_text(f'pipelineId = "pipelines/{pipeline_name}"\n' f'appName("{pipeline_name}")\n')
 
 
 @pytest.fixture
@@ -128,27 +126,21 @@ def test_find_pipeline_not_found(rename_sync_helpers) -> None:
 
 
 def test_find_pipeline_by_id_or_name_with_id(rename_sync_helpers) -> None:
-    pid, pname, pdata = find_pipeline_by_id_or_name(
-        rename_sync_helpers["read_config"](), pipeline_id="test_pipeline"
-    )
+    pid, pname, pdata = find_pipeline_by_id_or_name(rename_sync_helpers["read_config"](), pipeline_id="test_pipeline")
     assert pid == "pipelines/test_pipeline"
     assert pname == "test_pipeline"
     assert pdata is not None
 
 
 def test_find_pipeline_by_id_or_name_with_name(rename_sync_helpers) -> None:
-    pid, pname, pdata = find_pipeline_by_id_or_name(
-        rename_sync_helpers["read_config"](), pipeline_name="test_pipeline"
-    )
+    pid, pname, pdata = find_pipeline_by_id_or_name(rename_sync_helpers["read_config"](), pipeline_name="test_pipeline")
     assert pid == "pipelines/test_pipeline"
     assert pname == "test_pipeline"
     assert pdata is not None
 
 
 def test_find_pipeline_by_id_or_name_not_found(rename_sync_helpers) -> None:
-    pid, pname, pdata = find_pipeline_by_id_or_name(
-        rename_sync_helpers["read_config"](), pipeline_id="nonexistent"
-    )
+    pid, pname, pdata = find_pipeline_by_id_or_name(rename_sync_helpers["read_config"](), pipeline_id="nonexistent")
     assert pid is None and pname is None and pdata is None
 
 
@@ -275,37 +267,27 @@ def test_sync_pipeline_not_found_error(rename_sync_project) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_cli_command_success_by_id(
-    cli_runner: CliRunner, rename_sync_project, rename_sync_helpers
-) -> None:
+def test_cli_command_success_by_id(cli_runner: CliRunner, rename_sync_project, rename_sync_helpers) -> None:
     project_path, _, _ = rename_sync_project
     rename_sync_helpers["set_name"]("pipelines/test_pipeline", "cli_renamed")
 
-    result = cli_runner.invoke(
-        cli, ["rename-sync", "--path", str(project_path), "--pipeline-id", "test_pipeline"]
-    )
+    result = cli_runner.invoke(cli, ["rename-sync", "--path", str(project_path), "--pipeline-id", "test_pipeline"])
     assert result.exit_code == 0
     assert "Successfully synced" in result.output
 
 
-def test_cli_command_success_by_name(
-    cli_runner: CliRunner, rename_sync_project, rename_sync_helpers
-) -> None:
+def test_cli_command_success_by_name(cli_runner: CliRunner, rename_sync_project, rename_sync_helpers) -> None:
     project_path, _, _ = rename_sync_project
     rename_sync_helpers["set_name"]("pipelines/test_pipeline", "cli_renamed")
 
-    result = cli_runner.invoke(
-        cli, ["rename-sync", "--path", str(project_path), "--pipeline-name", "cli_renamed"]
-    )
+    result = cli_runner.invoke(cli, ["rename-sync", "--path", str(project_path), "--pipeline-name", "cli_renamed"])
     assert result.exit_code == 0
     assert "Successfully synced" in result.output
 
 
 def test_cli_command_pipeline_not_found(cli_runner: CliRunner, rename_sync_project) -> None:
     project_path, _, _ = rename_sync_project
-    result = cli_runner.invoke(
-        cli, ["rename-sync", "--path", str(project_path), "--pipeline-id", "nonexistent"]
-    )
+    result = cli_runner.invoke(cli, ["rename-sync", "--path", str(project_path), "--pipeline-id", "nonexistent"])
     assert result.exit_code == 1
     assert "Pipeline Not Found" in result.output
     assert "ACTION" in result.output
@@ -338,9 +320,7 @@ def test_cli_command_both_args(cli_runner: CliRunner, rename_sync_project) -> No
     assert "Cannot specify both" in result.output
 
 
-def test_cli_command_unsafe_mode(
-    cli_runner: CliRunner, rename_sync_project, rename_sync_helpers
-) -> None:
+def test_cli_command_unsafe_mode(cli_runner: CliRunner, rename_sync_project, rename_sync_helpers) -> None:
     project_path, pipelines_dir, _ = rename_sync_project
     rename_sync_helpers["set_name"]("pipelines/test_pipeline", "unsafe_renamed")
 
@@ -381,9 +361,7 @@ def test_pbt_project_yml_search_by_id_and_name() -> None:
         ({"pipeline_name": "nonexistent"}, PipelineNotFoundError, "not found"),
     ],
 )
-def test_error_messages_contain_action(
-    rename_sync_project, kwargs, expected_exception, expected_msg
-) -> None:
+def test_error_messages_contain_action(rename_sync_project, kwargs, expected_exception, expected_msg) -> None:
     project_path, _, _ = rename_sync_project
     with pytest.raises(expected_exception) as excinfo:
         validate_sync(str(project_path), **kwargs)
@@ -391,9 +369,7 @@ def test_error_messages_contain_action(
     assert expected_msg in str(excinfo.value)
 
 
-def test_error_suggests_pipeline_id_when_name_matches_id(
-    rename_sync_project, rename_sync_helpers
-) -> None:
+def test_error_suggests_pipeline_id_when_name_matches_id(rename_sync_project, rename_sync_helpers) -> None:
     project_path, _, _ = rename_sync_project
     rename_sync_helpers["add_pipeline"]("pipelines/customId", "customName", "customId")
 
@@ -403,9 +379,7 @@ def test_error_suggests_pipeline_id_when_name_matches_id(
     assert "customId" in str(excinfo.value)
 
 
-def test_error_suggests_pipeline_name_when_id_matches_name(
-    rename_sync_project, rename_sync_helpers
-) -> None:
+def test_error_suggests_pipeline_name_when_id_matches_name(rename_sync_project, rename_sync_helpers) -> None:
     project_path, _, _ = rename_sync_project
     rename_sync_helpers["add_pipeline"]("pipelines/customId", "customName", "customId")
 

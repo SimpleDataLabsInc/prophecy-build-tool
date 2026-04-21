@@ -40,9 +40,7 @@ def _read_pbt_version(project: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_compare_to_bigger_target_returns_failure(
-    cli_runner: CliRunner, git_bundle_repo
-) -> None:
+def test_compare_to_bigger_target_returns_failure(cli_runner: CliRunner, git_bundle_repo) -> None:
     repo = git_bundle_repo("versioning.bundle")
     # main is 0.0.1, target branch is 9999.0.0 → current is not greater.
     result = cli_runner.invoke(
@@ -52,9 +50,7 @@ def test_compare_to_bigger_target_returns_failure(
     assert result.exit_code == 1, result.output
 
 
-def test_compare_to_smaller_target_returns_success(
-    cli_runner: CliRunner, git_bundle_repo
-) -> None:
+def test_compare_to_smaller_target_returns_success(cli_runner: CliRunner, git_bundle_repo) -> None:
     repo = git_bundle_repo("versioning.bundle")
     # main is 0.0.1, target branch is 0.0.0 → current is strictly greater.
     result = cli_runner.invoke(
@@ -64,9 +60,7 @@ def test_compare_to_smaller_target_returns_success(
     assert result.exit_code == 0, result.output
 
 
-def test_compare_to_malformed_target_returns_failure(
-    cli_runner: CliRunner, git_bundle_repo
-) -> None:
+def test_compare_to_malformed_target_returns_failure(cli_runner: CliRunner, git_bundle_repo) -> None:
     repo = git_bundle_repo("versioning.bundle")
     result = cli_runner.invoke(
         versioning,
@@ -80,9 +74,7 @@ def test_compare_to_malformed_target_returns_failure(
 # ---------------------------------------------------------------------------
 
 
-def test_compare_and_bump_against_bigger_branch_bumps_patch(
-    cli_runner: CliRunner, git_bundle_repo
-) -> None:
+def test_compare_and_bump_against_bigger_branch_bumps_patch(cli_runner: CliRunner, git_bundle_repo) -> None:
     repo = git_bundle_repo("versioning.bundle")
     # main is 0.0.1, target is 9999.0.0 — since current < target, the bump
     # strategy is applied on top of the target version, yielding 9999.0.1.
@@ -103,9 +95,7 @@ def test_compare_and_bump_against_bigger_branch_bumps_patch(
     assert _read_pbt_version(repo) == "9999.0.1"
 
 
-def test_compare_and_bump_against_smaller_branch_is_noop(
-    cli_runner: CliRunner, git_bundle_repo
-) -> None:
+def test_compare_and_bump_against_smaller_branch_is_noop(cli_runner: CliRunner, git_bundle_repo) -> None:
     """When current > target, ``--compare --bump`` leaves the version alone."""
 
     repo = git_bundle_repo("versioning.bundle")
@@ -132,9 +122,7 @@ def test_compare_and_bump_against_smaller_branch_is_noop(
 # ---------------------------------------------------------------------------
 
 
-def test_make_unique_on_static_branch_produces_deterministic_version(
-    cli_runner: CliRunner, git_bundle_repo
-) -> None:
+def test_make_unique_on_static_branch_produces_deterministic_version(cli_runner: CliRunner, git_bundle_repo) -> None:
     import subprocess
 
     repo = git_bundle_repo("versioning.bundle")

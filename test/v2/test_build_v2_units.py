@@ -124,9 +124,7 @@ def test_build_failure_with_ignore_errors_succeeds(tmp_path: Path, fake_builder)
     pbt.build(pipelines="", ignore_build_errors=True, ignore_parse_errors=False, add_pom_python=False)
 
 
-def test_partial_invalid_filter_builds_matching_only(
-    tmp_path: Path, fake_builder, monkeypatch
-) -> None:
+def test_partial_invalid_filter_builds_matching_only(tmp_path: Path, fake_builder, monkeypatch) -> None:
     """Replaces legacy ``test_build_path_pipeline_with_invalid_filter``.
 
     ``--pipelines alpha,INVALID_PIPELINE_NAME`` builds ``alpha`` and silently

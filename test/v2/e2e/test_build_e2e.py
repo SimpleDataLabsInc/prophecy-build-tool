@@ -151,7 +151,5 @@ def test_build_v2_ignore_errors_flag_swallows_failures(
     cli_runner: CliRunner,
 ) -> None:
     _require_fixture(HELLO_WORLD_BUILD_ERROR)
-    result = cli_runner.invoke(
-        build_v2, ["--path", str(HELLO_WORLD_BUILD_ERROR), "--ignore-build-errors"]
-    )
+    result = cli_runner.invoke(build_v2, ["--path", str(HELLO_WORLD_BUILD_ERROR), "--ignore-build-errors"])
     assert result.exit_code == 0, result.output

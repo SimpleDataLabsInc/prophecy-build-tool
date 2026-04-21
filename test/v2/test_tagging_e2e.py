@@ -65,9 +65,7 @@ def test_tagging_custom(cli_runner: CliRunner, tagging_repo) -> None:
 
 
 @pytest.mark.parametrize("language", ["python", "scala"])
-def test_tagging_default_uses_branch_slash_version(
-    cli_runner: CliRunner, tagging_repo, language: str
-) -> None:
+def test_tagging_default_uses_branch_slash_version(cli_runner: CliRunner, tagging_repo, language: str) -> None:
     repo_path, python_project, scala_project = tagging_repo
     project = python_project if language == "python" else scala_project
 
@@ -78,9 +76,7 @@ def test_tagging_default_uses_branch_slash_version(
         capture_output=True,
     )
 
-    result = cli_runner.invoke(
-        tag, ["--path", str(project), "--repo-path", str(repo_path), "--no-push"]
-    )
+    result = cli_runner.invoke(tag, ["--path", str(project), "--repo-path", str(repo_path), "--no-push"])
     assert result.exit_code == 0, result.output
 
     pbt_version = _read_pbt_version(project)
