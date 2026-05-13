@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 from enum import Enum
 from typing import Any, Optional
 
@@ -55,6 +56,26 @@ def custom_print(
 
 def is_online_mode() -> bool:
     return os.environ.get("PRINT_MODE", "REGULAR") == "CUSTOM"
+
+
+def warn_if_uv_available(use_uv: bool) -> None:
+    """If UV is installed but --use-uv was not passed, print a strong recommendation."""
+    if use_uv:
+        return
+    try:
+        subprocess.check_call(["uv", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return
+    print(
+        "\n[bold yellow]┌─────────────────────────────────────────────────────────────┐[/bold yellow]\n"
+        "[bold yellow]│  UV IS AVAILABLE — USE IT!                                  │[/bold yellow]\n"
+        "[bold yellow]└─────────────────────────────────────────────────────────────┘[/bold yellow]\n"
+        "[yellow]UV (https://github.com/astral-sh/uv) is installed on this system\n"
+        "but the [bold]--use-uv[/bold] flag was NOT passed.\n\n"
+        "UV provides significantly faster package installs, isolated virtual\n"
+        "environments, and faster wheel builds for Python pipelines.\n\n"
+        "It is [bold]strongly recommended[/bold] to re-run this command with [bold]--use-uv[/bold].[/yellow]\n"
+    )
 
 
 # If the item is a dictionary

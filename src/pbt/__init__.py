@@ -13,7 +13,7 @@ from rich import print
 from .utils.versioning import get_bumped_version
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
-from .utility import is_online_mode
+from .utility import is_online_mode, warn_if_uv_available
 
 
 @click.group()
@@ -95,6 +95,7 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     required=False,
 )
 def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python, use_uv):
+    warn_if_uv_available(use_uv)
     pbt = PBTCli.from_conf_folder(path, use_uv=use_uv)
     pbt.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
 
@@ -270,6 +271,7 @@ def deploy_v2(
     skip_artifactory_upload: bool,
     use_uv: bool,
 ):
+    warn_if_uv_available(use_uv)
     pbt = PBTCli.from_conf_folder(
         path,
         project_id,
@@ -310,6 +312,7 @@ def deploy_v2(
     required=False,
 )
 def test_v2(path, driver_library_path, use_uv):
+    warn_if_uv_available(use_uv)
     pbt = PBTCli.from_conf_folder(path, use_uv=use_uv)
     pbt.test(driver_library_path)
 
