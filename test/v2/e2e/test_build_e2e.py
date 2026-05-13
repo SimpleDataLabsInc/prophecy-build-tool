@@ -118,7 +118,7 @@ def test_build_v2_produces_artefact_per_pipeline(
     _, python_project, scala_project = helloprophecy_repo
     project = python_project if language == "python" else scala_project
 
-    result = cli_runner.invoke(build_v2, ["--path", str(project)])
+    result = cli_runner.invoke(build_v2, ["--path", str(project), "--use-uv"])
     assert result.exit_code == 0, result.output
     _assert_found_some_pipelines(result.output)
 

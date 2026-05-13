@@ -79,7 +79,7 @@ def test_test_v2_helloprophecy_runs_all_pipelines(
     _, python_project, scala_project = helloprophecy_repo
     project = python_project if language == "python" else scala_project
 
-    result = cli_runner.invoke(_test_v2_cli, ["--path", str(project)])
+    result = cli_runner.invoke(_test_v2_cli, ["--path", str(project), "--use-uv"])
     assert result.exit_code == 0, result.output
     _assert_found_some_pipelines(result.output)
     assert "Testing pipelines" in result.output

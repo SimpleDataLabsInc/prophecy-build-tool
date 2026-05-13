@@ -148,7 +148,7 @@ def test_deploy_v2_helloprophecy_creates_real_job_in_databricks(
     )
 
     try:
-        result = cli_runner.invoke(deploy_v2, ["--path", str(project)])
+        result = cli_runner.invoke(deploy_v2, ["--path", str(project), "--use-uv"])
         assert result.exit_code == 0, result.output
         assert "Uploading pipeline" in result.output, result.output
         assert "Deployment completed successfully" in result.output, result.output
