@@ -824,9 +824,7 @@ class PackageBuilderAndUploader:
             log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
             if self._use_uv:
                 self._ensure_uv_venv()
-                subprocess.check_call(
-                    ["uv", "pip", "install", "--python", self._python_cmd, "-q"] + requirements
-                )
+                subprocess.check_call(["uv", "pip", "install", "--python", self._python_cmd, "-q"] + requirements)
             else:
                 subprocess.check_call(
                     [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements

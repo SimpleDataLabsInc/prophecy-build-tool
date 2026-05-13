@@ -136,7 +136,6 @@ def validate_v2(path, treat_warnings_as_errors):
     pbt.validate(treat_warnings_as_errors)
 
 
-
 @cli.command()
 @click.option(
     "--path",
