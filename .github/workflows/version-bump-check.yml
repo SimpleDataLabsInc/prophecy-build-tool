@@ -1,4 +1,4 @@
-# Blocks merge if the PR branch's version in setup.py is not greater than the target branch's version.
+# Blocks merge if the PR branch's version in pyproject.toml is not greater than the target branch's version.
 # Ensures semantic version is always bumped for pull requests.
 
 name: Version bump check
@@ -20,22 +20,18 @@ jobs:
 
       - name: Extract and compare versions
         run: |
-          # Extract version from setup.py (version="X.Y.Z")
-          get_version() {
-            grep -E '^\s*version\s*=' "$1" | sed -E 's/.*version\s*=\s*["'\'']([^"'\'']+)["'\''].*/\1/' | tr -d '"' | tr -d "'"
-          }
-
-          BASE_SETUP=$(git show origin/${{ github.base_ref }}:setup.py 2>/dev/null) || true
-          if [ -z "$BASE_SETUP" ]; then
-            echo "Could not read setup.py from base ref origin/${{ github.base_ref }}"
+          # Extract version from pyproject.toml (version = "X.Y.Z" at start of line, under [project])
+          BASE_PYPROJECT=$(git show origin/${{ github.base_ref }}:pyproject.toml 2>/dev/null) || true
+          if [ -z "$BASE_PYPROJECT" ]; then
+            echo "Could not read pyproject.toml from base ref origin/${{ github.base_ref }}"
             exit 1
           fi
 
-          BASE_VERSION=$(echo "$BASE_SETUP" | grep -E '^\s*version\s*=' | sed -E 's/.*version\s*=\s*["'\'']([^"'\''"]+)["'\''].*/\1/' | tr -d '"' | tr -d "'")
-          HEAD_VERSION=$(get_version setup.py)
+          BASE_VERSION=$(echo "$BASE_PYPROJECT" | grep -E '^version = ' | sed -E 's/version = "([^"]+)"/\1/')
+          HEAD_VERSION=$(grep -E '^version = ' pyproject.toml | sed -E 's/version = "([^"]+)"/\1/')
 
           if [ -z "$BASE_VERSION" ] || [ -z "$HEAD_VERSION" ]; then
-            echo "Could not parse version from setup.py (base=$BASE_VERSION, head=$HEAD_VERSION)"
+            echo "Could not parse version from pyproject.toml (base=$BASE_VERSION, head=$HEAD_VERSION)"
             exit 1
           fi
 
