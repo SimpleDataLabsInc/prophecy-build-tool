@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv>=0.4"]
+build-backend = "uv_build"
 
 [project]
 name = "prophecy-build-tool"
@@ -55,10 +55,6 @@ Homepage = "https://github.com/SimpleDataLabsInc/prophecy-build-tool"
 
 [project.scripts]
 pbt = "pbt:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/pbt"]
-
 [tool.uv]
 dev-dependencies = [
     "black~=24.10",
