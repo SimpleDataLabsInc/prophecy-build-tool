@@ -45,6 +45,7 @@ class PBTCli(object):
         migrate: bool = False,
         artifactory: str = "",
         skip_artifactory_upload: bool = False,
+        use_uv: bool = False,
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
@@ -58,6 +59,7 @@ class PBTCli(object):
             migrate,
             artifactory,
             skip_artifactory_upload,
+            use_uv=use_uv,
         )
         return cls(project, project_config)
 
