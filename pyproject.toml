@@ -66,6 +66,9 @@ dev = [
     "prophecy-build-tool[test]",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
 [tool.black]
 line-length = 120
 target-version = ['py39', 'py310', 'py311', 'py312']
