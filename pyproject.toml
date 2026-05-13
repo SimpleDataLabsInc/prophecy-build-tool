@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv>=0.4"]
+requires = ["uv_build>=0.4"]
 build-backend = "uv_build"
 
 [project]
@@ -55,8 +55,12 @@ Homepage = "https://github.com/SimpleDataLabsInc/prophecy-build-tool"
 
 [project.scripts]
 pbt = "pbt:main"
-[tool.uv]
-dev-dependencies = [
+
+[tool.uv.build-backend]
+module-name = "pbt"
+
+[dependency-groups]
+dev = [
     "black~=24.10",
     "pycodestyle==2.10.0",
     "prophecy-build-tool[test]",
