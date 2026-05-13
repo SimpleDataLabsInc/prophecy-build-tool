@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "prophecy-build-tool"
-version = "1.4.2"
+version = "1.5.0"
 description = "Prophecy-build-tool (PBT) provides utilities to build and distribute projects created from the Prophecy IDE."
 readme = "README.md"
 license = { text = "MIT" }
