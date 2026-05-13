@@ -20,35 +20,56 @@ jobs:
 
       - name: Extract and compare versions
         run: |
-          # Extract version from pyproject.toml first, fall back to setup.py
+          # Extract version from content: try pyproject.toml format first, fall back to setup.py format
           extract_version_from_content() {
             local content="$1"
             local ver
-            # Try pyproject.toml format: version = "X.Y.Z" at start of line
+            # pyproject.toml format: version = "X.Y.Z" at start of line
             ver=$(echo "$content" | grep -E '^version = ' | sed -E 's/version = "([^"]+)"/\1/')
             if [ -z "$ver" ]; then
-              # Fall back to setup.py format: version="X.Y.Z" or version='X.Y.Z'
+              # setup.py format: version="X.Y.Z" or version='X.Y.Z'
               ver=$(echo "$content" | grep -E '^\s*version\s*=' | sed -E "s/.*version\s*=\s*[\"']([^\"']+)[\"'].*/\1/")
             fi
             echo "$ver"
           }
 
-          BASE_CONTENT=$(git show origin/${{ github.base_ref }}:pyproject.toml 2>/dev/null) || true
-          if [ -z "$BASE_CONTENT" ]; then
-            BASE_CONTENT=$(git show origin/${{ github.base_ref }}:setup.py 2>/dev/null) || true
-          fi
-          if [ -z "$BASE_CONTENT" ]; then
-            echo "Could not read pyproject.toml or setup.py from base ref origin/${{ github.base_ref }}"
-            exit 1
-          fi
+          # Try pyproject.toml first, then setup.py — fall through if first file has no version
+          # (handles the case where pyproject.toml exists but only contains tool config like [tool.black])
+          extract_version_from_ref() {
+            local ref="$1"
+            local content ver
+            content=$(git show "${ref}:pyproject.toml" 2>/dev/null) || true
+            if [ -n "$content" ]; then
+              ver=$(extract_version_from_content "$content")
+              if [ -n "$ver" ]; then
+                echo "$ver"
+                return
+              fi
+            fi
+            content=$(git show "${ref}:setup.py" 2>/dev/null) || true
+            if [ -n "$content" ]; then
+              extract_version_from_content "$content"
+            fi
+          }
 
-          HEAD_CONTENT=$(cat pyproject.toml 2>/dev/null) || true
-          if [ -z "$HEAD_CONTENT" ]; then
-            HEAD_CONTENT=$(cat setup.py 2>/dev/null) || true
-          fi
+          extract_version_from_workdir() {
+            local content ver
+            if [ -f pyproject.toml ]; then
+              content=$(cat pyproject.toml)
+              ver=$(extract_version_from_content "$content")
+              if [ -n "$ver" ]; then
+                echo "$ver"
+                return
+              fi
+            fi
+            if [ -f setup.py ]; then
+              content=$(cat setup.py)
+              extract_version_from_content "$content"
+            fi
+          }
 
-          BASE_VERSION=$(extract_version_from_content "$BASE_CONTENT")
-          HEAD_VERSION=$(extract_version_from_content "$HEAD_CONTENT")
+          BASE_VERSION=$(extract_version_from_ref "origin/${{ github.base_ref }}")
+          HEAD_VERSION=$(extract_version_from_workdir)
 
           if [ -z "$BASE_VERSION" ] || [ -z "$HEAD_VERSION" ]; then
             echo "Could not parse version (base=$BASE_VERSION, head=$HEAD_VERSION)"
@@ -58,7 +79,7 @@ jobs:
           echo "Target branch (${{ github.base_ref }}) version: $BASE_VERSION"
           echo "Source branch version: $HEAD_VERSION"
 
-          # Compare semantic versions (major.minor.patch) using Python. 
+          # Compare semantic versions (major.minor.patch) using Python.
           # THIS IS USING A 'PY' HEREDOC:
           python3 - "$BASE_VERSION" "$HEAD_VERSION" << 'PY'
           import sys
