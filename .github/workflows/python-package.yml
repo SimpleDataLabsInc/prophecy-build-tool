@@ -69,7 +69,7 @@ jobs:
           path: |
             ~/.m2/repository
             ~/.ivy2
-          key: ${{ runner.os }}-maven-ivy-legacy-${{ hashFiles('setup.py') }}
+          key: ${{ runner.os }}-maven-ivy-legacy-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-maven-ivy-
       - uses: actions/setup-python@v5
@@ -220,7 +220,7 @@ jobs:
           path: |
             ~/.m2/repository
             ~/.ivy2
-          key: ${{ runner.os }}-maven-ivy-e2e-${{ hashFiles('setup.py') }}
+          key: ${{ runner.os }}-maven-ivy-e2e-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-maven-ivy-
       - uses: actions/setup-python@v5
