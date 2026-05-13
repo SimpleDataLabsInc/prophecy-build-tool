@@ -20,18 +20,38 @@ jobs:
 
       - name: Extract and compare versions
         run: |
-          # Extract version from pyproject.toml (version = "X.Y.Z" at start of line, under [project])
-          BASE_PYPROJECT=$(git show origin/${{ github.base_ref }}:pyproject.toml 2>/dev/null) || true
-          if [ -z "$BASE_PYPROJECT" ]; then
-            echo "Could not read pyproject.toml from base ref origin/${{ github.base_ref }}"
+          # Extract version from pyproject.toml first, fall back to setup.py
+          extract_version_from_content() {
+            local content="$1"
+            local ver
+            # Try pyproject.toml format: version = "X.Y.Z" at start of line
+            ver=$(echo "$content" | grep -E '^version = ' | sed -E 's/version = "([^"]+)"/\1/')
+            if [ -z "$ver" ]; then
+              # Fall back to setup.py format: version="X.Y.Z" or version='X.Y.Z'
+              ver=$(echo "$content" | grep -E '^\s*version\s*=' | sed -E "s/.*version\s*=\s*[\"']([^\"']+)[\"'].*/\1/")
+            fi
+            echo "$ver"
+          }
+
+          BASE_CONTENT=$(git show origin/${{ github.base_ref }}:pyproject.toml 2>/dev/null) || true
+          if [ -z "$BASE_CONTENT" ]; then
+            BASE_CONTENT=$(git show origin/${{ github.base_ref }}:setup.py 2>/dev/null) || true
+          fi
+          if [ -z "$BASE_CONTENT" ]; then
+            echo "Could not read pyproject.toml or setup.py from base ref origin/${{ github.base_ref }}"
             exit 1
           fi
 
-          BASE_VERSION=$(echo "$BASE_PYPROJECT" | grep -E '^version = ' | sed -E 's/version = "([^"]+)"/\1/')
-          HEAD_VERSION=$(grep -E '^version = ' pyproject.toml | sed -E 's/version = "([^"]+)"/\1/')
+          HEAD_CONTENT=$(cat pyproject.toml 2>/dev/null) || true
+          if [ -z "$HEAD_CONTENT" ]; then
+            HEAD_CONTENT=$(cat setup.py 2>/dev/null) || true
+          fi
+
+          BASE_VERSION=$(extract_version_from_content "$BASE_CONTENT")
+          HEAD_VERSION=$(extract_version_from_content "$HEAD_CONTENT")
 
           if [ -z "$BASE_VERSION" ] || [ -z "$HEAD_VERSION" ]; then
-            echo "Could not parse version from pyproject.toml (base=$BASE_VERSION, head=$HEAD_VERSION)"
+            echo "Could not parse version (base=$BASE_VERSION, head=$HEAD_VERSION)"
             exit 1
           fi
 
