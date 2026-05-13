@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock, patch
+
 from click.testing import CliRunner
-from src.pbt import deploy
+from src.pbt import deploy, deploy_v2
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
@@ -8,6 +10,17 @@ if os.environ.get("DATABRICKS_HOST") is None:
     os.environ["DATABRICKS_HOST"] = "test"
 if os.environ.get("DATABRICKS_TOKEN") is None:
     os.environ["DATABRICKS_TOKEN"] = "test"
+
+
+def test_deploy_v2_use_uv_flag():
+    runner = CliRunner()
+    with patch("src.pbt.PBTCli.from_conf_folder") as mock_from_conf:
+        mock_pbt = MagicMock()
+        mock_from_conf.return_value = mock_pbt
+        result = runner.invoke(deploy_v2, ["--path", PROJECT_PATH, "--use-uv"])
+        assert result.exit_code == 0
+        mock_from_conf.assert_called_once()
+        assert mock_from_conf.call_args.kwargs.get("use_uv") is True
 
 
 def test_deploy_path_default():

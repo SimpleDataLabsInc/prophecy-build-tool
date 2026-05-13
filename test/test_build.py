@@ -1,9 +1,22 @@
+from unittest.mock import MagicMock, patch
+
 from click.testing import CliRunner
 from src.pbt import build, build_v2
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 ERROR_PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorldBuildError"
+
+
+def test_build_v2_use_uv_flag():
+    runner = CliRunner()
+    with patch("src.pbt.PBTCli.from_conf_folder") as mock_from_conf:
+        mock_pbt = MagicMock()
+        mock_from_conf.return_value = mock_pbt
+        result = runner.invoke(build_v2, ["--path", PROJECT_PATH, "--use-uv"])
+        assert result.exit_code == 0
+        mock_from_conf.assert_called_once()
+        assert mock_from_conf.call_args.kwargs.get("use_uv") is True
 
 
 def test_build_v2_binary_check(monkeypatch):
