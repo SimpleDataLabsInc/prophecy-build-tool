@@ -12,10 +12,16 @@ For the latest information on how to use Prophecy-build-tool, please visit the P
 
 ## Installation
 
-To install PBT, simply run:
+With pip:
 
 ```shell
-pip3 install prophecy-build-tool
+pip install prophecy-build-tool
+```
+
+With uv (recommended):
+
+```shell
+uv tool install prophecy-build-tool
 ```
 
 ## Running
