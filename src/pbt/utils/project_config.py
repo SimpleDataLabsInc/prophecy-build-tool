@@ -535,6 +535,7 @@ class ProjectConfig:
         artifactory: str = "",
         skip_artifactory_upload: bool = False,
         conf_folder: str = "",
+        use_uv: bool = False,
     ):
         self.jobs_state = jobs_state
         self.system_config = system_config
@@ -546,6 +547,7 @@ class ProjectConfig:
         self.artifactory = artifactory
         self.skip_artifactory_upload = skip_artifactory_upload
         self.conf_folder = conf_folder
+        self.use_uv = use_uv
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
 
@@ -586,6 +588,7 @@ class ProjectConfig:
         migrate: bool,
         artifactory: str,
         skip_artifactory_upload: bool,
+        use_uv: bool = False,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -594,7 +597,7 @@ class ProjectConfig:
             fabrics = load_fabric_config(fabric_config_path)
             system = load_system_config(system_config_path)
             configs = load_configs_override(configs_override_path)
-            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
+            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build, use_uv=use_uv)
 
         else:
             if not is_based_on_file:
@@ -666,6 +669,7 @@ class ProjectConfig:
                 migrate=migrate,
                 artifactory=artifactory,
                 skip_artifactory_upload=skip_artifactory_upload,
+                use_uv=use_uv,
             )
 
     # best used when invoking from execution.
@@ -681,6 +685,7 @@ class ProjectConfig:
         migrate: bool,
         artifactory: str,
         skip_artifactory_upload: bool,
+        use_uv: bool = False,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -701,6 +706,7 @@ class ProjectConfig:
             migrate,
             artifactory,
             skip_artifactory_upload,
+            use_uv=use_uv,
         )
 
 

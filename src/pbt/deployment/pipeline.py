@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -519,8 +520,27 @@ class PackageBuilderAndUploader:
         self.pipeline_upload_manager = PipelineUploadManager(
             self._project, self._project_config, self._pipeline_id, self._pipeline_name, self.fabrics
         )
+        self._use_uv = project_config.use_uv if project_config is not None else False
+        self._uv_venv_ready = False
         if self._project_language == PYTHON_LANGUAGE:
             self._python_cmd, self._pip_cmd = get_python_commands(self._base_path, runner=self._runner)
+
+    def _ensure_uv_venv(self):
+        if self._uv_venv_ready:
+            return
+        try:
+            subprocess.check_call(["uv", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise EnvironmentError(
+                "uv is not installed. Install with: pip install uv  "
+                "or curl -LsSf https://astral.sh/uv/install.sh | sh"
+            )
+        venv_path = os.path.join(self._base_path, ".venv")
+        log(f"Creating UV virtual environment at {venv_path}", step_id=self._pipeline_id, indent=2)
+        subprocess.check_call(["uv", "venv", venv_path], cwd=self._base_path)
+        python_bin = os.path.join("Scripts", "python.exe") if sys.platform == "win32" else os.path.join("bin", "python")
+        self._python_cmd = os.path.join(venv_path, python_bin)
+        self._uv_venv_ready = True
 
     def _initialize_temp_folder(self):
         rdc = self._project.load_pipeline_folder(self._pipeline_id)
@@ -811,12 +831,16 @@ class PackageBuilderAndUploader:
             return install_requires
 
         requirements = _extract_install_requires_from_setup(os.path.join(self._base_path, "setup.py"))
-        pip_cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements
         log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
-        pip_result = self._runner.run(pip_cmd, check=False, capture_output=True)
-        if pip_result.returncode != 0:
+        if self._use_uv:
+            self._ensure_uv_venv()
+            install_cmd = ["uv", "pip", "install", "--python", self._python_cmd, "-q"] + requirements
+        else:
+            install_cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements
+        install_result = self._runner.run(install_cmd, check=False, capture_output=True)
+        if install_result.returncode != 0:
             log(
-                f"An error occurred while trying to install requirements: exit {pip_result.returncode}",
+                f"An error occurred while trying to install requirements: exit {install_result.returncode}",
                 step_id=self._pipeline_id,
             )
 
@@ -893,6 +917,9 @@ class PackageBuilderAndUploader:
         return response_code
 
     def wheel_build(self, ignore_build_error: bool = False):
+        if self._use_uv:
+            self._ensure_uv_venv()
+
         if self._are_tests_enabled:
             response_code = self.wheel_test()
 
