@@ -17,6 +17,7 @@ from requests import HTTPError
 from rich import print
 
 from .process import Process
+from .utils.databricks_auth import resolve_databricks_token
 import tempfile
 
 
@@ -855,13 +856,14 @@ class ProphecyBuildTool:
     @classmethod
     def _verify_databricks_configs(cls, exit_on_failure=True):
         host = os.environ.get("DATABRICKS_HOST")
-        token = os.environ.get("DATABRICKS_TOKEN")
+        token = resolve_databricks_token(host, default=None)
 
         if host is None or token is None:
             if exit_on_failure:
                 cls._error(
-                    "[i]DATABRICKS_HOST[/i] & [i]DATABRICKS_TOKEN[/i] environment variables are required to "
-                    "deploy your Databricks Workflows"
+                    "[i]DATABRICKS_HOST[/i] and either [i]DATABRICKS_TOKEN[/i] or "
+                    "[i]DATABRICKS_CLIENT_ID[/i] & [i]DATABRICKS_CLIENT_SECRET[/i] (service principal) "
+                    "environment variables are required to deploy your Databricks Workflows"
                 )
             else:
                 return False
