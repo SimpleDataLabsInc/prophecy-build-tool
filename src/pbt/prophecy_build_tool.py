@@ -740,6 +740,15 @@ class ProphecyBuildTool:
                         self.python_cmd,
                         "-m",
                         "pytest",
+                        # The pipeline source lives in a package literally named `code`,
+                        # which shadows the stdlib `code` module once pytest puts the
+                        # project root on sys.path. On Python 3.13+ pytest's debugging
+                        # plugin imports `pdb` at configure time (`pdb` subclasses
+                        # `code.InteractiveConsole`), so the shadowing makes pytest crash
+                        # before any test runs. The interactive debugger is never needed
+                        # for these automated runs, so disable the plugin.
+                        "-p",
+                        "no:debugging",
                         "-v",
                         "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
