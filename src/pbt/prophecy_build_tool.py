@@ -11,7 +11,7 @@ from typing import Dict
 
 import yaml
 from databricks_cli.configure.config import _get_api_client
-from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
+from databricks_cli.configure.provider import DatabricksConfig
 from databricks_cli.sdk import DbfsService, JobsService
 from requests import HTTPError
 from rich import print
@@ -276,7 +276,11 @@ class ProphecyBuildTool:
             print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         self._verify_databricks_configs()
-        config = EnvironmentVariableConfigProvider().get_config()
+        # Build the api client from the resolved token (a PAT from DATABRICKS_TOKEN,
+        # or a bearer token exchanged from service-principal creds) rather than the
+        # env-only provider, which returns None when DATABRICKS_TOKEN is unset.
+        host = os.environ.get("DATABRICKS_HOST")
+        config = DatabricksConfig.from_token(host, resolve_databricks_token(host, default=None))
 
         self.api_client = _get_api_client(config)
 
