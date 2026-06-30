@@ -540,6 +540,7 @@ class PackageBuilderAndUploader:
         subprocess.check_call(["uv", "venv", venv_path], cwd=self._base_path)
         python_bin = os.path.join("Scripts", "python.exe") if sys.platform == "win32" else os.path.join("bin", "python")
         self._python_cmd = os.path.join(venv_path, python_bin)
+        subprocess.check_call(["uv", "pip", "install", "--python", self._python_cmd, "-q", "setuptools", "wheel"])
         self._uv_venv_ready = True
 
     def _initialize_temp_folder(self):
@@ -926,14 +927,24 @@ class PackageBuilderAndUploader:
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
-        case_preserved_whl_build = (
-            "import sys, runpy, setuptools._normalization as norm;"
-            "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
-            "sys.argv=['setup.py','bdist_wheel'];"
-            "runpy.run_path('setup.py', run_name='__main__')"
-        )
+        if self._use_uv:
+            # NOTE: the normalization code below goes against PEP 503 and PEP 566 and should not
+            # have been introduced as a solution in the first place in PR #157. 
+            command = [self._python_cmd, "-m", "uv", "build"]
+        else:
+            # TODO: the name which gets generated in the databricks-job.json should be the normalized
+            # name of the wheel file. https://app.asana.com/1/711615303573503/project/1201492708519695/task/1209769302433884?focus=true
+            # This needs further investigation, but my hunch is that normalization should happen as soon
+            # as we generate the package name in the code for setup.py or pyproject.toml, which would
+            # fix the downstream issues. 
+            case_preserved_whl_build = (
+                "import sys, runpy, setuptools._normalization as norm;"
+                "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
+                "sys.argv=['setup.py','bdist_wheel'];"
+                "runpy.run_path('setup.py', run_name='__main__')"
+            )
 
-        command = [self._python_cmd, "-c", case_preserved_whl_build]
+            command = [self._python_cmd, "-c", case_preserved_whl_build]
 
         log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
 
