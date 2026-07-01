@@ -11,12 +11,13 @@ from typing import Dict
 
 import yaml
 from databricks_cli.configure.config import _get_api_client
-from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
+from databricks_cli.configure.provider import DatabricksConfig
 from databricks_cli.sdk import DbfsService, JobsService
 from requests import HTTPError
 from rich import print
 
 from .process import Process
+from .utils.databricks_auth import resolve_databricks_token
 import tempfile
 
 
@@ -275,7 +276,11 @@ class ProphecyBuildTool:
             print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         self._verify_databricks_configs()
-        config = EnvironmentVariableConfigProvider().get_config()
+        # Build the api client from the resolved token (a PAT from DATABRICKS_TOKEN,
+        # or a bearer token exchanged from service-principal creds) rather than the
+        # env-only provider, which returns None when DATABRICKS_TOKEN is unset.
+        host = os.environ.get("DATABRICKS_HOST")
+        config = DatabricksConfig.from_token(host, resolve_databricks_token(host, default=None))
 
         self.api_client = _get_api_client(config)
 
@@ -735,6 +740,15 @@ class ProphecyBuildTool:
                         self.python_cmd,
                         "-m",
                         "pytest",
+                        # The pipeline source lives in a package literally named `code`,
+                        # which shadows the stdlib `code` module once pytest puts the
+                        # project root on sys.path. On Python 3.13+ pytest's debugging
+                        # plugin imports `pdb` at configure time (`pdb` subclasses
+                        # `code.InteractiveConsole`), so the shadowing makes pytest crash
+                        # before any test runs. The interactive debugger is never needed
+                        # for these automated runs, so disable the plugin.
+                        "-p",
+                        "no:debugging",
                         "-v",
                         "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
@@ -855,13 +869,14 @@ class ProphecyBuildTool:
     @classmethod
     def _verify_databricks_configs(cls, exit_on_failure=True):
         host = os.environ.get("DATABRICKS_HOST")
-        token = os.environ.get("DATABRICKS_TOKEN")
+        token = resolve_databricks_token(host, default=None)
 
         if host is None or token is None:
             if exit_on_failure:
                 cls._error(
-                    "[i]DATABRICKS_HOST[/i] & [i]DATABRICKS_TOKEN[/i] environment variables are required to "
-                    "deploy your Databricks Workflows"
+                    "[i]DATABRICKS_HOST[/i] and either [i]DATABRICKS_TOKEN[/i] or "
+                    "[i]DATABRICKS_CLIENT_ID[/i] & [i]DATABRICKS_CLIENT_SECRET[/i] (service principal) "
+                    "environment variables are required to deploy your Databricks Workflows"
                 )
             else:
                 return False

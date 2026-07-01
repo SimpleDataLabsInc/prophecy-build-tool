@@ -1,12 +1,17 @@
 from click.testing import CliRunner
 from src.pbt import deploy
+from src.pbt.utils.databricks_auth import service_principal_creds_present
 import os
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 PROJECT_PATH_NEW = str(os.getcwd()) + "/test/resources/ProjectCreatedOn160523"
 if os.environ.get("DATABRICKS_HOST") is None:
     os.environ["DATABRICKS_HOST"] = "test"
-if os.environ.get("DATABRICKS_TOKEN") is None:
+# Only inject a dummy token when no real auth is configured (neither a PAT nor
+# service-principal creds), so offline assertions run without contacting
+# Databricks. When DATABRICKS_CLIENT_ID/DATABRICKS_CLIENT_SECRET are set the
+# token is resolved from the credential chain in the deploy path instead.
+if os.environ.get("DATABRICKS_TOKEN") is None and not service_principal_creds_present():
     os.environ["DATABRICKS_TOKEN"] = "test"
 
 

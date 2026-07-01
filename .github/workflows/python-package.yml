@@ -8,8 +8,11 @@ on:
     branches: [ "main" ]
 
 env:
+  # Service-principal (OAuth M2M) auth to the Databricks workspace. PBT resolves
+  # these into a short-lived bearer token via the databricks-sdk credential chain.
   DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+  DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
 
 jobs:
   build:
@@ -17,14 +20,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Build package
@@ -37,7 +40,7 @@ jobs:
         pip install "./dist/$(ls ./dist/ | grep whl)[test]"
     - name: Lint with Black
       run: |
-        pip install black~=24.10
+        pip install "black>=25.9,<26"
         # stop the build if there are Python syntax errors or undefined names
         black --check src/ test/
     - name: Test with pytest
