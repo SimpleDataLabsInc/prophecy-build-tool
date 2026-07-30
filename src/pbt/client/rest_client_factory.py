@@ -25,7 +25,11 @@ class RestClientFactory:
         else:
             fabric_info: Optional[FabricInfo] = self.fabric_config.get_fabric(str(fabric_id))
             if fabric_info is None:
-                raise ValueError(f"Fabric Id {fabric_id} is not found in the fabric configs {self.fabric_config}")
+                # never interpolate the fabric config, it carries tokens and lands in the deployment logs.
+                raise ValueError(
+                    f"Fabric Id {fabric_id} is not found in the fabric configs. "
+                    f"Available fabric ids: {self.fabric_config.list_all_fabrics()}"
+                )
             return fabric_info
 
     def _get_client(self, fabric_id: str):
@@ -58,7 +62,8 @@ class RestClientFactory:
         if self._get_client(fabric_id) is not None:
             return self._get_client(fabric_id)
 
-        databricks = self._get_fabric_info(fabric_id).databricks
+        fabric_info = self._get_fabric_info(fabric_id)
+        databricks = fabric_info.databricks
 
         if databricks is not None:
             oauth_client_secret = (
@@ -76,7 +81,8 @@ class RestClientFactory:
 
         else:
             raise ValueError(
-                f"Fabric Id {fabric_id} is not defined and the databricks client {self._get_fabric_info(fabric_id)}."
+                f"Fabric Id {fabric_id} (name '{fabric_info.name}', provider {fabric_info.provider}) "
+                f"does not have a databricks configuration defined."
             )
 
     def airflow_client(self, fabric_id: str) -> AirflowRestClient:
