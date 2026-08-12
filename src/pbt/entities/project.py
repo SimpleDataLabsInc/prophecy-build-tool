@@ -372,7 +372,10 @@ class Project:
                         resource_full_path = os.path.join(resource_subdir_path, resource_filename)
                         resource_content = _read_file_content(resource_full_path)
                         if resource_content is not None:
-                            relative_path = os.path.relpath(resource_full_path, base_path)
+                            # Callers key into this dict with hardcoded "/"
+                            # (e.g. ".prophecy/workflow.latest.json"), but
+                            # os.path.relpath uses "\" on Windows.
+                            relative_path = os.path.relpath(resource_full_path, base_path).replace(os.sep, "/")
                             rdc[relative_path] = resource_content
 
             # Add generated code to RDC
@@ -381,7 +384,7 @@ class Project:
                     full_path = os.path.join(dir_path, filename)
                     content = _read_file_content(full_path)
                     if content is not None:
-                        relative_path = os.path.relpath(full_path, base_path)
+                        relative_path = os.path.relpath(full_path, base_path).replace(os.sep, "/")
                         rdc[relative_path] = content
         return rdc
 

@@ -1,6 +1,11 @@
 import json
 
+import pytest
+
 from src.pbt.deployment.jobs.utils import modify_databricks_json_for_private_artifactory
+
+# Small JSON helper tests; cheap to run, kept as legacy until folded into v2 units.
+pytestmark = pytest.mark.legacy
 
 input_db_json = """
 {

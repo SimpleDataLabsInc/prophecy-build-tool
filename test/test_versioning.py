@@ -5,7 +5,11 @@ import os
 import git
 import glob
 import shutil
+import pytest
 from parameterized import parameterized
+
+# Legacy (mutates real git checkout; dedicated refactor tracked as a follow-up).
+pytestmark = [pytest.mark.legacy, pytest.mark.serial]
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)
@@ -19,6 +23,11 @@ class VersioningTestCase(unittest.TestCase):
     def setUpClass(cls):
         # Initialize the repo object and set it as a class attribute
         cls.repo = git.Repo(os.getcwd())
+        # `git stash` drops MERGE_HEAD/REBASE_HEAD/etc, so stashing+checking out
+        # branches here would silently corrupt an in-progress merge/rebase.
+        for state_file in ("MERGE_HEAD", "REBASE_HEAD", "CHERRY_PICK_HEAD"):
+            if os.path.exists(os.path.join(cls.repo.git_dir, state_file)):
+                pytest.skip(f"repo has a {state_file} in progress; skipping tests that mutate the real checkout")
         cls.orig_repo_head = cls.get_current_repo_head()
         # pull the following branches for testing.
         repo_dirty = cls.repo.is_dirty()

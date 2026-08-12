@@ -17,7 +17,6 @@ from requests import HTTPError
 from rich import print
 
 from .process import Process
-from .utils.databricks_auth import resolve_databricks_token
 import tempfile
 
 
@@ -276,11 +275,14 @@ class ProphecyBuildTool:
             print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         self._verify_databricks_configs()
-        # Build the api client from the resolved token (a PAT from DATABRICKS_TOKEN,
-        # or a bearer token exchanged from service-principal creds) rather than the
-        # env-only provider, which returns None when DATABRICKS_TOKEN is unset.
-        host = os.environ.get("DATABRICKS_HOST")
-        config = DatabricksConfig.from_token(host, resolve_databricks_token(host, default=None))
+        # Build the api client from the resolved credentials (env token,
+        # service-principal exchange, or a ~/.databrickscfg profile) rather
+        # than the env-only provider, which returns None when DATABRICKS_HOST /
+        # DATABRICKS_TOKEN aren't both set.
+        from .utils.databricks_creds import get_databricks_credentials
+
+        creds = get_databricks_credentials()
+        config = DatabricksConfig.from_token(creds.host, creds.token)
 
         self.api_client = _get_api_client(config)
 
@@ -746,9 +748,22 @@ class ProphecyBuildTool:
                         # plugin imports `pdb` at configure time (`pdb` subclasses
                         # `code.InteractiveConsole`), so the shadowing makes pytest crash
                         # before any test runs. The interactive debugger is never needed
-                        # for these automated runs, so disable the plugin.
+                        # for these automated runs, so disable the plugin -- and re-add the
+                        # `--trace`/`--pdb` options it would normally register, since pytest
+                        # core still looks them up for every unittest.TestCase test (see
+                        # pbt.utils.pytest_debugging_stub for the full explanation).
                         "-p",
                         "no:debugging",
+                        "-p",
+                        "pbt.utils.pytest_debugging_stub",
+                        # Newer pytest (9.x, e.g. from a fresh 3.13 install) can also hit
+                        # the same `code`-vs-stdlib collision on its own, independent of
+                        # the debugging plugin: rootdir-based conftest resolution walks up
+                        # `__init__.py`-containing ancestors and tries to import this
+                        # conftest.py as `code.test.conftest`, which collides the same way.
+                        # importlib mode addresses each test/conftest file by a unique name
+                        # derived from its path instead, sidestepping the collision entirely.
+                        "--import-mode=importlib",
                         "-v",
                         "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
@@ -868,15 +883,17 @@ class ProphecyBuildTool:
 
     @classmethod
     def _verify_databricks_configs(cls, exit_on_failure=True):
-        host = os.environ.get("DATABRICKS_HOST")
-        token = resolve_databricks_token(host, default=None)
+        from .utils.databricks_creds import get_databricks_credentials
 
-        if host is None or token is None:
+        creds = get_databricks_credentials()
+        if creds is None:
             if exit_on_failure:
                 cls._error(
-                    "[i]DATABRICKS_HOST[/i] and either [i]DATABRICKS_TOKEN[/i] or "
-                    "[i]DATABRICKS_CLIENT_ID[/i] & [i]DATABRICKS_CLIENT_SECRET[/i] (service principal) "
-                    "environment variables are required to deploy your Databricks Workflows"
+                    "Databricks credentials not found. Set [i]DATABRICKS_HOST[/i] and either "
+                    "[i]DATABRICKS_TOKEN[/i] or [i]DATABRICKS_CLIENT_ID[/i] & "
+                    "[i]DATABRICKS_CLIENT_SECRET[/i] (service principal) environment variables, "
+                    "or configure a default profile in [i]~/.databrickscfg[/i] (e.g. via "
+                    "`databricks configure --token`), to deploy your Databricks Workflows."
                 )
             else:
                 return False

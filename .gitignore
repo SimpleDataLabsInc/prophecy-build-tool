@@ -8,8 +8,18 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# avoid accidental publish of relese projects.
+# avoid accidental publish of release projects.
 test/resources/*
+# ... but keep the stable test fixtures that belong in git.
+!test/resources/BaseDirectory/
+!test/resources/HelloProphecy/
+!test/resources/HelloWorld/
+!test/resources/HelloWorldBuildError/
+!test/resources/ProjectCreatedOn160523/
+!test/resources/bundles/
+!test/resources/ivysettings.xml
+!test/resources/tagging.bundle
+!test/resources/versioning.bundle
 # C extensions
 *.so
 

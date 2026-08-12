@@ -4,8 +4,12 @@ from src.pbt import tag
 import os
 import shutil
 import uuid
+import pytest
 from git import Repo
 from parameterized import parameterized
+
+# Legacy (clones remote sample repo; follow-up refactor will isolate fixtures).
+pytestmark = [pytest.mark.legacy, pytest.mark.serial]
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 REPO_PATH = os.path.dirname(CURRENT_DIRECTORY)

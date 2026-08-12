@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Git pre-commit: run the same formatter check as CI (black --check on src/ + test/).
+# Only examines staged *.py / *.pyi files so empty commits and doc-only changes stay fast.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+_run_black() {
+  if command -v black >/dev/null 2>&1; then
+    black "$@"
+  elif python3 -m black --version >/dev/null 2>&1; then
+    python3 -m black "$@"
+  else
+    echo "pre-commit (black): black not found." >&2
+    echo "Install with: pip install 'black~=24.10'   or: pip install -r requirements-dev.txt" >&2
+    echo "Then run: ./scripts/install-git-hooks.sh" >&2
+    exit 1
+  fi
+}
+
+python_files=()
+while IFS= read -r file; do
+  [ -z "${file}" ] && continue
+  case "${file}" in
+    *.py|*.pyi)
+      if [ -f "${file}" ]; then
+        python_files+=("${file}")
+      fi
+      ;;
+  esac
+done <<< "$(git diff --cached --name-only --diff-filter=ACM)"
+
+if [ "${#python_files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+_run_black --check "${python_files[@]}"

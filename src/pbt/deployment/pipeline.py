@@ -6,7 +6,6 @@ import re
 import subprocess
 import sys
 import tempfile
-import threading
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
@@ -18,6 +17,7 @@ from ..client.nexus import NexusClient
 from ..deployment.jobs.airflow import AirflowJobDeployment
 from ..deployment.jobs.databricks import DatabricksJobsDeployment
 from ..entities.project import Project
+from ..runner import CommandRunner, default_runner
 from ..utility import Either, custom_print as log, is_online_mode
 from ..utils.constants import PYTHON_LANGUAGE, SCALA_LANGUAGE
 from ..utils.exceptions import ProjectBuildFailedException
@@ -79,6 +79,7 @@ class PipelineDeployment:
         project_config: ProjectConfig,
         job_ids: Optional[List[str]] = None,
         pipelines_to_build: Optional[List[str]] = None,
+        runner: Optional[CommandRunner] = None,
     ):
         self.job_ids = job_ids
         self.pipelines_to_build = pipelines_to_build
@@ -90,6 +91,11 @@ class PipelineDeployment:
         self.project_config = project_config
         self.deployment_mode = project_config.configs_override.mode
         self.are_tests_enabled = project_config.configs_override.tests_enabled
+
+        # All subprocess calls in this class should flow through ``self._runner``
+        # so tests can substitute a ``FakeRunner``. The default mirrors direct
+        # ``subprocess.run`` behavior.
+        self._runner: CommandRunner = runner or default_runner
 
         self.pipeline_id_to_local_path = {}
         self.has_pipelines = False  # in case deployment doesn't have any pipelines.
@@ -202,6 +208,7 @@ class PipelineDeployment:
             are_tests_enabled=self.are_tests_enabled,
             fabrics=relevant_fabrics_for_pipeline,
             scala_versions=scala_versions,
+            runner=self._runner,
         )
         return pipeline_builder.build_and_upload_pipeline()
 
@@ -262,6 +269,7 @@ class PipelineDeployment:
                 self.project_config,
                 are_tests_enabled=True,
                 fabrics=self._pipeline_to_list_fabrics.get(pipeline_id),
+                runner=self._runner,
             )
             return_code = pipeline_builder.test()
             responses[pipeline_id] = return_code
@@ -415,6 +423,7 @@ class PipelineDeployment:
                 self.project_config,
                 are_tests_enabled=False,
                 fabrics=self._pipeline_to_list_fabrics.get(pipeline_id),
+                runner=self._runner,
             )
             try:
                 build_success = pipeline_builder.build(ignore_build_errors) == 0
@@ -496,6 +505,7 @@ class PackageBuilderAndUploader:
         are_tests_enabled: bool = False,
         fabrics: List = [],
         scala_versions: Optional[List[str]] = None,
+        runner: Optional[CommandRunner] = None,
     ):
         self._pipeline_id = pipeline_id
         self._pipeline_name = pipeline_name
@@ -506,11 +516,32 @@ class PackageBuilderAndUploader:
         self._project_config = project_config
         self.fabrics = fabrics
         self._scala_versions = scala_versions or ["2.12"]
+        self._runner: CommandRunner = runner or default_runner
         self.pipeline_upload_manager = PipelineUploadManager(
             self._project, self._project_config, self._pipeline_id, self._pipeline_name, self.fabrics
         )
+        self._use_uv = project_config.use_uv if project_config is not None else False
+        self._uv_venv_ready = False
         if self._project_language == PYTHON_LANGUAGE:
-            self._python_cmd, self._pip_cmd = get_python_commands(self._base_path)
+            self._python_cmd, self._pip_cmd = get_python_commands(self._base_path, runner=self._runner)
+
+    def _ensure_uv_venv(self):
+        if self._uv_venv_ready:
+            return
+        try:
+            subprocess.check_call(["uv", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise EnvironmentError(
+                "uv is not installed. Install with: pip install uv  "
+                "or curl -LsSf https://astral.sh/uv/install.sh | sh"
+            )
+        venv_path = os.path.join(self._base_path, ".venv")
+        log(f"Creating UV virtual environment at {venv_path}", step_id=self._pipeline_id, indent=2)
+        subprocess.check_call(["uv", "venv", venv_path], cwd=self._base_path)
+        python_bin = os.path.join("Scripts", "python.exe") if sys.platform == "win32" else os.path.join("bin", "python")
+        self._python_cmd = os.path.join(venv_path, python_bin)
+        subprocess.check_call(["uv", "pip", "install", "--python", self._python_cmd, "-q", "setuptools", "wheel", "uv"])
+        self._uv_venv_ready = True
 
     def _initialize_temp_folder(self):
         rdc = self._project.load_pipeline_folder(self._pipeline_id)
@@ -695,8 +726,8 @@ class PackageBuilderAndUploader:
                 wheel_file,
             ]
             log(f"Uploading wheel file {wheel_file} to Artifactory at {artifactory_url}")
-            response_code = subprocess.run(upload_command)
-            if response_code.returncode != 0:
+            response = self._runner.run(upload_command, check=False, capture_output=False)
+            if response.returncode != 0:
                 log(f"Twine upload failed for {wheel_file}")
                 raise Exception(f"Twine upload failed for {wheel_file}")
             log("Wheel file uploaded to Artifactory.")
@@ -801,13 +832,18 @@ class PackageBuilderAndUploader:
             return install_requires
 
         requirements = _extract_install_requires_from_setup(os.path.join(self._base_path, "setup.py"))
-        try:
-            log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements
+        log(f"{Colors.OKBLUE}Installing: {requirements} {Colors.ENDC}")
+        if self._use_uv:
+            self._ensure_uv_venv()
+            install_cmd = ["uv", "pip", "install", "--python", self._python_cmd, "-q"] + requirements
+        else:
+            install_cmd = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "-q"] + requirements
+        install_result = self._runner.run(install_cmd, check=False, capture_output=True)
+        if install_result.returncode != 0:
+            log(
+                f"An error occurred while trying to install requirements: exit {install_result.returncode}",
+                step_id=self._pipeline_id,
             )
-        except subprocess.CalledProcessError as e:
-            log(f"An error occurred while trying to install requirements: {e}", step_id=self._pipeline_id)
 
     def get_maven_dependencies_python(self):
         if "SPARK_JARS_CONFIG" in os.environ and len(os.environ.get("SPARK_JARS_CONFIG", "")) != 0:
@@ -842,10 +878,16 @@ class PackageBuilderAndUploader:
         maven_deps = maven_deps_patched
         log(f"{Colors.OKBLUE}Installing: {maven_deps} {Colors.ENDC}")
         for d in maven_deps:
-            try:
-                subprocess.check_call(["mvn", "dependency:get", f"-Dartifact={d}"])
-            except subprocess.CalledProcessError as e:
-                log(f"An error occurred while trying to install maven requirements: {e}", step_id=self._pipeline_id)
+            mvn_result = self._runner.run(
+                ["mvn", "dependency:get", f"-Dartifact={d}"],
+                check=False,
+                capture_output=True,
+            )
+            if mvn_result.returncode != 0:
+                log(
+                    f"An error occurred while trying to install maven requirements: exit {mvn_result.returncode}",
+                    step_id=self._pipeline_id,
+                )
 
     def wheel_test(self):
         COVERAGERC_CONTENT = "[run]\n" "omit=test/**,build/**,dist/**,setup.py\n"
@@ -869,9 +911,22 @@ class PackageBuilderAndUploader:
             # sys.path. On Python 3.13+ pytest's debugging plugin imports `pdb` at
             # configure time (`pdb` subclasses `code.InteractiveConsole`), so the
             # shadowing makes pytest crash before any test runs. We never need the
-            # interactive debugger for these automated runs, so disable the plugin.
+            # interactive debugger for these automated runs, so disable the plugin --
+            # and re-add the `--trace`/`--pdb` options it would normally register,
+            # since pytest core still looks them up for every unittest.TestCase test
+            # (see pbt.utils.pytest_debugging_stub for the full explanation).
             "-p",
             "no:debugging",
+            "-p",
+            "pbt.utils.pytest_debugging_stub",
+            # Newer pytest (9.x, e.g. from a fresh 3.13 install) can also hit the
+            # same `code`-vs-stdlib collision on its own, independent of the
+            # debugging plugin: rootdir-based conftest resolution walks up
+            # `__init__.py`-containing ancestors and tries to import this
+            # conftest.py as `code.test.conftest`, which collides the same way.
+            # importlib mode addresses each test/conftest file by a unique name
+            # derived from its path instead, sidestepping the collision entirely.
+            "--import-mode=importlib",
             "-v",
             "--cov=.",
             "--cov-report=xml",
@@ -884,20 +939,33 @@ class PackageBuilderAndUploader:
         return response_code
 
     def wheel_build(self, ignore_build_error: bool = False):
+        if self._use_uv:
+            self._ensure_uv_venv()
+
         if self._are_tests_enabled:
             response_code = self.wheel_test()
 
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
 
-        case_preserved_whl_build = (
-            "import sys, runpy, setuptools._normalization as norm;"
-            "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
-            "sys.argv=['setup.py','bdist_wheel'];"
-            "runpy.run_path('setup.py', run_name='__main__')"
-        )
+        if self._use_uv:
+            # NOTE: the normalization code below goes against PEP 503 and PEP 566 and should not
+            # have been introduced as a solution in the first place in PR #157.
+            command = [self._python_cmd, "-m", "uv", "build"]
+        else:
+            # TODO: the name which gets generated in the databricks-job.json should be the normalized
+            # name of the wheel file. https://app.asana.com/1/711615303573503/project/1201492708519695/task/1209769302433884?focus=true
+            # This needs further investigation, but my hunch is that normalization should happen as soon
+            # as we generate the package name in the code for setup.py or pyproject.toml, which would
+            # fix the downstream issues.
+            case_preserved_whl_build = (
+                "import sys, runpy, setuptools._normalization as norm;"
+                "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"
+                "sys.argv=['setup.py','bdist_wheel'];"
+                "runpy.run_path('setup.py', run_name='__main__')"
+            )
 
-        command = [self._python_cmd, "-c", case_preserved_whl_build]
+            command = [self._python_cmd, "-c", case_preserved_whl_build]
 
         log(f"Running python command {command}", step_id=self._pipeline_id, indent=2)
 
@@ -915,41 +983,24 @@ class PackageBuilderAndUploader:
             env["FABRIC_NAME"] = "default"  # for python test runs.
 
         log(f"Running command {command} on path {self._base_path}", step_id=_step_id, indent=2)
-        process = subprocess.Popen(
-            command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=self._base_path
+        completed = self._runner.run(
+            command,
+            cwd=self._base_path,
+            env=env,
+            check=False,
+            capture_output=True,
+            shell=False,
         )
+        return_code = completed.returncode
 
-        def log_output(pipe, log_function):
-            while True:
-                # Read line from stdout or stderr, break if EOF
-                output = pipe.readline()
-                if process.poll() is not None and not output:
-                    break
-                # Decode line and print it
-                response = output.decode().strip()
-
-                # stripping unnecessary logs
+        def _emit_filtered_lines(text: str, log_function):
+            for line in text.splitlines():
+                response = line.strip()
                 if not re.search(r"Progress \(\d+\):", response) and len(response) != 0 and response != "\n":
                     log_function(response)
 
-        # Create threads to read and log stdout and stderr simultaneously
-        stdout_thread = threading.Thread(
-            target=log_output, args=(process.stdout, lambda msg: log(msg, step_id=_step_id, indent=2))
-        )
-        stderr_thread = threading.Thread(
-            target=log_output, args=(process.stderr, lambda msg: log(msg, step_id=_step_id, indent=2))
-        )
-
-        # Start threads
-        stdout_thread.start()
-        stderr_thread.start()
-
-        # Wait for both threads to finish
-        stdout_thread.join()
-        stderr_thread.join()
-
-        # Get the exit code
-        return_code = process.wait()
+        _emit_filtered_lines(completed.stdout, lambda msg: log(msg, step_id=_step_id, indent=2))
+        _emit_filtered_lines(completed.stderr, lambda msg: log(msg, step_id=_step_id, indent=2))
 
         if return_code in (0, 5):
             log(f"Build was successful with exit code {return_code}", step_id=_step_id, indent=2)

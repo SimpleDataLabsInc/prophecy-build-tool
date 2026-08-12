@@ -14,7 +14,7 @@ from rich import print
 from .utils.versioning import get_bumped_version
 from .pbt_cli import PBTCli
 from .prophecy_build_tool import ProphecyBuildTool
-from .utility import is_online_mode
+from .utility import is_online_mode, warn_if_uv_available
 
 
 @click.group()
@@ -88,8 +88,16 @@ def build(path, pipelines, ignore_build_errors, ignore_parse_errors):
     help="adds pom.xml and MAVEN_COORDINATES files to pyspark pipeline WHL files",
     required=False,
 )
-def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
-    pbt = PBTCli.from_conf_folder(path)
+@click.option(
+    "--use-uv",
+    default=False,
+    is_flag=True,
+    help="Use UV for Python package management, venv creation, and building (Python projects only)",
+    required=False,
+)
+def build_v2(path, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python, use_uv):
+    warn_if_uv_available(use_uv)
+    pbt = PBTCli.from_conf_folder(path, use_uv=use_uv)
     pbt.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
 
 
@@ -240,6 +248,13 @@ def deploy(
     help="Flag to skip uploading to private artifactory, must be used with --artifactory option",
     required=False,
 )
+@click.option(
+    "--use-uv",
+    default=False,
+    is_flag=True,
+    help="Use UV for Python package management, venv creation, and building (Python projects only)",
+    required=False,
+)
 def deploy_v2(
     path: str,
     project_id: str,
@@ -254,7 +269,9 @@ def deploy_v2(
     migrate: bool,
     artifactory: str,
     skip_artifactory_upload: bool,
+    use_uv: bool,
 ):
+    warn_if_uv_available(use_uv)
     pbt = PBTCli.from_conf_folder(
         path,
         project_id,
@@ -269,6 +286,7 @@ def deploy_v2(
         migrate,
         artifactory,
         skip_artifactory_upload,
+        use_uv=use_uv,
     )
     if is_online_mode():
         pbt.headers()
@@ -286,8 +304,16 @@ def deploy_v2(
     help="Jar path of prophecy-python-libs and other required dependencies",
     required=False,
 )
-def test_v2(path, driver_library_path):
-    pbt = PBTCli.from_conf_folder(path)
+@click.option(
+    "--use-uv",
+    default=False,
+    is_flag=True,
+    help="Use UV for Python package management, venv creation, and building (Python projects only)",
+    required=False,
+)
+def test_v2(path, driver_library_path, use_uv):
+    warn_if_uv_available(use_uv)
+    pbt = PBTCli.from_conf_folder(path, use_uv=use_uv)
     pbt.test(driver_library_path)
 
 
@@ -570,5 +596,5 @@ def main():
     cli()
 
 
-if __name__ == "pbt":
+if __name__ == "__main__":
     main()

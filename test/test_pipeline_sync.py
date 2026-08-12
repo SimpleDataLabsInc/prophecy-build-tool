@@ -4,8 +4,13 @@ import shutil
 import tempfile
 import json
 import yaml
+import pytest
 from click.testing import CliRunner
 from src.pbt import cli
+
+# Legacy-style (unittest.TestCase + tmpdir) but covers v2 rename-sync logic.
+# Kept in place during refactor; marker enables CI lane selection.
+pytestmark = pytest.mark.legacy
 from src.pbt.utils.pipeline_rename import (
     sync_pipeline,
     validate_sync,

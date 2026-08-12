@@ -24,17 +24,26 @@ from ..deployment.jobs.databricks import (
 )
 from ..deployment.pipeline import PipelineDeployment
 from ..entities.project import Project
+from ..runner import CommandRunner, default_runner
 from ..utility import Either, custom_print as log, is_online_mode
 from ..utility import remove_null_items_recursively
 from ..utils.constants import NEW_JOB_STATE_FILE
 from ..utils.project_config import ProjectConfig
 from ..utils.project_models import Colors, Operation, Status, StepMetadata, StepType
 
+from typing import Optional
+
 
 class ProjectDeployment:
-    def __init__(self, project: Project, project_config: ProjectConfig):
+    def __init__(
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        runner: Optional[CommandRunner] = None,
+    ):
         self.project = project
         self.project_config = project_config
+        self._runner: CommandRunner = runner or default_runner
 
         self._databricks_jobs = DatabricksJobsDeployment(project, project_config)
         self._airflow_jobs = AirflowJobDeployment(project, project_config)
@@ -62,7 +71,9 @@ class ProjectDeployment:
         self._dbt_component = DBTComponents(project, self._databricks_jobs, project_config)
         self._airflow_git_secrets = AirflowGitSecrets(project, self._airflow_jobs, project_config)
 
-        self._pipelines = PipelineDeployment(project, self._databricks_jobs, self._airflow_jobs, project_config)
+        self._pipelines = PipelineDeployment(
+            project, self._databricks_jobs, self._airflow_jobs, project_config, runner=self._runner
+        )
 
         # add gems Deployment.
         self._gems = GemsDeployment(project, project_config)

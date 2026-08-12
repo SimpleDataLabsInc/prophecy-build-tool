@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pydantic_yaml import parse_yaml_raw_as
 
 from .constants import DBFS_FILE_STORE, PROPHECY_ARTIFACTS
-from .databricks_auth import resolve_databricks_token
+from .databricks_creds import get_databricks_credentials
 from .exceptions import ConfigFileNotFoundException
 from .project_models import Status
 from ..deployment import JobInfoAndOperation, OperationType
@@ -535,6 +535,7 @@ class ProjectConfig:
         artifactory: str = "",
         skip_artifactory_upload: bool = False,
         conf_folder: str = "",
+        use_uv: bool = False,
     ):
         self.jobs_state = jobs_state
         self.system_config = system_config
@@ -546,6 +547,7 @@ class ProjectConfig:
         self.artifactory = artifactory
         self.skip_artifactory_upload = skip_artifactory_upload
         self.conf_folder = conf_folder
+        self.use_uv = use_uv
         self.fabric_config_without_conf_replace = copy.deepcopy(fabric_config)
         self.fabric_config = fabric_config.resolve_env_vars()
 
@@ -586,6 +588,7 @@ class ProjectConfig:
         migrate: bool,
         artifactory: str,
         skip_artifactory_upload: bool,
+        use_uv: bool = False,
     ):
         is_based_on_file = conf_folder != "" and len(conf_folder) > 0
 
@@ -594,13 +597,18 @@ class ProjectConfig:
             fabrics = load_fabric_config(fabric_config_path)
             system = load_system_config(system_config_path)
             configs = load_configs_override(configs_override_path)
-            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build)
+            return ProjectConfig(jobs, fabrics, system, configs, skip_builds=skip_build, use_uv=use_uv)
 
         else:
             if not is_based_on_file:
-                # only cli case for databricks/ fabrics
-                host = os.environ.get("DATABRICKS_HOST", "test")
-                token = resolve_databricks_token(host)
+                # Env vars (incl. service-principal) take priority; fall back to
+                # ``~/.databrickscfg`` default profile so users who ran
+                # ``databricks configure`` don't need to re-export credentials.
+                # Final fallback is the placeholder ``test``/``test`` pair used
+                # by offline tests.
+                creds = get_databricks_credentials(default_host="test", default_token="test")
+                host = creds.host
+                token = creds.token
                 if not fabric_ids:
                     allowed_fabric_ids = project.fabrics()
                 else:
@@ -662,6 +670,7 @@ class ProjectConfig:
                 migrate=migrate,
                 artifactory=artifactory,
                 skip_artifactory_upload=skip_artifactory_upload,
+                use_uv=use_uv,
             )
 
     # best used when invoking from execution.
@@ -677,6 +686,7 @@ class ProjectConfig:
         migrate: bool,
         artifactory: str,
         skip_artifactory_upload: bool,
+        use_uv: bool = False,
     ):
         jobs_state = os.path.join(conf_folder, "state.yml")
         system_config = os.path.join(conf_folder, "system.yml")
@@ -697,6 +707,7 @@ class ProjectConfig:
             migrate,
             artifactory,
             skip_artifactory_upload,
+            use_uv=use_uv,
         )
 
 

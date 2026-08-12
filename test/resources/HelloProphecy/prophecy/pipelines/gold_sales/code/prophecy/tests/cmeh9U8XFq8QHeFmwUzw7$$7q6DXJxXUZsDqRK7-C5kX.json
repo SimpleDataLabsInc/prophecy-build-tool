@@ -1,0 +1,44 @@
+{
+  "unitTests" : [ {
+    "data" : {
+      "7Sl1POjLs_iThUKfZHrKm$$YnFjYVPWqnHtkKkI5URlN" : {
+        "values" : [ [ "2019-12-13" ], [ "2019-06-12" ], [ "2019-07-10" ], [ "2019-04-13" ], [ "2019-06-16" ], [ "2020-01-26" ], [ "2019-09-01" ], [ "2020-02-25" ], [ "2019-04-12" ], [ "2019-08-13" ] ],
+        "schema" : {
+          "type" : "struct",
+          "fields" : [ {
+            "name" : "order_date",
+            "type" : "date",
+            "nullable" : true,
+            "metadata" : {
+              "description" : "",
+              "mappings" : [ ],
+              "tags" : [ ]
+            }
+          } ]
+        },
+        "predicates" : [ ]
+      },
+      "MXo6JurnoN6flZNUaHptp$$x5n4R4vwDuL52LdvCVnzS" : {
+        "values" : [ [ "2019-12-13" ], [ "2019-06-12" ], [ "2019-07-10" ], [ "2019-04-13" ], [ "2019-06-16" ], [ "2020-01-26" ], [ "2019-09-01" ], [ "2020-02-25" ], [ "2019-04-12" ], [ "2019-08-13" ] ],
+        "schema" : {
+          "type" : "struct",
+          "fields" : [ {
+            "name" : "order_date",
+            "type" : "date",
+            "nullable" : true,
+            "metadata" : {
+              "description" : "",
+              "mappings" : [ ],
+              "tags" : [ ]
+            }
+          } ]
+        },
+        "predicates" : [ ]
+      }
+    },
+    "name" : "order_date test",
+    "testType" : "outputRow",
+    "language" : "python"
+  } ],
+  "language" : "python"
+}

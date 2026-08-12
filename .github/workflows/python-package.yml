@@ -1,48 +1,284 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# This workflow installs dependencies, lints, and runs tests across lanes.
+# See test/README.md for the lane philosophy (legacy vs v2 fast vs e2e).
+# Docs on actions used: https://docs.github.com/en/actions
+#
+# Required-check policy (what should gate merges on PRs):
+#
+#   1. lint
+#   2. pytest-legacy   →  runs every test marked `legacy` (pre-refactor parity)
+#   3. pytest-v2       →  runs every test marked `v2 and fast` (the new suite)
+#   4. e2e             →  runs every test marked `e2e or maven or spark`
+#                         plus the full legacy suite (slow lane, no exceptions)
+#
+# pytest-legacy and pytest-v2 are intentionally siblings with the same OS /
+# Python version so PR reviewers can compare them head-to-head. The cross-OS
+# matrix runs alongside but is not required for merge.
 
 name: Python package
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+  push:
+    branches: ["main"]
 
 env:
-  # Service-principal (OAuth M2M) auth to the Databricks workspace. PBT resolves
-  # these into a short-lived bearer token via the databricks-sdk credential chain.
   DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  # Service-principal (OAuth M2M) auth to the Databricks workspace, used when
+  # DATABRICKS_TOKEN isn't set. PBT resolves these into a short-lived bearer
+  # token via the databricks-sdk credential chain.
   DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
   DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+  # Keep Rich output stable for any residual stdout assertions.
+  NO_COLOR: "1"
 
 jobs:
-  build:
+  # -------------------------------------------------------------------------
+  # Shared pre-gate
+  # -------------------------------------------------------------------------
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Black
+        run: |
+          python -m pip install --upgrade pip
+          pip install "black>=25.9,<26"
+          black --check src/ test/
+
+  # -------------------------------------------------------------------------
+  # Required PR check #1: legacy parity lane.
+  # Runs every test marked `legacy` to demonstrate non-regression against the
+  # pre-refactor suite. Sibling to pytest-v2 for easy reviewer comparison.
+  # -------------------------------------------------------------------------
+  pytest-legacy:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Spark's storage/memory code reflectively pokes java.nio internals that
+      # JDK 17's module system hides by default (IllegalAccessError on
+      # sun.nio.ch.DirectBuffer during surefire tests). JDK_JAVA_OPTIONS is
+      # read by the `java` launcher itself, so it reaches mvn's forked test
+      # JVM too, not just the outer `mvn` process. Mirrors the flags Spark's
+      # own launch scripts add for JDK 17.
+      JDK_JAVA_OPTIONS: >-
+        --add-opens=java.base/java.lang=ALL-UNNAMED
+        --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+        --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+        --add-opens=java.base/java.io=ALL-UNNAMED
+        --add-opens=java.base/java.net=ALL-UNNAMED
+        --add-opens=java.base/java.nio=ALL-UNNAMED
+        --add-opens=java.base/java.util=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+        --add-opens=java.base/sun.security.action=ALL-UNNAMED
+        --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Cache Maven / Ivy
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.ivy2
+          key: ${{ runner.os }}-maven-ivy-legacy-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-ivy-
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: Legacy tests (-m legacy)
+        run: |
+          python -m pytest \
+            -m legacy \
+            --timeout=600 \
+            --durations=25 \
+            -v
+
+  # -------------------------------------------------------------------------
+  # Required PR check #2: v2 fast lane.
+  # Runs every test marked `v2 and fast`. No Maven, no Spark, no real network;
+  # safe under xdist.
+  # -------------------------------------------------------------------------
+  pytest-v2:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: v2 fast tests (-m "v2 and fast")
+        env:
+          # Per-worker Maven local repo so parallel xdist workers don't race.
+          MAVEN_OPTS: -Dmaven.repo.local=${{ runner.temp }}/m2-v2
+        run: |
+          python -m pytest \
+            -m "v2 and fast" \
+            --timeout=300 \
+            --durations=25 \
+            --cov=src/pbt --cov-report=xml --cov-report=term-missing \
+            --cov-fail-under=0 \
+            -n auto \
+            -v
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-v2-fast
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  # -------------------------------------------------------------------------
+  # Optional: cross-OS v2 fast lane. Runs in parallel but is NOT a required
+  # merge check. Tracks portability on macOS + Windows so any OS-specific
+  # regression is visible but doesn't gate everyday PRs.
+  # -------------------------------------------------------------------------
+  pytest-v2-cross-os:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: v2 fast tests
+        run: python -m pytest -m "v2 and fast" --timeout=300 -v
+
+  # -------------------------------------------------------------------------
+  # Optional: broader Python matrix for v2 fast lane. Not required.
+  # -------------------------------------------------------------------------
+  pytest-v2-matrix:
+    needs: pytest-v2
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-
+        python-version: ["3.9", "3.10", "3.12", "3.13", "3.14"]
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Build package
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-        python -m build
-    - name: Install package
-      run: |
-        pip install "./dist/$(ls ./dist/ | grep whl)[test]"
-    - name: Lint with Black
-      run: |
-        pip install "black>=25.9,<26"
-        # stop the build if there are Python syntax errors or undefined names
-        black --check src/ test/
-    - name: Test with pytest
-      run: |
-        python -m pytest test/test_* -v
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: v2 fast tests
+        run: python -m pytest -m "v2 and fast" --timeout=300 -n auto -v
+
+  # -------------------------------------------------------------------------
+  # Required PR check #3: full e2e + slow lane (Maven, Spark, bundle-driven
+  # git tests). Runs on every PR and every push to main. Required to merge
+  # — no exceptions; if it goes red, the underlying e2e gets fixed before
+  # the PR lands.
+  #
+  # Sequenced after the two fast required checks so reviewers see lint /
+  # pytest-legacy / pytest-v2 results first and aren't waiting on a 60-min
+  # Maven download for the cheap signal. If you want e2e to start in
+  # parallel for faster overall feedback, drop `needs:`.
+  # -------------------------------------------------------------------------
+  e2e:
+    needs: [pytest-v2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # See pytest-legacy above: Spark's storage/memory code needs these
+      # module-opens on JDK 17, or mvn's forked test JVM hits an
+      # IllegalAccessError on sun.nio.ch.DirectBuffer.
+      JDK_JAVA_OPTIONS: >-
+        --add-opens=java.base/java.lang=ALL-UNNAMED
+        --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+        --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+        --add-opens=java.base/java.io=ALL-UNNAMED
+        --add-opens=java.base/java.net=ALL-UNNAMED
+        --add-opens=java.base/java.nio=ALL-UNNAMED
+        --add-opens=java.base/java.util=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+        --add-opens=java.base/sun.security.action=ALL-UNNAMED
+        --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Cache Maven / Ivy
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.ivy2
+          key: ${{ runner.os }}-maven-ivy-e2e-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-ivy-
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+      - name: v2 e2e + maven/spark lane (-m "e2e or maven or spark")
+        run: |
+          python -m pytest \
+            -m "e2e or maven or spark" \
+            --timeout=1200 \
+            --durations=25 \
+            -v

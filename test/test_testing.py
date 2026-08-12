@@ -1,6 +1,10 @@
 from click.testing import CliRunner
-from src.pbt import test, test_v2
+from src.pbt import test as _cli_test, test_v2 as _cli_test_v2
 import os
+import pytest
+
+# Legacy tests retained as a parity baseline during the v2-first refactor.
+pytestmark = pytest.mark.legacy
 
 PROJECT_PATH = str(os.getcwd()) + "/test/resources/HelloWorld"
 
@@ -12,7 +16,7 @@ def test_test_v2_driver_paths1():
     with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
+    result = runner.invoke(_cli_test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
     print(result.output)
     assert "fake.jar" in result.output.replace("\n", "")
     assert "fake2.jar" in result.output.replace("\n", "")
@@ -25,7 +29,7 @@ def test_test_v2_driver_paths2():
     with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
+    result = runner.invoke(_cli_test_v2, ["--path", PROJECT_PATH, "--driver-library-path", "./fake.jar,fake2.jar"])
     print(result.output)
     assert "fake.jar" in result.output.replace("\n", "")
     assert "fake2.jar" in result.output.replace("\n", "")
@@ -38,7 +42,7 @@ def test_test_v2_driver_paths3():
     with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
+    result = runner.invoke(_cli_test_v2, ["--path", PROJECT_PATH, "--driver-library-path", os.getcwd()])
     print(result.output)
     assert "fake.jar" in result.output.replace("\n", "")
     assert "fake2.jar" in result.output.replace("\n", "")
@@ -51,7 +55,7 @@ def test_test_driver_paths():
     with open("./fake2.jar", "w") as fd:
         fd.write("fake")
 
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
+    result = runner.invoke(_cli_test, ["--path", PROJECT_PATH, "--driver-library-path", "./"])
     print(result.output)
     assert "fake.jar" in result.output.replace("\n", "")
     assert "fake2.jar" in result.output.replace("\n", "")
@@ -59,7 +63,7 @@ def test_test_driver_paths():
 
 def test_test_path_default():
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH])
+    result = runner.invoke(_cli_test, ["--path", PROJECT_PATH])
     print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert (
@@ -76,7 +80,7 @@ def test_test_path_default():
 
 def test_test_v2_path_default():
     runner = CliRunner()
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH])
+    result = runner.invoke(_cli_test_v2, ["--path", PROJECT_PATH])
     print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert (
@@ -92,7 +96,7 @@ def test_test_v2_path_default():
 
 def test_test_v2_path_relative():
     runner = CliRunner()
-    result = runner.invoke(test_v2, ["--path", os.path.relpath(PROJECT_PATH, os.getcwd())])
+    result = runner.invoke(_cli_test_v2, ["--path", os.path.relpath(PROJECT_PATH, os.getcwd())])
     print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert (
@@ -108,7 +112,7 @@ def test_test_v2_path_relative():
 
 def test_test_with_pipeline_filter():
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers,join_agg_sort"])
+    result = runner.invoke(_cli_test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers,join_agg_sort"])
     print(result.output)
     assert "Found 2 jobs: test-job1234, job-another" in result.output
     assert (
@@ -124,7 +128,7 @@ def test_test_with_pipeline_filter():
 
 def test_test_with_pipeline_filter_one_notfound_pipeline():
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers,notfound"])
+    result = runner.invoke(_cli_test, ["--path", PROJECT_PATH, "--pipelines", "report_top_customers,notfound"])
     print(result.output)
     assert "Pipeline Filters passed [2]: ['report_top_customers', 'notfound']" in result.output
     assert "Pipelines found [1]" in result.output
@@ -133,7 +137,7 @@ def test_test_with_pipeline_filter_one_notfound_pipeline():
 
 def test_test_with_pipeline_filter_all_notfound_pipelines():
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "notfound1,notfound2,notfound3"])
+    result = runner.invoke(_cli_test, ["--path", PROJECT_PATH, "--pipelines", "notfound1,notfound2,notfound3"])
     print(result.output)
     assert "Pipeline Filters passed [3]: ['notfound1', 'notfound2', 'notfound3']" in result.output
     assert "Pipelines found [0]" in result.output
@@ -149,7 +153,7 @@ def test_test_coverage_and_test_report_generation():
     if os.path.exists(coveragerc_path):
         os.remove(coveragerc_path)
     runner = CliRunner()
-    result = runner.invoke(test, ["--path", PROJECT_PATH, "--pipelines", "customers_orders"])
+    result = runner.invoke(_cli_test, ["--path", PROJECT_PATH, "--pipelines", "customers_orders"])
     print(result.output)
     assert "Unit Testing pipeline pipelines/customers_orders" in result.output
     assert os.path.exists(coverage_path)
@@ -175,7 +179,7 @@ def test_test_v2_coverage_and_test_report_generation():
     if os.path.exists(coveragerc_path):
         os.remove(coveragerc_path)
     runner = CliRunner()
-    result = runner.invoke(test_v2, ["--path", PROJECT_PATH])
+    result = runner.invoke(_cli_test_v2, ["--path", PROJECT_PATH])
     print(result.output)
     assert "Testing pipeline `pipelines/customers_orders`" in result.output
     assert "Coverage XML written to file coverage.xml" in result.output

@@ -1,0 +1,450 @@
+name: HelloWorld
+description: This is your personal project
+version: 0.12.0
+author: scott+demo2@prophecy.io
+language: python
+buildSystem: ''
+buildSystemDetails:
+  artefactID: helloworld
+  parentArtefactID: scott_demo2_team
+  buildSystem: wheel
+  author: null
+  createdAt: '2023-03-27 15:13:13'
+pipelines:
+  pipelines/silver_customers_orders:
+    name: silver_customers_orders
+    description: ''
+    author: scott+demo2@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-07-13 16:49:10'
+    datasets:
+      inputs:
+      - datasets/bronze_customers
+      - datasets/bronze_orders
+      - datasets/silver_irs_zipcode
+      outputs:
+      - datasets/silver_customers
+      - datasets/silver_order_customer_details
+      - datasets/silver_orders
+    subgraphs: []
+    dependencies: {}
+  pipelines/gold_sales:
+    name: gold_sales
+    description: ''
+    author: scott+demo2@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-07-13 18:32:25'
+    datasets:
+      inputs:
+      - datasets/silver_order_customer_details
+      outputs:
+      - datasets/gold_sales_by_zip_date
+      - datasets/gold_total_sales_by_customer
+    subgraphs: []
+    dependencies: {}
+  pipelines/gold_top_customers:
+    name: gold_top_customers
+    description: ''
+    author: scott+demo2@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-07-13 18:45:24'
+    datasets:
+      inputs:
+      - datasets/gold_total_sales_by_customer
+      outputs:
+      - datasets/gold_top50_customers_by_spend
+    subgraphs: []
+    dependencies: {}
+  pipelines/silver_zip_codes:
+    name: silver_zip_codes
+    description: ''
+    author: scott+demo2@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-07-13 18:54:01'
+    datasets:
+      inputs:
+      - datasets/bronze_irs_zipcode
+      outputs:
+      - datasets/silver_irs_zipcode
+    subgraphs: []
+    dependencies: {}
+  pipelines/raw_bronze:
+    name: raw_bronze
+    description: The pipeline consists of several modules that read in and manipulate
+      data related to customers, orders, and IRS tax data. The raw_customers module
+      reads in customer data from a CSV file and creates a Spark DataFrame with a
+      specified schema. The bronze_orders module writes the input DataFrame to a Delta
+      Lake table for efficient querying and analysis of payment data. The ReformatCustomers
+      module reformats customer data for improved quality and consistency. The raw_orders
+      module reads in raw order data and creates a DataFrame with a specified schema.
+      The ReformatIRS module reformats IRS tax data for easier analysis and reporting.
+      The ReformatOrders module reformats order data for improved consistency and
+      accuracy. The bronze_irs_zipcode module saves the input DataFrame as a Delta
+      table for data warehousing and analysis. The bronze_customers module writes
+      the input DataFrame to a Delta table for further data processing and analysis.
+      The raw_irs_zipcode module reads in IRS tax data by zip code and aggregates
+      it into a Spark DataFrame for further analysis and insights.
+    author: scott+demo2@prophecy.io
+    mode: batch
+    artefactID: ''
+    language: python
+    createdAt: '2023-07-13 19:20:19'
+    datasets:
+      inputs:
+      - datasets/raw_customers
+      - datasets/raw_irs_zipcode
+      - datasets/raw_orders
+      outputs:
+      - datasets/bronze_customers
+      - datasets/bronze_irs_zipcode
+      - datasets/bronze_orders
+    subgraphs: []
+    dependencies: {}
+datasets:
+  datasets/bronze_orders:
+    name: bronze_orders
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-12 21:07:12'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: File
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-12 21:07:12'
+  datasets/bronze_customers:
+    name: bronze_customers
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-12 21:08:08'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: File
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-12 21:08:08'
+  datasets/bronze_irs_zipcode:
+    name: bronze_irs_zipcode
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-12 21:09:09'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: File
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-12 21:09:09'
+  datasets/silver_irs_zipcode:
+    name: silver_irs_zipcode
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 16:59:23'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 16:59:23'
+  datasets/silver_orders:
+    name: silver_orders
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 17:02:28'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 17:02:28'
+  datasets/silver_customers:
+    name: silver_customers
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 17:13:56'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 17:13:56'
+  datasets/gold_total_sales_by_customer:
+    name: gold_total_sales_by_customer
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 17:43:15'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 17:43:15'
+  datasets/silver_order_customer_details:
+    name: silver_order_customer_details
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 18:23:03'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 18:23:03'
+  datasets/gold_sales_by_zip_date:
+    name: gold_sales_by_zip_date
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 18:38:51'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 18:38:51'
+  datasets/gold_top50_customers_by_spend:
+    name: gold_top50_customers_by_spend
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 19:05:05'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: Database
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 19:05:05'
+  datasets/raw_customers:
+    name: raw_customers
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 19:22:07'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: File
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 19:22:07'
+  datasets/raw_orders:
+    name: raw_orders
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 19:22:43'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: File
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 19:22:43'
+  datasets/raw_irs_zipcode:
+    name: raw_irs_zipcode
+    description: ''
+    author: scott+demo2@prophecy.io
+    createdAt: '2023-07-13 19:23:27'
+    mode: batch
+    physicalDatasets:
+      HelloDev:
+        fabricId: 1571
+        datasetType: File
+        description: ''
+        author: scott+demo2@prophecy.io
+        createdAt: '2023-07-13 19:23:27'
+templates: {}
+jobs:
+  jobs/EndToEndJob:
+    name: EndToEndJob
+    description: ''
+    fabricUID: 1571
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: small
+    scheduleCron: 0 0 0 ? * 1 *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/silver_customers_orders
+    - pipelines/silver_zip_codes
+    - pipelines/gold_sales
+    - pipelines/gold_top_customers
+    - pipelines/raw_bronze
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: null
+    createdAt: '2023-07-13 19:31:54'
+    author: scott+demo2@prophecy.io
+    models: []
+    sqlProjects: []
+  jobs/AirflowEndToEndJob:
+    name: AirflowEndToEndJob
+    description: ''
+    fabricUID: 16432
+    scheduler:
+      Prophecy: {}
+    cloudProvider: null
+    jobSize: null
+    scheduleCron: None
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines:
+    - pipelines/silver_customers_orders
+    - pipelines/silver_zip_codes
+    - pipelines/gold_sales
+    - pipelines/gold_top_customers
+    - pipelines/raw_bronze
+    jobClusterMode:
+      clusterMode:
+        Multi: {}
+      clusterId: null
+    enabled: false
+    createdAt: '2023-11-08 17:35:57'
+    author: scott+demo2@prophecy.io
+    models: []
+    sqlProjects: []
+  jobs/DatabricksJob2:
+    name: DatabricksJob2
+    description: ''
+    fabricUID: 16433
+    scheduler:
+      Databricks: {}
+    cloudProvider: null
+    jobSize: small
+    scheduleCron: 0 0 0 1 * ? *
+    timeout: null
+    alerting:
+      emails: ''
+      onStart: false
+      onSuccess: false
+      onFailure: false
+    pipelines: []
+    jobClusterMode:
+      clusterMode:
+        Single: {}
+      clusterId: null
+    enabled: null
+    createdAt: '2024-08-16 18:43:05'
+    author: rj@prophecy.io
+    models: []
+    sqlProjects: []
+gemContainer:
+  languageVersion: '3.10'
+  gemLibsVersion: 1.3.4.0
+  gems:
+    gems/MyLimit:
+      name: MyLimit
+      category: Transform
+      subCategory: ''
+      description: null
+      author: scott+demo2@prophecy.io
+      mode: batch
+      files:
+      - scott_demo2_team_helloworld/gems/MyLimit.py
+      gemType: ComponentGem
+      dependencies: null
+      createdAt: '2023-11-08 18:07:56'
+  dependencies: null
+functions:
+  author: null
+  createdAt: '2023-03-27 15:13:13'
+  udfs:
+    udfs/rand_zip_index:
+      name: rand_zip_index
+      description: ''
+      tags: []
+      inputs: []
+      outputs: []
+      author: scott+demo2@prophecy.io
+      createdAt: '2022-12-15 18:04:50'
+  udafs: {}
+  expressions: {}
+  airflowFunctions: {}
+  businessRules: {}
+subgraphs: {}
+sqlModels: {}
+sqlSnapshots: {}
+sqlTests: {}
+sqlMacros: {}
+sqlSeeds: {}
+sqlSources: {}
+sqlUnreferencedSources: {}
+sqlPipeline: null
+dependencies:
+- type: plibMaven
+  modifiedAt: '2024-08-16T18:42:35.690964Z'
+  name: plibMaven
+  version: 9.2.0
+  id: '105951200'
+  createdAt: '2024-08-16T18:42:35.690929Z'
+  entity: Project
+  enabled: true
+- type: plibPypi
+  modifiedAt: '2026-04-20T20:56:47.274Z'
+  name: ProphecyLibsPython
+  version: 2.1.16
+  id: '1658241977'
+  createdAt: '2024-08-16T18:42:35.690991Z'
+  enabled: true
+  description: Default dependency for Prophecy Libs
+  editable: true
+  scope: Project
+  entity: Project
+projectDependencies:
+  '12654':
+    projectUID: 12654
+    projectName: ProphecySparkBasicsPython
+    repositoryPath: gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12654.git&subPath=
+    version: 0.2.55
+    isDefault: true
+    author: null
+    createdAt: '2026-04-20 20:56:47'
+  '12655':
+    projectUID: 12655
+    projectName: ProphecyWarehousePython
+    repositoryPath: gitUri=http://gitserver:3000/DxEheDCJ_team_5751/DxEheDCJ_project_12655.git&subPath=
+    version: 0.0.10
+    isDefault: true
+    author: null
+    createdAt: '2026-04-20 20:56:47'
+flags:
+  shouldAddDefaultDependenciesIfAbsent: true
+pipelineConfigurations: {}
+projectConfigurations: {}

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional, List, Dict
-import subprocess
 import sys
 
 
@@ -38,16 +37,28 @@ def invert_entity_to_fabric_mapping(
     return result
 
 
-def get_python_commands(cwd):
-    def _cmd_check(binary_name):
+def get_python_commands(cwd, runner=None):
+    """Probe ``python3`` then ``python`` via the CommandRunner seam.
+
+    ``runner`` defaults to ``pbt.runner.default_runner`` so existing callers
+    continue to work without changes. Tests can inject a ``FakeRunner`` to
+    simulate missing binaries without touching ``PATH``.
+    """
+
+    from ..runner import default_runner
+
+    active_runner = runner or default_runner
+
+    def _cmd_check(binary_name: str) -> bool:
         try:
-            subprocess.check_call(
-                [binary_name, "--version"], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd
-            )
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            result = active_runner.run([binary_name, "--version"], cwd=cwd, check=False, capture_output=True)
+        except FileNotFoundError as e:
             print(f"Could not find binary {binary_name}. subprocess returned: {e}")
-        return False
+            return False
+        if result.returncode != 0:
+            print(f"Could not find binary {binary_name}. exit code {result.returncode}")
+            return False
+        return True
 
     if _cmd_check("python3"):
         return "python3", "pip3"

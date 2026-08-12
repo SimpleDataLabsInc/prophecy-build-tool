@@ -5,6 +5,7 @@ import yaml
 
 from .deployment.project import ProjectDeployment
 from .entities.project import Project
+from .runner import CommandRunner
 from .utils.project_config import ProjectConfig
 from .utility import custom_print as log
 import git
@@ -18,8 +19,13 @@ import sys
 class PBTCli(object):
     """Command line interface for PBT."""
 
-    def __init__(self, project: Project, project_config: ProjectConfig):
-        self.project = ProjectDeployment(project, project_config)
+    def __init__(
+        self,
+        project: Project,
+        project_config: ProjectConfig,
+        runner: Optional[CommandRunner] = None,
+    ):
+        self.project = ProjectDeployment(project, project_config, runner=runner)
 
     def headers(self):
         """Print headers."""
@@ -45,6 +51,8 @@ class PBTCli(object):
         migrate: bool = False,
         artifactory: str = "",
         skip_artifactory_upload: bool = False,
+        runner: Optional[CommandRunner] = None,
+        use_uv: bool = False,
     ):
         """Create PBTCli from conf folder."""
         project = Project(project_path, project_id, release_tag, release_version, dependant_project_paths)
@@ -58,8 +66,9 @@ class PBTCli(object):
             migrate,
             artifactory,
             skip_artifactory_upload,
+            use_uv=use_uv,
         )
-        return cls(project, project_config)
+        return cls(project, project_config, runner=runner)
 
     def build(self, pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python):
         self.project.build(pipelines, ignore_build_errors, ignore_parse_errors, add_pom_python)
