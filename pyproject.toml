@@ -50,6 +50,7 @@ test = [
     "pytest-xdist",
     "pyspark>=3.3.0,<4.3",
     "parameterized",
+    "uv",
 ]
 
 [project.urls]

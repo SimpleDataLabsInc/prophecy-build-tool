@@ -540,7 +540,7 @@ class PackageBuilderAndUploader:
         subprocess.check_call(["uv", "venv", venv_path], cwd=self._base_path)
         python_bin = os.path.join("Scripts", "python.exe") if sys.platform == "win32" else os.path.join("bin", "python")
         self._python_cmd = os.path.join(venv_path, python_bin)
-        subprocess.check_call(["uv", "pip", "install", "--python", self._python_cmd, "-q", "setuptools", "wheel"])
+        subprocess.check_call(["uv", "pip", "install", "--python", self._python_cmd, "-q", "setuptools", "wheel", "uv"])
         self._uv_venv_ready = True
 
     def _initialize_temp_folder(self):
