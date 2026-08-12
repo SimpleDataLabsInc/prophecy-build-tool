@@ -906,6 +906,14 @@ class PackageBuilderAndUploader:
             self._python_cmd,
             "-m",
             "pytest",
+            # The pipeline source lives in a package literally named `code`, which
+            # shadows the stdlib `code` module once pytest puts the project root on
+            # sys.path. On Python 3.13+ pytest's debugging plugin imports `pdb` at
+            # configure time (`pdb` subclasses `code.InteractiveConsole`), so the
+            # shadowing makes pytest crash before any test runs. We never need the
+            # interactive debugger for these automated runs, so disable the plugin.
+            "-p",
+            "no:debugging",
             "-v",
             "--cov=.",
             "--cov-report=xml",
@@ -929,14 +937,14 @@ class PackageBuilderAndUploader:
 
         if self._use_uv:
             # NOTE: the normalization code below goes against PEP 503 and PEP 566 and should not
-            # have been introduced as a solution in the first place in PR #157. 
+            # have been introduced as a solution in the first place in PR #157.
             command = [self._python_cmd, "-m", "uv", "build"]
         else:
             # TODO: the name which gets generated in the databricks-job.json should be the normalized
             # name of the wheel file. https://app.asana.com/1/711615303573503/project/1201492708519695/task/1209769302433884?focus=true
             # This needs further investigation, but my hunch is that normalization should happen as soon
             # as we generate the package name in the code for setup.py or pyproject.toml, which would
-            # fix the downstream issues. 
+            # fix the downstream issues.
             case_preserved_whl_build = (
                 "import sys, runpy, setuptools._normalization as norm;"
                 "norm.safer_name = lambda v: norm.filename_component(norm.safe_name(v));"

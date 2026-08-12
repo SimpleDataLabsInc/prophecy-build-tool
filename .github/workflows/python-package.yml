@@ -25,6 +25,11 @@ on:
 env:
   DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
   DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+  # Service-principal (OAuth M2M) auth to the Databricks workspace, used when
+  # DATABRICKS_TOKEN isn't set. PBT resolves these into a short-lived bearer
+  # token via the databricks-sdk credential chain.
+  DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+  DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
   # Keep Rich output stable for any residual stdout assertions.
   NO_COLOR: "1"
 
@@ -43,7 +48,7 @@ jobs:
       - name: Black
         run: |
           python -m pip install --upgrade pip
-          pip install black~=24.10
+          pip install "black>=25.9,<26"
           black --check src/ test/
 
   # -------------------------------------------------------------------------
@@ -173,7 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.12"]
+        python-version: ["3.9", "3.10", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -238,4 +243,3 @@ jobs:
             --timeout=1200 \
             --durations=25 \
             -v
-

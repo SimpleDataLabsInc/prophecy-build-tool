@@ -11,7 +11,7 @@ from typing import Dict
 
 import yaml
 from databricks_cli.configure.config import _get_api_client
-from databricks_cli.configure.provider import EnvironmentVariableConfigProvider
+from databricks_cli.configure.provider import DatabricksConfig
 from databricks_cli.sdk import DbfsService, JobsService
 from requests import HTTPError
 from rich import print
@@ -275,7 +275,14 @@ class ProphecyBuildTool:
             print("Deploying jobs only for given Fabric IDs: %s" % (str(fabric_ids)))
 
         self._verify_databricks_configs()
-        config = EnvironmentVariableConfigProvider().get_config()
+        # Build the api client from the resolved credentials (env token,
+        # service-principal exchange, or a ~/.databrickscfg profile) rather
+        # than the env-only provider, which returns None when DATABRICKS_HOST /
+        # DATABRICKS_TOKEN aren't both set.
+        from .utils.databricks_creds import get_databricks_credentials
+
+        creds = get_databricks_credentials()
+        config = DatabricksConfig.from_token(creds.host, creds.token)
 
         self.api_client = _get_api_client(config)
 
@@ -735,6 +742,15 @@ class ProphecyBuildTool:
                         self.python_cmd,
                         "-m",
                         "pytest",
+                        # The pipeline source lives in a package literally named `code`,
+                        # which shadows the stdlib `code` module once pytest puts the
+                        # project root on sys.path. On Python 3.13+ pytest's debugging
+                        # plugin imports `pdb` at configure time (`pdb` subclasses
+                        # `code.InteractiveConsole`), so the shadowing makes pytest crash
+                        # before any test runs. The interactive debugger is never needed
+                        # for these automated runs, so disable the plugin.
+                        "-p",
+                        "no:debugging",
                         "-v",
                         "--cov=.",  # generate coverage for module test
                         "--cov-report=xml",  # XML format
@@ -860,9 +876,10 @@ class ProphecyBuildTool:
         if creds is None:
             if exit_on_failure:
                 cls._error(
-                    "Databricks credentials not found. Set [i]DATABRICKS_HOST[/i] & "
-                    "[i]DATABRICKS_TOKEN[/i] environment variables, or configure a "
-                    "default profile in [i]~/.databrickscfg[/i] (e.g. via "
+                    "Databricks credentials not found. Set [i]DATABRICKS_HOST[/i] and either "
+                    "[i]DATABRICKS_TOKEN[/i] or [i]DATABRICKS_CLIENT_ID[/i] & "
+                    "[i]DATABRICKS_CLIENT_SECRET[/i] (service principal) environment variables, "
+                    "or configure a default profile in [i]~/.databrickscfg[/i] (e.g. via "
                     "`databricks configure --token`), to deploy your Databricks Workflows."
                 )
             else:

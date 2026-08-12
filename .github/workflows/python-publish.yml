@@ -37,7 +37,7 @@ jobs:
       run: uv pip install --system "./dist/$(ls ./dist/ | grep whl)[test]"
     - name: Lint with Black
       run: |
-        uv pip install --system black~=24.10
+        uv pip install --system "black>=25.9,<26"
         black --check src/ test/
     - name: Test with pytest
       run: python -m pytest test/test_* -v

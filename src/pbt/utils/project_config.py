@@ -601,10 +601,11 @@ class ProjectConfig:
 
         else:
             if not is_based_on_file:
-                # Env vars take priority; fall back to ``~/.databrickscfg``
-                # default profile so users who ran ``databricks configure``
-                # don't need to re-export credentials. Final fallback is the
-                # placeholder ``test``/``test`` pair used by offline tests.
+                # Env vars (incl. service-principal) take priority; fall back to
+                # ``~/.databrickscfg`` default profile so users who ran
+                # ``databricks configure`` don't need to re-export credentials.
+                # Final fallback is the placeholder ``test``/``test`` pair used
+                # by offline tests.
                 creds = get_databricks_credentials(default_host="test", default_token="test")
                 host = creds.host
                 token = creds.token
