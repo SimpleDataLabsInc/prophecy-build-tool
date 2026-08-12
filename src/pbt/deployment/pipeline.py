@@ -869,9 +869,22 @@ class PackageBuilderAndUploader:
             # sys.path. On Python 3.13+ pytest's debugging plugin imports `pdb` at
             # configure time (`pdb` subclasses `code.InteractiveConsole`), so the
             # shadowing makes pytest crash before any test runs. We never need the
-            # interactive debugger for these automated runs, so disable the plugin.
+            # interactive debugger for these automated runs, so disable the plugin --
+            # and re-add the `--trace`/`--pdb` options it would normally register,
+            # since pytest core still looks them up for every unittest.TestCase test
+            # (see pbt.utils.pytest_debugging_stub for the full explanation).
             "-p",
             "no:debugging",
+            "-p",
+            "pbt.utils.pytest_debugging_stub",
+            # Newer pytest (9.x, e.g. from a fresh 3.13 install) can also hit the
+            # same `code`-vs-stdlib collision on its own, independent of the
+            # debugging plugin: rootdir-based conftest resolution walks up
+            # `__init__.py`-containing ancestors and tries to import this
+            # conftest.py as `code.test.conftest`, which collides the same way.
+            # importlib mode addresses each test/conftest file by a unique name
+            # derived from its path instead, sidestepping the collision entirely.
+            "--import-mode=importlib",
             "-v",
             "--cov=.",
             "--cov-report=xml",
