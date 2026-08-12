@@ -46,6 +46,8 @@ test = [
     "pytest",
     "pytest-html",
     "pytest-cov",
+    "pytest-timeout",
+    "pytest-xdist",
     "pyspark>=3.3.0,<4.3",
     "parameterized",
 ]
