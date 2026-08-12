@@ -21,6 +21,8 @@ def _clear_databricks_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "DATABRICKS_TOKEN",
         "DATABRICKS_CONFIG_FILE",
         "DATABRICKS_CONFIG_PROFILE",
+        "DATABRICKS_CLIENT_ID",
+        "DATABRICKS_CLIENT_SECRET",
     ):
         monkeypatch.delenv(var, raising=False)
 

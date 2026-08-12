@@ -60,6 +60,27 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Spark's storage/memory code reflectively pokes java.nio internals that
+      # JDK 17's module system hides by default (IllegalAccessError on
+      # sun.nio.ch.DirectBuffer during surefire tests). JDK_JAVA_OPTIONS is
+      # read by the `java` launcher itself, so it reaches mvn's forked test
+      # JVM too, not just the outer `mvn` process. Mirrors the flags Spark's
+      # own launch scripts add for JDK 17.
+      JDK_JAVA_OPTIONS: >-
+        --add-opens=java.base/java.lang=ALL-UNNAMED
+        --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+        --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+        --add-opens=java.base/java.io=ALL-UNNAMED
+        --add-opens=java.base/java.net=ALL-UNNAMED
+        --add-opens=java.base/java.nio=ALL-UNNAMED
+        --add-opens=java.base/java.util=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+        --add-opens=java.base/sun.security.action=ALL-UNNAMED
+        --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
     steps:
       - uses: actions/checkout@v4
         with:
@@ -211,6 +232,24 @@ jobs:
     needs: [pytest-v2]
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # See pytest-legacy above: Spark's storage/memory code needs these
+      # module-opens on JDK 17, or mvn's forked test JVM hits an
+      # IllegalAccessError on sun.nio.ch.DirectBuffer.
+      JDK_JAVA_OPTIONS: >-
+        --add-opens=java.base/java.lang=ALL-UNNAMED
+        --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+        --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+        --add-opens=java.base/java.io=ALL-UNNAMED
+        --add-opens=java.base/java.net=ALL-UNNAMED
+        --add-opens=java.base/java.nio=ALL-UNNAMED
+        --add-opens=java.base/java.util=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+        --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+        --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+        --add-opens=java.base/sun.security.action=ALL-UNNAMED
+        --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
     steps:
       - uses: actions/checkout@v4
         with:
