@@ -23,6 +23,7 @@ from ..deployment.jobs.databricks import (
     ScriptComponents,
 )
 from ..deployment.pipeline import PipelineDeployment
+from ..deployment.unit_tests import ProjectUnitTests
 from ..entities.project import Project
 from ..utility import Either, custom_print as log, is_online_mode
 from ..utility import remove_null_items_recursively
@@ -64,12 +65,17 @@ class ProjectDeployment:
 
         self._pipelines = PipelineDeployment(project, self._databricks_jobs, self._airflow_jobs, project_config)
 
+        # unit tests of a SQL project's generated PySpark code; Spark projects run theirs
+        # inside PipelineDeployment as part of the wheel/jar build.
+        self._unit_tests = ProjectUnitTests(project, project_config)
+
         # add gems Deployment.
         self._gems = GemsDeployment(project, project_config)
 
     def headers(self):
         summary = (
-            self._gems.summary()
+            self._unit_tests.summary()
+            + self._gems.summary()
             + self._script_component.summary()
             + self._dbt_component.summary()
             + self._airflow_git_secrets.summary()
@@ -93,6 +99,7 @@ class ProjectDeployment:
 
         header_components = (
             summary_header,
+            self._unit_tests.headers(),
             self._gems.headers(),
             self._script_component.headers(),
             self._dbt_component.headers(),
@@ -226,6 +233,15 @@ class ProjectDeployment:
         if pipeline_responses is not None and any(response.is_left for response in pipeline_responses):
             raise Exception("Pipeline deployment failed.")
 
+    def _run_unit_tests(self):
+        unit_test_responses = self._unit_tests.deploy()
+
+        if unit_test_responses is not None and any(response.is_left for response in unit_test_responses):
+            for response in unit_test_responses:
+                if response.is_left:
+                    print(response.left)
+            raise Exception("Unit tests failed.")
+
     def _deploy_databricks_jobs(self) -> List[Either]:
         databricks_jobs_responses = self._databricks_jobs.deploy()
 
@@ -237,6 +253,10 @@ class ProjectDeployment:
         return airflow_jobs_responses
 
     def deploy(self, job_ids):
+        # Runs first, and raises: a release whose unit tests fail must not deploy anything, so
+        # nothing outside this process may be mutated before the tests have passed.
+        self._run_unit_tests()
+
         if is_online_mode():
             self._deploy_gems()
 
