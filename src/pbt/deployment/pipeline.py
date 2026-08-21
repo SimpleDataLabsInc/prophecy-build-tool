@@ -108,7 +108,15 @@ class PipelineDeployment:
 
     def summary(self):
         summary = []
-        for pipeline_id, pipeline_name in self.pipelines_to_build_and_upload():
+        pipelines = list(self.pipelines_to_build_and_upload())
+
+        if len(pipelines) > 0:
+            if self.are_tests_enabled:
+                summary.append("Unit tests are enabled, they will run as part of every pipeline build below.")
+            else:
+                summary.append("Unit tests are disabled for this project, no unit tests will run during this release.")
+
+        for pipeline_id, pipeline_name in pipelines:
             if self.project.project_language == SCALA_LANGUAGE:
                 for sv in self._get_scala_versions_for_pipeline(pipeline_id):
                     summary.append(f"Pipeline {pipeline_id} (Scala {sv}) will be build and uploaded.")
@@ -755,6 +763,15 @@ class PackageBuilderAndUploader:
             command.extend([f"-P{scala_profile}"])
 
         _step_id = step_id or self._pipeline_id
+        log(
+            (
+                "Unit tests are enabled, they will run as part of this build"
+                if self._are_tests_enabled
+                else "Unit tests are disabled, skipping them for this build (-DskipTests)"
+            ),
+            step_id=_step_id,
+            indent=2,
+        )
         log(f"Running mvn command {command}", step_id=_step_id, indent=2)
 
         return self._build(command, ignore_build_errors, step_id=_step_id)
@@ -890,10 +907,27 @@ class PackageBuilderAndUploader:
 
     def wheel_build(self, ignore_build_error: bool = False):
         if self._are_tests_enabled:
+            log(
+                f"{Colors.OKBLUE}Unit tests are enabled, running them for pipeline {self._pipeline_name}{Colors.ENDC}",
+                step_id=self._pipeline_id,
+                indent=2,
+            )
             response_code = self.wheel_test()
 
             if response_code not in (0, 5):
                 raise Exception(f"Python test failed for pipeline {self._pipeline_id}")
+
+            log(
+                f"{Colors.OKGREEN}Unit tests passed for pipeline {self._pipeline_name}{Colors.ENDC}",
+                step_id=self._pipeline_id,
+                indent=2,
+            )
+        else:
+            log(
+                f"Unit tests are disabled, skipping them for pipeline {self._pipeline_name}",
+                step_id=self._pipeline_id,
+                indent=2,
+            )
 
         case_preserved_whl_build = (
             "import sys, runpy, setuptools._normalization as norm;"
